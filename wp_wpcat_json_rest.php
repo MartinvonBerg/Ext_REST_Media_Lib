@@ -186,11 +186,13 @@ function wpcat_register_rest_route() {
 				'methods'   => 'GET',
 				'callback'  => 'wpcat_get_image_update',
 				'args' => $args,
+				'permission_callback' => '__return_true',
 				),
 			array(
 				'methods'   => 'POST',
 				'callback'  => 'wpcat_post_image_update',
 				'args' => $args,
+				'permission_callback' => '__return_true',
 				),	
 		
 		)
@@ -358,11 +360,13 @@ function wpcat_register_update_image_meta_route() {
 				'methods'   => 'GET',
 				'callback'  => 'wpcat_get_meta_update',
 				'args' => $args,
+				'permission_callback' => '__return_true',
 				),
 			array(
 				'methods'   => 'POST',
 				'callback'  => 'wpcat_post_meta_update',
 				'args' => $args,
+				'permission_callback' => '__return_true',
 				),	
 		),
 	);
@@ -441,11 +445,13 @@ function wpcat_register_add_image_rest_route() {
 				'methods'   => 'GET',
 				'callback'  => 'wpcat_get_add_image_to_folder',
 				'args' => $args,
+				'permission_callback' => '__return_true',
 				),
 			array(
 				'methods'   => 'POST',
 				'callback'  => 'wpcat_post_add_image_to_folder',
 				'args' => $args,
+				'permission_callback' => '__return_true',
 				),	
 		)
 	);
@@ -613,11 +619,13 @@ function wpcat_register_add_folder_rest_route() {
 				'methods'   => 'GET',
 				'callback'  => 'wpcat_get_add_image_from_folder',
 				'args' => $args,
+				'permission_callback' => '__return_true',
 				),
 			array(
 				'methods'   => 'POST',
 				'callback'  => 'wpcat_post_add_image_from_folder',
 				'args' => $args,
+				'permission_callback' => '__return_true',
 				),	
 		)
 	);
