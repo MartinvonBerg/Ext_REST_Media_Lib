@@ -538,7 +538,7 @@ function wpcat_post_add_image_to_folder( $data ) {
 		
 		if ($success_new_file_write and $mime_type_ok) { 
 			$att_array = array(
-				'guid'           => $newfile, // nur so geht das
+				'guid'           => $newfile, // nur so geht das -- als relativer Pfad zum ... /uploads/ - Ordner
 				'post_mime_type' => $new_file_mime, // 'image/jpg'
 				'post_title'     => $title, // Daraus entsteht der Titel, und der permalink, wenn post_name nicht gesetzt
 				'post_content'   => '',
@@ -553,7 +553,9 @@ function wpcat_post_add_image_to_folder( $data ) {
 			//$newmeta = wp_read_image_metadata($newfile);
 			//wpcat_update_metadata($upload_id, $newmeta); // neue Meta-daten in die WP SQL-Datenbank schreiben
 
+			$attfile = $reqfolder . '/' . $cont;
 			update_post_meta( $upload_id, 'gallery', $reqfolder);
+			update_post_meta( $upload_id, '_wp_attached_file', $attfile );
 			
 			$getResp = array(
 				'id' => $upload_id,
