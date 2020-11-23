@@ -138,6 +138,35 @@ function cb_upd_gallery( $value, $post) {
 
 add_action('rest_api_init', 'register_gallery');
 
+
+//--------------------------------------------------------------------
+// register custom-data 'gallery_sort' as REST-API-Field only for attachments
+function register_gallery_sort() {
+	register_rest_field(
+		'attachment',
+		'gallery_sort',
+		array(
+			'get_callback' => 'cb_get_gallery_sort',
+			'update_callback' => 'cb_upd_gallery_sort',
+			'schema' => array(
+				'description' => 'gallery-field for sort-order from Lightroom-Collection with custom sort activated',
+				'type' => 'string',
+				)
+			)	
+		);
+}
+
+function cb_get_gallery_sort( $data ) {
+	return (string) get_post_meta( $data['id'], 'gallery_sort', true);
+}
+
+function cb_upd_gallery_sort( $value, $post) {
+	update_post_meta( $post->ID, 'gallery_sort', $value);
+	return true;
+};
+
+add_action('rest_api_init', 'register_gallery_sort');
+
 //--------------------------------------------------------------------
 // register custom-data 'md5' as REST-API-Field only for attachments
 // provides md5 sum of original-file
@@ -157,7 +186,11 @@ function register_md5_original() {
 
 function cb_get_md5( $data ) {
 	$original_filename = wp_get_original_image_path ( $data['id'] );
-	$md5 = strtoupper ( (string) md5_file($original_filename) );
+	$size = filesize($original_filename);
+	$md5 = array(
+		'MD5' => strtoupper ( (string) md5_file($original_filename) ),
+		'size' => $size,
+		);
 	return $md5;
 }
 
