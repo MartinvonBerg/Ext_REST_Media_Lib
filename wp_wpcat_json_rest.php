@@ -186,11 +186,17 @@ function register_md5_original() {
 
 function cb_get_md5( $data ) {
 	$original_filename = wp_get_original_image_path ( $data['id'] );
-	$size = filesize($original_filename);
 	$md5 = array(
-		'MD5' => strtoupper ( (string) md5_file($original_filename) ),
-		'size' => $size,
+		'MD5' => '0',
+		'size' => 0,
 		);
+	if (is_file($original_filename)) {
+		$size = filesize($original_filename);
+		$md5 = array(
+			'MD5' => strtoupper ( (string) md5_file($original_filename) ),
+			'size' => $size,
+			);
+		}
 	return $md5;
 }
 
