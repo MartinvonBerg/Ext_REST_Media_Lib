@@ -2,14 +2,14 @@
 
 /**
  *
- * @link              www.mvb1.de
+ * @link              https://github.com/MartinvonBerg/wp_wpcat_json_rest
  * @since             0.0.1
  * @package           wp_wpcat_json_rest
  *
  * @wordpress-plugin
  * Plugin Name:       wp_wpcat_json_rest
- * Plugin URI:        www.mvb1.de
- * Description:       Add JSON Authentification check and extend the REST-API for work with Wordpress Media-Catalog
+ * Plugin URI:        https://github.com/MartinvonBerg/wp_wpcat_json_rest
+ * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
  * Version:           0.0.8
  * Author:            Martin von Berg
  * Author URI:        www.mvb1.de
