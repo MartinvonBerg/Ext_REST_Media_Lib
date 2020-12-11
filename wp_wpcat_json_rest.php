@@ -9,11 +9,11 @@
  * @wordpress-plugin
  * Plugin Name:       wp_wpcat_json_rest
  * Plugin URI:        www.mvb1.de
- * Description:       Add basic JSON Authentification (https-only!) and extend REST-API for work with Wordpress Media-Catalogue
- * Version:           0.0.7
+ * Description:       Add JSON Authentification check and extend the REST-API for work with Wordpress Media-Catalog
+ * Version:           0.0.8
  * Author:            Martin von Berg
  * Author URI:        www.mvb1.de
- * License:           GPL-2.0+
+ * License:           GPL-2.0
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  */
 
@@ -21,97 +21,36 @@ defined('ABSPATH') or die('Not defined');
 
 // ----------------- global Definitions and settings ---------------------------------
 define( 'MIN_IMAGE_SIZE'  , 100);  // minimal file size in bytes to upload
-define( 'MAX_IMAGE_SIZE'  , 2560); // value for resize to ...-scaled.jpg TODO: big_image_size_threshold irgendwo aus WP auslesen
-define( 'RESIZE_QUALITY'  , 100);  // quality for image resizing in percent.
+define( 'MAX_IMAGE_SIZE'  , 2560); // value for resize to ...-scaled.jpg TODO: big_image_size_threshold : read from WP settings. But where?
+define( 'RESIZE_QUALITY'  , 100);  // quality for image resizing in percent. I prefer maximum quality.
 define( 'WPCAT_NAMESPACE' , 'wpcat/v1'); // namespace for REST-API
-define( 'WPCAT_SCALED'    , 'scaled');
+define( 'WPCAT_SCALED'    , 'scaled');	 // filename extension for scaled images as constant. Maybe WP will change this in future.
 
 add_filter( 'jpeg_quality', function() { return RESIZE_QUALITY;}  );
 
-//--------------------JSON AUTH HANDLER ------------------------------------------------
+// load the helper functions
+require_once __DIR__ . '/inc/rest_api_functions.php';
+
+//--------------------JSON AUTH REQUIRED ------------------------------------------------
 // source: https://github.com/WP-API/Basic-Auth/blob/master/basic-auth.php
-// ATTENTION: Do not use together with http !!!!!! Only with https
-function json_basic_auth_handler( $user ) {
-	global $wp_json_basic_auth_error;
-
-	$wp_json_basic_auth_error = null;
-
-	// Don't authenticate twice
-	if ( ! empty( $user ) ) {
-		return $user;
-	}
-
-	// Check that we're trying to authenticate
-	if ( !isset( $_SERVER['PHP_AUTH_USER'] ) ) {
-		return $user;
-	}
-
-	$username = $_SERVER['PHP_AUTH_USER'];
-	$password = $_SERVER['PHP_AUTH_PW'];
-
-	/**
-	 * In multi-site, wp_authenticate_spam_check filter is run on authentication. This filter calls
-	 * get_currentuserinfo which in turn calls the determine_current_user filter. This leads to infinite
-	 * recursion and a stack overflow unless the current function is removed from the determine_current_user
-	 * filter during authentication.
-	 */
-	remove_filter( 'determine_current_user', 'json_basic_auth_handler', 20 );
-
-	$user = wp_authenticate( $username, $password );
-
-	add_filter( 'determine_current_user', 'json_basic_auth_handler', 20 );
-
-	if ( is_wp_error( $user ) ) {
-		$wp_json_basic_auth_error = $user;
-		return null;
-	}
-
-	$wp_json_basic_auth_error = true;
-
-	return $user->ID;
-}
-add_filter( 'determine_current_user', 'json_basic_auth_handler', 20 );
-
-function json_basic_auth_error( $error ) {
+// ATTENTION: Do not use username and Password or Application Passwords from WP-AdminPage > Users > Profiles together with basic-auth and with http !!!!!!
+// Only use together with https
+// require the user to be logged in
+function wpcat_rest_auth_error( $auth_error ) {
 	// Passthrough other errors
-	if ( ! empty( $error ) ) {
-		return $error;
+	if ( ! empty( $auth_error ) ) {
+		return $auth_error;
 	}
 
 	global $wp_json_basic_auth_error;
-
 	return $wp_json_basic_auth_error;
 }
-add_filter( 'rest_authentication_errors', 'json_basic_auth_error' );
+add_filter( 'rest_authentication_errors', 'wpcat_rest_auth_error' );
 
-add_filter( 'rest_authentication_errors', function( $result ) {
-    // If a previous authentication check was applied,
-	// pass that result along without modification.
-	// source: https://developer.wordpress.org/rest-api/frequently-asked-questions/
-    if ( true === $result || is_wp_error( $result ) ) {
-        return $result;
-    }
- 
-    // No authentication has been performed yet.
-    // Return an error if user is not logged in.
-    if ( ! is_user_logged_in() ) {
-        return new WP_Error(
-            'rest_not_logged_in',
-            __( 'You are not currently logged in.' ),
-            array( 'status' => 401 )
-        );
-    }
- 
-    // Our custom authentication check should have no effect
-    // on logged-in requests
-    return $result;
-});
-
-
-// REST-API -------------------------------------- REST -----------------------------
+// REST-API-EXTENSION -------------------------------------- REST -----------------------------
 
 //--------------------------------------------------------------------
-// register custom-data 'gallery' as REST-API-Field only for attachments
+// register custom-data 'gallery' as REST-API-Field only for attachments (media)
 function register_gallery() {
 	register_rest_field(
 		'attachment',
@@ -140,7 +79,7 @@ add_action('rest_api_init', 'register_gallery');
 
 
 //--------------------------------------------------------------------
-// register custom-data 'gallery_sort' as REST-API-Field only for attachments
+// register custom-data 'gallery_sort' as REST-API-Field only for attachments (media)
 function register_gallery_sort() {
 	register_rest_field(
 		'attachment',
@@ -169,7 +108,7 @@ add_action('rest_api_init', 'register_gallery_sort');
 
 //--------------------------------------------------------------------
 // register custom-data 'md5' as REST-API-Field only for attachments
-// provides md5 sum of original-file
+// provides md5 sum and size in bytes of original-file
 function register_md5_original() {
 	register_rest_field(
 		'attachment',
@@ -204,11 +143,12 @@ add_action('rest_api_init', 'register_md5_original');
 
 
 //--------------------------------------------------------------------
-// REST-API Endpunkt für Updates von gesamten Bildern im WP-Media-Cat registrieren und definieren
+// REST-API Endpoint to update a complete image under the same wordpress-ID. This will remain unchanged.
 add_action( 'rest_api_init', 'wpcat_register_rest_route');
 
+# function to register the endpoint for updating an Image in the WP-Media-Catalog
 function wpcat_register_rest_route() {
-	# function to register the endpoint for updating an Image in the WP-Media-Catalog
+	
 	$args = array(
 					'id' => array(
 						'validate_callback' => function ($param, $request, $key) { 
@@ -279,25 +219,25 @@ function wpcat_post_image_update( $data ) {
 	$post_id = $data['id'];
 	$att = wp_attachment_is_image( $post_id);
 	$dir = wp_upload_dir()['basedir'];
-	$image = $data->get_body(); // body e.g. jpg-image as string of POST-Request
+	$image = $data->get_body(); // body as string (=jpg-image) of POST-Request
 		
 	if ( ($att) and (strlen($image) > $minsize) and (strlen($image) < wp_max_upload_size())) {
-		// aktuelle Meta-Daten aus der WP-SQL Datenbank holen
+		// get current metadata from WP-SQL Database
 		$meta = wp_get_attachment_metadata($post_id);
 		
-		// Dateinamen auf verschiedene Arten festlegen
+		// Define filenames in different ways for the different functions 
 		$file = $meta['file'];
-		$file2 = get_attached_file($post_id, true); // liefert dasselbe wie bei $file
+		$file2 = get_attached_file($post_id, true); // identical to $file
 		$file3 = basename( $file );
 		$file4 = str_replace('-' . WPCAT_SCALED, '', $file3);
-		$file5 = str_replace('-' . WPCAT_SCALED, '', $file2); // Mit diesem Namen wird der POST-body gespeichert
-		$ext = '.' . pathinfo($file5)['extension']; // Datei-Erweiterung bestimmen
-		$file6 = str_replace($ext, '', $file5); // Name ohne Endungen f�r das L�schen mit Wildcard '*'
+		$file5 = str_replace('-' . WPCAT_SCALED, '', $file2); // This is used to save the POST-body 
+		$ext = '.' . pathinfo($file5)['extension']; // Get the extension
+		$file6 = str_replace($ext, '', $file5); // Filename without extension for the deletion with Wildcard '*'
 		$new = str_replace($file3,'',$file2);
 		$gallerydir = str_replace($dir,'',$new);
 		$gallerydir = trim($gallerydir, '/\\');
 
-		// alte Files vorher sichern, falls das speichern nicht geht
+		// save old Files before, to redo them if something goes wrong
 		function filerename($file)
 		{
 			rename($file, $file . '.wpcatoldfile');
@@ -305,7 +245,7 @@ function wpcat_post_image_update( $data ) {
 		$filearray = glob( $file6 . '*' );
 		array_walk( $filearray, 'filerename');
 
-		// Neue Datei speichern und MIME-Types bestimmen
+		// Save new file from POST-body and check MIME-Type
 		$success_new_file_write = file_put_contents( $file5, $image);	
 		$newfile_mime = wp_get_image_mime( $file5 );
 		$attmime = get_post_mime_type( $post_id );
@@ -378,11 +318,11 @@ function wpcat_post_image_update( $data ) {
 
 
 //--------------------------------------------------------------------
-// REST-API Endpunkt für Update von image_meta-Data registrieren und definieren
+// REST-API Endpoint to update image-metadata under the same wordpress-ID. This will remain unchanged.
 add_action( 'rest_api_init', 'wpcat_register_update_image_meta_route');
 
 function wpcat_register_update_image_meta_route() {
-	# function to register the endpoint for updating image_meta in the WP-Media-Catalog
+	
 	$args = array(
 					'id' => array(
 						'validate_callback' => function ($param, $request, $key) {
@@ -437,7 +377,7 @@ function wpcat_post_meta_update( $data ) {
 	$newmeta = json_decode($newmeta, $assoc=true); 
 	
 	if (( $att ) and ( $type == 'application/json') and ($newmeta != null) ) {
-		// metadaten updaten
+		// update metadata
 		$success = wpcat_update_metadata($post_id, $newmeta); 
 	
 		$getResp = array(
@@ -458,19 +398,18 @@ function wpcat_post_meta_update( $data ) {
 };
 
 //--------------------------------------------------------------------
-// REST-API Endpunkt für Ergänzung Bild zum WP-Media-Cat in Folder registrieren und definieren
-// Folder wird als REST - Parameter übergeben
-// Bei Anfrage mit image im Body wird dieses in den Folder geschrieben, liefert eine ID und Dateinamen zurück
-// Im folder sind nur Buchstaben, Ziffern, Slashes und '-', '_' erlaubt. leer darf er nicht sein, wird von REST abgelehnt
+// REST-API Endpoint to add an image to a folder in the WP-Media-Catalog. Different from the standard folders under ../uploads
+// <Folder> must be provided as a REST-Parameter. Folder shall have only a-z, A-Z, 0-9, _ , -. No other characters allowed.
+// the jpg-image must be in the body of the POST-request. 
+// Provides the new WP-ID and the filename that was written to the folder
 add_action( 'rest_api_init', 'wpcat_register_add_image_rest_route');
 
 function wpcat_register_add_image_rest_route() {
-	# function to register the endpoint for updating an Image in the WP-Media-Catalog
-	# if folder in REST-request the .../uploads-Folder is used, so empty is allowed
+	
 	$args = array(
 					'folder' => array(
 						'validate_callback' => function ($param, $request, $key) {
-								// exemplarisch für spätere Verwendung
+								// example for later use
 								return $param;
 							}
 						),
@@ -523,7 +462,7 @@ function wpcat_get_add_image_to_folder( $data ) {
 };
 
 // Callback for POST to defined REST-Route
-// Check wether folder exists. Add image zo media cat
+// Check wether folder exists. If not, create the folder and add the jpg-image from the body to media cat
 // @param $data is the complete Request data
 function wpcat_post_add_image_to_folder( $data ) {
 	//URL request Parameter <namespace> / addtofolder / <foldername> / <subfoldername-if-needed> / .....
@@ -532,7 +471,7 @@ function wpcat_post_add_image_to_folder( $data ) {
 	require_once( ABSPATH . 'wp-admin/includes/image.php' );
 	$minsize   = MIN_IMAGE_SIZE; 
 		
-	// Verzeichnisnamen festlegen
+	// Define folder names, escape slashes (could be done with regex but then it's really hard to read)
 	$dir = wp_upload_dir()['basedir'];
 	$folder = $dir . '/' . $data['folder'];
 	$folder = str_replace('\\','/',$folder);
@@ -543,8 +482,8 @@ function wpcat_post_add_image_to_folder( $data ) {
 	$reqfolder = str_replace('\\\\','/',$reqfolder);
 	$reqfolder = str_replace('//','/',$reqfolder);
 	
-	// Verzeichnis prüfen und ggf erzeugen
-	$wp_cat_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // prüfe ob WP Standardverzeichnis
+	// check and create folder. Do not use WP-standard-folder in media-cat
+	$wp_cat_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // check if WP-standard-folder (e.g. ../2020/12)
 	if ($wp_cat_folder != false) {
 		return new WP_Error( 'not_allowed', 'Do not add image to WP standard media directory', array( 'status' => 400 ) );
 	}
@@ -552,13 +491,13 @@ function wpcat_post_add_image_to_folder( $data ) {
 		wp_mkdir_p($folder);	
 	}
 	
-	//body und Header Content-Disposition prüfen
+	// check body und Header Content-Disposition 
 	$type = $data->get_content_type()['value']; // upload content-type of POST-Request
 	$image = $data->get_body(); // body e.g. jpg-image as string of POST-Request
 	$cont =$data->get_header('Content-Disposition');
 	$newfile = ''; 
 	
-	// Namen festlegen
+	// define filename
 	if ( ! empty($cont) ) {
 		$cont = explode(';', $cont)[1];
 		$cont = explode('=', $cont)[1];
@@ -569,7 +508,7 @@ function wpcat_post_add_image_to_folder( $data ) {
 		}
 	$newexists = file_exists($newfile);
 	
-	// eine neues Bild soll ergänzt werden, wenn Bedingungen erfüllt
+	// add the new image if it is a jpg, png, or gif
 	if ( (($type == 'image/jpeg') or ($type == 'image/png') or ($type == 'image/gif')) and (strlen($image) > $minsize) and (strlen($image) < wp_max_upload_size()) and ( ! $newexists )) {
 		$success_new_file_write = file_put_contents( $newfile, $image);	
 		$new_file_mime = wp_check_filetype( $newfile )['type'];
@@ -577,21 +516,17 @@ function wpcat_post_add_image_to_folder( $data ) {
 		
 		if ($success_new_file_write and $mime_type_ok) { 
 			$att_array = array(
-				'guid'           => $newfile, // nur so geht das -- als relativer Pfad zum ... /uploads/ - Ordner
+				'guid'           => $newfile, // works only this way -- use a relative path to ... /uploads/ - folder
 				'post_mime_type' => $new_file_mime, // 'image/jpg'
-				'post_title'     => $title, // Daraus entsteht der Titel, und der permalink, wenn post_name nicht gesetzt
+				'post_title'     => $title, // this creates the title and the permalink, if post_name is empty
 				'post_content'   => '',
 				'post_status'    => 'inherit',
-				'post_name' => '' , // Das ergibt den Permalink :  http://127.0.0.1/wordpress/title-88/, wenn leer aus post_title generiert
+				'post_name' => '' , // this is used for Permalink :  https://example.com/title-88/, (if empty post_title is used)
 			); 
 			
 			$upload_id = wp_insert_attachment( $att_array, $newfile );
 			$success_subsizes = wp_create_image_subsizes( $newfile, $upload_id );
-			//$success_resize = wpcat_resize($newfile, $threshold); // hier muss -scaled erzeugt werden!
-			//wp_generate_attachment_metadata( $upload_id, $newfile); // -scaled wird auch hier nicht erzeugt , gallery, alt, caption, description sind leer
-			//$newmeta = wp_read_image_metadata($newfile);
-			//wpcat_update_metadata($upload_id, $newmeta); // neue Meta-daten in die WP SQL-Datenbank schreiben
-
+		
 			$attfile = $reqfolder . '/' . $cont;
 			update_post_meta( $upload_id, 'gallery', $reqfolder);
 			update_post_meta( $upload_id, '_wp_attached_file', $attfile );
@@ -632,21 +567,19 @@ function wpcat_post_add_image_to_folder( $data ) {
 };
 
 //--------------------------------------------------------------------
-// REST-API Endpunkt für Ergänzung Bild zum WP-Media-Cat aus Folder registrieren und definieren
-// Folder wird als REST - Parameter übergeben
-// Anfrage OHNE image im Body und content-disposition. Diese werden ignoriert, auch wenn vorhanden.
-// Es werden alle Bilder aus dem Folder zum WPCat ergänzt, falls aus diesem Folder noch nicht enthalten. liefert JSON-array mit IDs und Dateinamen zurück
-// Wenn dieselbe Datei in einem anderen Ordner schon existiert, wird das jpg nochmals ergänzt!
-// Im folder sind nur Buchstaben, Ziffern, Slashes und '-', '_' erlaubt. leer darf er nicht sein, wird von REST abgelehnt
+// REST-API Endpoint to add images from a folder different from the WP-Standard-Folder (e.g. ../uploads/2020/12) to the  WP-Media-Catalog.
+// <Folder> must be provided as a REST-Parameter. Folder shall have only a-z, A-Z, 0-9, _ , -. No other characters allowed.
+// Provides the new WP-IDs and the filenames that were written to the folder as a JSON-array 
+// if the jpg from the given folder was already added it will not be added again. But the image will be added if it is in another folder already.
+// POST-Request without image in Body and content-disposition. This will be ignored even if provided.
 add_action( 'rest_api_init', 'wpcat_register_add_folder_rest_route');
 
 function wpcat_register_add_folder_rest_route() {
-	# function to register the endpoint for updating an Image in the WP-Media-Catalog
-	# if folder in REST-request the .../uploads-Folder is used, so empty is allowed
+	
 	$args = array(
 					'folder' => array(
 						'validate_callback' => function ($param, $request, $key) {
-								// exemplarisch für spätere Verwendung
+								// example for later use
 								return $param;
 							}
 						),
@@ -708,7 +641,7 @@ function wpcat_post_add_image_from_folder( $data ) {
 	require_once( ABSPATH . 'wp-admin/includes/image.php' );
 	$threshold = MAX_IMAGE_SIZE;
 	
-	// Verzeichnisnamen festlegen
+	// Define folder names, escape slashes (could be done with regex but then it's really hard to read)
 	$dir = wp_upload_dir()['basedir'];
 	$folder = $dir . '/' . $data['folder'];
 	$folder = str_replace('\\','/',$folder);
@@ -719,8 +652,8 @@ function wpcat_post_add_image_from_folder( $data ) {
 	$reqfolder = str_replace('\\\\','/',$reqfolder);
 	$reqfolder = str_replace('//','/',$reqfolder);
 	
-	// Verzeichnis prüfen und ggf erzeugen
-	$wp_cat_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // prüfe ob WP Standardverzeichnis
+	// check and create folder. Do not use WP-standard-folder in media-cat
+	$wp_cat_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // check if WP-standard-folder
 	if ($wp_cat_folder != false) {
 		return new WP_Error( 'not_allowed', 'Do not add image from WP standard media directory (again)', array( 'status' => 400 ) );
 	}
@@ -728,7 +661,7 @@ function wpcat_post_add_image_from_folder( $data ) {
 		return new WP_Error( 'not_exists', 'Directory does not exist', array( 'status' => 400 ) );	
 	}
 	
-	// Inhalt Verzeichnis prüfen, nur dann wenn BODY NICHT leer ist
+	// check existing content of folder. get files that are not added to WP yet
 	$files = wpcat_get_files_to_add ($folder);
 	$id = array();
 	$files_in_folder = array();
@@ -745,22 +678,17 @@ function wpcat_post_add_image_from_folder( $data ) {
 			$title = basename($newfile, '.' . $ext);
 	
 			$att_array = array(
-				'guid'           => $newfile, // nur so geht das
+				'guid'           => $newfile, // works only this way -- use a relative path to ... /uploads/ - folder
 				'post_mime_type' => $new_file_mime, // 'image/jpg'
-				'post_title'     => $title, // Daraus entsteht der Titel, und der permalink, wenn post_name nicht gesetzt
+				'post_title'     => $title, // this creates the title and the permalink, if post_name is empty
 				'post_content'   => '',
 				'post_status'    => 'inherit',
-				'post_name' => '' , // Das ergibt den Permalink :  http://127.0.0.1/wordpress/title-88/, wenn leer aus post_title generiert
+				'post_name' => '' , // this is used for Permalink :  https://example.com/title-88/, (if empty post_title is used)
 			); 
 
 			$upload_id = wp_insert_attachment( $att_array, $newfile );
 			$success_subsizes = wp_create_image_subsizes( $newfile, $upload_id );
-			//$success_resize = wpcat_resize($newfile, $threshold); // hier muss -scaled erzeugt werden!
-			//wp_generate_attachment_metadata( $upload_id, $newfile); // -scaled wird auch hier nicht erzeugt , gallery, alt, caption, description sind leer
-			//$newmeta = wp_read_image_metadata($newfile);
-			//wpcat_update_metadata($upload_id, $newmeta); // neue Meta-daten in die WP SQL-Datenbank schreiben
-			// TODO: in post_meta muss _wp_attached_file richtig gesetzt werden : folder/filename, sonst geht später die Suche nicht
-			//update_post_meta( $upload_id, '_wp_attached_file', $reqfolder . '/'. $newfile );
+			
 			$newfile = str_replace('.' . $ext, '-' . WPCAT_SCALED . '.' . $ext, $newfile);  
 			if (file_exists($newfile)) {
 				$attfile = $reqfolder . '/'. $title . '-' . WPCAT_SCALED   . '.' . $ext;
@@ -778,7 +706,7 @@ function wpcat_post_add_image_from_folder( $data ) {
 				$upload_id = '';
 			}
 			else {
-				// Array für Ergebnis schreiben
+				// produce Array to provide by REST to the user / application
 				$id[$i] = $upload_id;
 				$files_in_folder[$i] = $file;
 				$i = $i + 1;
@@ -796,117 +724,3 @@ function wpcat_post_add_image_from_folder( $data ) {
 		
 	return rest_ensure_response( $getResp );
 };
-
-//---------------- helper functions ----------------------------------------------------
-
-/** 
-	* select only the original files that were NOT added yet to WP-Cat from THIS $folder, not from all folders
-	*
-	* @return array the original-files in the given $folder that were NOT added to WP-Cat yet 
-	*/
-function wpcat_get_files_to_add( $folder ) {
-	$result = array();
-	$all = glob( $folder . '/*' );
-	$i=0;
-	$upload_dir = wp_upload_dir();
-	$dir = $upload_dir['basedir'];
-	$dir = str_replace('\\','/',$dir);
-	$dir = str_replace('\\\\','/',$dir);
-	$dir = str_replace('//','/',$dir);
-	$url = $upload_dir['baseurl'];
-	
-	foreach ($all as &$file) {
-		$test=$file;
-		if ( (! preg_match_all('/[0-9]+x[0-9]+/',$test)) and (! strstr($test, '-'. WPCAT_SCALED)) and (! is_dir($test)) ) {
-			// Check if one of the files in $result was already attached to WPCat
-			$file = str_replace($dir,$url,$file);
-			$addedbefore = attachment_url_to_postid($file);
-			
-			if ( empty($addedbefore) ) {
-				$ext = '.' . pathinfo($file)['extension'];
-				$file = str_replace($ext,'-' . WPCAT_SCALED . $ext, $file);
-				$addedbefore = attachment_url_to_postid($file);
-			}
-			
-			if ( empty($addedbefore) ) {
-				$result[$i] = $test;
-				$i = $i +1;
-			}
-			
-		}
-	}
-	return $result;
-}
-
-/** 
-	* special replace for foldernames $string '_ . ? * \ / space' to '-'
-	*
-	* @return string the string with replacments
-	*/
-function wpcat_replace( $string )
-{
-	$result = str_replace('_','-',$string);
-	$result = str_replace('.','-',$result);
-	$result = str_replace('?','-',$result);
-	$result = str_replace('*','-',$result);
-	$result = str_replace('\\','-',$result);
-	$result = str_replace('/','-',$result);
-	$result = str_replace('\s','-',$result);
-	return $result;
-}
-
-// function to update meta-data given by $post_ID (int) and new metadata (array)
-/**
-	 * update image_meta (only keywords, credit, copyright, caption, title)
-	 *
-	 * @param int $post_id ID of the attachment in the WP-Mediacatalog
-	 *
-	 * @param array $newmeta array with newmeta data taken from the JSON-data in the POST-Request body
-	 * 
-	 * @return bool true if success, false if not: ouput of the WP function to update attachment metadata
-	 */
-function wpcat_update_metadata($post_id, $newmeta) {
-	/** so muss das JSON aussehen
-	{
-		"image_meta": {
-					"credit": "Martin von Berg",
-					"caption": "TEst-caption",
-					"copyright": "Copyright by Martin von Berg",
-					"title": "Auffahrt zum Vallone d`Urtier",
-					"keywords": [
-						"Aosta",
-						"Aostatal",
-						"Berge",
-						"Bike",
-						"Italien",
-						"Sommer",
-						"Wald",
-						"Wiese",
-						"forest",
-						"italy",
-						"lärche",
-						"meadow",
-						"mountains",
-						"summer"
-					]
-				}
-		}
-	*/	
-	// aktuelle Meta-Daten aus der WP-SQL Datenbank holen und prüfen
-	$meta = wp_get_attachment_metadata($post_id); 
-	if (array_key_exists('image_meta', $newmeta) ) {
-		$newmeta = $newmeta['image_meta'];
-		
-		// metadaten zuweisen
-		array_key_exists('keywords', $newmeta)  ? $meta["image_meta"]["keywords"]  = $newmeta['keywords'] : '' ; // Keywords kopieren! GPS fehlt! Wird aber in WP nicht genutzt
-		array_key_exists('credit', $newmeta)    ? $meta["image_meta"]["credit"]    = $newmeta["credit"] : ''     ;		// GPS steht doch in der Datei! Wird also automatisch ersetzt!
-		array_key_exists('copyright', $newmeta) ? $meta["image_meta"]["copyright"] = $newmeta["copyright"] : '' ;
-		array_key_exists('caption', $newmeta)   ? $meta["image_meta"]["caption"]   = $newmeta["caption"] : ''   ;
-		array_key_exists('title', $newmeta)     ? $meta["image_meta"]["title"]     = $newmeta["title"]  : ''     ;
-	}
-
-	// metadaten schreiben
-	$success = wp_update_attachment_metadata($post_id, $meta); // neue Meta-daten in die WP SQL-Datenbank schreiben
-	
-	return $success;
-	}
