@@ -1,5 +1,5 @@
-=== wp_wpcat_json_rest ===
-Plugin Name: wp_wpcat_json_rest
+=== Ext_REST_Media_Lib ===
+Plugin Name: Ext_REST_Media_Lib
 Contributors: martinvonberg
 Donate link: http://www.mvb1.de
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update
@@ -134,12 +134,12 @@ provides for example this reduced response:
 
 2. REST-API-Endpoints (functions)
 
-2.1 wpcat/v1/update/(?P<id>[\d]+)
+2.1 extmedialib/v1/update/(?P<id>[\d]+)
     Function to update images. Only integer values will be accepted for the <id>.
 
 2.1.1 GET-method
     This function is just there for completeness. It provides some information for an existing image.
-    The response to a GET-method to .../wp-json/wpcat/v1/update/<wordpress-id> is the following:
+    The response to a GET-method to .../wp-json/extmedialib/v1/update/<wordpress-id> is the following:
         {
         "message": "You requested update of original Image with ID 5013 with GET-Method. Please update with POST-Method.",
         "original-file": "C:\\Bitnami\\wordpress-5.2.2-0\\apps\\wordpress\\htdocs/wp-content/uploads/Albums4/Friaul_2019_10-169_DxO.jpg",
@@ -171,12 +171,12 @@ provides for example this reduced response:
     The new JPG-file has to be provided in the body as binary string. Checks in mime-type and size are done to provide the user from uploading wrong images.
 
 
-2.2 wpcat/v1/update_meta/(?P<id>[\d]+)
+2.2 extmedialib/v1/update_meta/(?P<id>[\d]+)
     Function to update metadata of images. Only integer values will be accepted for the <id>.
 
 2.2.1 GET-method
     This function is just there for completeness. 
-    The response to a GET-method to .../wp-json/wpcat/v1/update_meta/<wordpress-id> is not executed. It may be used to check whether the image with the
+    The response to a GET-method to .../wp-json/extmedialib/v1/update_meta/<wordpress-id> is not executed. It may be used to check whether the image with the
     given wordpress-id is available and provides the http-status-code 405 if so. But this could be done with the standard wordpress functions also.
 
 2.2.2 POST-method
@@ -220,14 +220,14 @@ provides for example this reduced response:
     These will be ignored. Empty fields will reset the content to an empty string "". 
 
 
-2.3 wpcat/v1/addtofolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)
+2.3 extmedialib/v1/addtofolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)
     This function provides the possibility to store images aside the wordpress standard folders but make them available in the
     media-library by generating a new wordpress-id. They therefore may be used by any other plugin for images that works with wordpress-ids.
     The <folder> must not contain other characters than a-z, A-Z, 0-9, _ and -.
 
 2.3.1 GET-method
     This function is just there for completeness and simple checking.
-    The response to a GET-method to .../wp-json/wpcat/v1/addtofolder/<foldername> gives simply the information whether the folder
+    The response to a GET-method to .../wp-json/extmedialib/v1/addtofolder/<foldername> gives simply the information whether the folder
      already exists or not.
 
 2.3.2 POST-method
@@ -244,7 +244,7 @@ provides for example this reduced response:
 
 
 
-2.4 wpcat/v1/addfromfolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)
+2.4 extmedialib/v1/addfromfolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)
     This function provides the possibility to add already uploaded images to the media-library. This is for images that were uploaded
     with ftp before. The <folder> must not contain other characters than a-z, A-Z, 0-9, _ and -.
 
@@ -267,7 +267,7 @@ There are no screenshots yet.
 == Installation ==
 
 1. Visit the plugins page on your Admin-page and click  ‘Add New’
-2. Search for 'wp_wpcat_json_rest', or 'JSON' and 'REST'
+2. Search for 'Ext_REST_Media_Lib', or 'JSON' and 'REST'
 1. Once found, click on 'Install'
 1. Go to the plugins page and activate the plugin
 
