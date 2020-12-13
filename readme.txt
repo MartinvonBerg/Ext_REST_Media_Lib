@@ -5,8 +5,8 @@ Donate link: http://www.mvb1.de
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update
 Requires at least: 5.3
 Tested up to: 5.6
-Requires PHP: 7.4
-Stable Tag: 0.0.8
+Requires PHP: 7.0
+Stable Tag: 0.0.9
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -249,7 +249,8 @@ provides for example this reduced response:
     with ftp before. The <folder> must not contain other characters than a-z, A-Z, 0-9, _ and -.
 
 2.4.1 GET-method
-    This method gives information about the folder content. If existing and not empty the folder content will be provided as array.
+    This method gives information about the folder content. If existing and not empty the folder content will be provided as array. 
+    The array provides now the id's and original-files that are already in the media-library.
 
 2.4.2 POST-method
     With the POST-method all images from the given <folder> will be added to the media-library. Image-Files that were already added before
@@ -287,6 +288,17 @@ There are no FAQs just yet.
 = 0.0.8 =
 *   Translation of comments. Preparation for wordpress.org Plugin-directory
 
+= 0.0.9 =
+*   Adaptations for publish to wordpress.org Plugin-directory
+    + implemented namespace for the plugin
+    + changed define to const (only const is in the namespace, define not)
+    + changed the REST-namespace
+    + removed all wpcat and wp_ - prefixes for plugin-code, except in comments
+    + GET - /addfromfolder provides now a list with id's and original-files that are already added to the media-library
+    + changed permission callbacks to is_user_logged_in
+    + added required = true to args of rest-route-functions
+    + added authorization required for complete REST-API
+    + fixed md5_original_file request for deleted files in folder, but still in media-library
 
 == Upgrade Notice ==
 
@@ -297,5 +309,5 @@ There is no need to upgrade right now.
 This plugin uses the great work from:
 
 - wordpress for coding hints: https://de.wordpress.org/
-- JSON authorization hints: https://github.com/WP-API/Basic-Auth/blob/master/basic-auth.php
+- authorization hints: https://developer.wordpress.org/rest-api/frequently-asked-questions/
 

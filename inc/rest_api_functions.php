@@ -1,5 +1,7 @@
 <?php
 
+namespace mvbplugins\extmedialib;
+
 //---------------- helper functions ----------------------------------------------------
 
 /** 
@@ -7,7 +9,7 @@
 	*
 	* @return array the original-files in the given $folder that were NOT added to WP-Cat yet 
 	*/
-function wpcat_get_files_to_add( $folder ) {
+function get_files_to_add( $folder ) {
 	$result = array();
 	$all = glob( $folder . '/*' );
 	$i=0;
@@ -20,14 +22,14 @@ function wpcat_get_files_to_add( $folder ) {
 	
 	foreach ($all as &$file) {
 		$test=$file;
-		if ( (! preg_match_all('/[0-9]+x[0-9]+/',$test)) and (! strstr($test, '-'. WPCAT_SCALED)) and (! is_dir($test)) ) {
+		if ( (! preg_match_all('/[0-9]+x[0-9]+/',$test)) and (! strstr($test, '-'. EXT_SCALED)) and (! is_dir($test)) ) {
 			// Check if one of the files in $result was already attached to WPCat
 			$file = str_replace($dir,$url,$file);
 			$addedbefore = attachment_url_to_postid($file);
 			
 			if ( empty($addedbefore) ) {
 				$ext = '.' . pathinfo($file)['extension'];
-				$file = str_replace($ext,'-' . WPCAT_SCALED . $ext, $file);
+				$file = str_replace($ext,'-' . EXT_SCALED . $ext, $file);
 				$addedbefore = attachment_url_to_postid($file);
 			}
 			
@@ -42,11 +44,52 @@ function wpcat_get_files_to_add( $folder ) {
 }
 
 /** 
+	* return the original files that were already added to WP-Cat from THIS $folder
+	*
+	* @return array the original-files in the given $folder that were NOT added to WP-Cat yet 
+	*/
+function get_added_files_from_folder( $folder ) {
+	$result = array();
+	$all = glob( $folder . '/*' );
+	$i=0;
+	$upload_dir = wp_upload_dir();
+	$dir = $upload_dir['basedir'];
+	$dir = str_replace('\\','/',$dir);
+	$dir = str_replace('\\\\','/',$dir);
+	$dir = str_replace('//','/',$dir);
+	$url = $upload_dir['baseurl'];
+	
+	foreach ($all as &$file) {
+		$test=$file;
+		if ( (! preg_match_all('/[0-9]+x[0-9]+/',$test)) and (! strstr($test, '-'. EXT_SCALED)) and (! is_dir($test)) ) {
+			// Check if one of the files in $result was already attached to WPCat
+			$file = str_replace($dir,$url,$file);
+			$addedbefore = attachment_url_to_postid($file);
+			
+			if ( empty($addedbefore) ) {
+				$ext = '.' . pathinfo($file)['extension'];
+				$file = str_replace($ext,'-' . EXT_SCALED . $ext, $file);
+				$addedbefore = attachment_url_to_postid($file);
+			}
+			
+			if ( empty($addedbefore) ) {
+				$addedbefore = 0;
+			}
+			$result[$i]['id'] = $addedbefore;
+			$result[$i]['file'] = $file;
+			$i = $i +1;
+			
+		}
+	}
+	return $result;
+}
+
+/** 
 	* special replace for foldernames $string '_ . ? * \ / space' to '-'
 	*
 	* @return string the string with replacments
 	*/
-function wpcat_replace( $string )
+function special_replace( $string )
 {
 	$result = str_replace('_','-',$string);
 	$result = str_replace('.','-',$result);
@@ -68,7 +111,7 @@ function wpcat_replace( $string )
 	 * 
 	 * @return bool true if success, false if not: ouput of the WP function to update attachment metadata
 	 */
-function wpcat_update_metadata($post_id, $newmeta) {
+function update_metadata($post_id, $newmeta) {
 	/** JSON has to be formatted like that:
 	{
 		"image_meta": {
