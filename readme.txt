@@ -6,7 +6,7 @@ Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catal
 Requires at least: 5.3
 Tested up to: 5.6
 Requires PHP: 7.0
-Stable Tag: 0.0.9
+Stable Tag: 0.0.10
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -83,7 +83,7 @@ https://example.com/wp-json/wp/v2/media/4884?gallery=test-gallery
 
 Mind: It is NOT required to use quotes. If you use quotes these will be used as part of the string in the field gallery.
 
-1.6 Not on REST-API output
+1.6 Note on REST-API output
 It is possible to reduce the REST-API output of the media-library to dedicated fields. This is much better for overview and reducing netload.
 The http GET-Request: https://example.com/wp-json/wp/v2/media/?_fields=id,gallery
 
@@ -258,7 +258,6 @@ provides for example this reduced response:
     
     
 
-
 == Screenshots ==
 
 There are no screenshots yet.
@@ -299,6 +298,9 @@ There are no FAQs just yet.
     + added required = true to args of rest-route-functions
     + added authorization required for complete REST-API
     + fixed md5_original_file request for deleted files in folder, but still in media-library
+
+= 0.0.10 =
+*   Removed minor inconsistencies at the rest_field definitions
 
 == Upgrade Notice ==
 

@@ -10,7 +10,7 @@
  * Plugin Name:       Ext_REST_Media_Lib
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
- * Version:           0.0.9
+ * Version:           0.0.10
  * Author:            Martin von Berg
  * Author URI:        www.mvb1.de
  * License:           GPL-2.0
@@ -112,7 +112,7 @@ function register_gallery_sort() {
 			'update_callback' => '\mvbplugins\extmedialib\cb_upd_gallery_sort',
 			'schema' => array(
 				'description' => 'gallery-field for sort-order from Lightroom-Collection with custom sort activated',
-				'type' => 'string',
+				'type' => 'integer',
 				)
 			)	
 		);
@@ -139,7 +139,7 @@ function register_md5_original() {
 			'get_callback' => '\mvbplugins\extmedialib\cb_get_md5',
 			'schema' => array(
 				'description' => 'provides md5 sum of original attachment file',
-				'type' => 'string',
+				'type' => 'array',
 				),	
 		)
 		);
@@ -432,8 +432,7 @@ function register_add_image_rest_route() {
 	$args = array(
 					'folder' => array(
 						'validate_callback' => function ($param, $request, $key) {
-								// example for later use
-								return $param;
+								return is_string( $param );
 							},
 						'required' => true,
 						),
@@ -602,8 +601,7 @@ function register_add_folder_rest_route() {
 	$args = array(
 					'folder' => array(
 						'validate_callback' => function ($param, $request, $key) {
-								// example for later use
-								return $param;
+								return is_string( $param );
 							},
 						'required' => true,
 						),
