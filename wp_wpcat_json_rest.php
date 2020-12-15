@@ -10,7 +10,7 @@
  * Plugin Name:       Ext_REST_Media_Lib
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
- * Version:           0.0.10
+ * Version:           0.0.11
  * Author:            Martin von Berg
  * Author URI:        www.mvb1.de
  * License:           GPL-2.0
@@ -267,7 +267,7 @@ function post_image_update( $data ) {
 			rename($file, $file . '.oldimagefile');
 		}
 		$filearray = glob( $file6 . '*' );
-		array_walk( $filearray, 'filerename');
+		array_walk( $filearray, '\mvbplugins\extmedialib\filerename');
 
 		// Save new file from POST-body and check MIME-Type
 		$success_new_file_write = file_put_contents( $file5, $image);	
@@ -322,7 +322,7 @@ function post_image_update( $data ) {
 				rename($file, str_replace('.oldimagefile', '', $file));
 			}
 			$filearray = glob( $file6 . '*oldimagefile' );
-			array_walk( $filearray, 'recoverfile');
+			array_walk( $filearray, '\mvbplugins\extmedialib\recoverfile');
 			unlink( $file5);
 			return new WP_Error( 'Error', $getResp, array( 'status' => 400 ) );
 		}
