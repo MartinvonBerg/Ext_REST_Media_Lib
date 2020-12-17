@@ -10,7 +10,7 @@
  * Plugin Name:       Ext_REST_Media_Lib
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
- * Version:           0.0.11
+ * Version:           0.0.12
  * Author:            Martin von Berg
  * Author URI:        www.mvb1.de
  * License:           GPL-2.0
@@ -24,7 +24,7 @@ defined('ABSPATH') or die('Not defined');
 // ----------------- global Definitions and settings ---------------------------------
 const MIN_IMAGE_SIZE = 100;   // minimal file size in bytes to upload
 const MAX_IMAGE_SIZE =  2560; // value for resize to ...-scaled.jpg TODO: big_image_size_threshold : read from WP settings. But where?
-const RESIZE_QUALITY = 100;  // quality for image resizing in percent. I prefer maximum quality.
+const RESIZE_QUALITY = 82;  // quality for image resizing in percent. I prefer maximum quality.
 const REST_NAMESPACE = 'extmedialib/v1'; // namespace for REST-API
 const EXT_SCALED =  'scaled';	 // filename extension for scaled images as constant. Maybe WP will change this in future.
 

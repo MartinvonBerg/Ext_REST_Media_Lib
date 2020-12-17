@@ -6,7 +6,7 @@ Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catal
 Requires at least: 5.3
 Tested up to: 5.6
 Requires PHP: 7.0
-Stable Tag: 0.0.11
+Stable Tag: 0.0.12
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -304,6 +304,9 @@ There are no FAQs just yet.
 
 = 0.0.11 =
 *   added namespace to inner functions
+
+= 0.0.11 =
+*   set resize quality back to standard value (82). Images are too big!
 
 == Upgrade Notice ==
 
