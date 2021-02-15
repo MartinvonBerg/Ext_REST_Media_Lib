@@ -214,7 +214,7 @@ The new JPG-file has to be provided in the body as binary string. Checks for mim
 
 
 2.4 extmedialib/v1/addfromfolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)
-This function adds already uploaded images to the media-library. This is useful for images that were uploaded with ftp before. The 'folde'r must not contain other characters than a-z, A-Z, 0-9, _ and -.
+This function adds already uploaded images to the media-library. This is useful for images that were uploaded with ftp before. The 'folder' must not contain other characters than a-z, A-Z, 0-9, _ and -.
 
 2.4.1 GET-method
 This method gives information about the folder content. If existing and not empty the folder content will be provided as an array. The array provides now the id's and original-files that are already in the media-library.
@@ -276,6 +276,8 @@ There are no FAQs just yet.
 = 0.0.13 =
 *   Readme updated. No functional change.
 *   2020-02-12: Test with WP5.6.1 an PHP8.0 on live site: no errors reported. Works!
+*   PHP-Compatibility check with phpcs. Compatible from PHP 5.4 - 8.0. But keep PHP 7.0 as minimum version
+*   Update to keep some WP coding guideline. But still not all! Only partially done.
 
 == Upgrade Notice ==
 
