@@ -4,7 +4,7 @@ Contributors: martinvonberg
 Donate link: http://www.mvb1.de
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update
 Requires at least: 5.3
-Tested up to: 5.6.1
+Tested up to: 5.7
 Requires PHP: 7.0
 Stable Tag: 0.0.13
 License: GPLv2
