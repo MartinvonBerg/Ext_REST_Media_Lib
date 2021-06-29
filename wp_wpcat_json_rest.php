@@ -9,7 +9,7 @@
  * Plugin Name:       Ext_REST_Media_Lib
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
- * Version:           0.0.13
+ * Version:           0.0.14
  * Author:            Martin von Berg
  * Author URI:        www.mvb1.de
  * License:           GPL-2.0
@@ -25,7 +25,7 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
 // ----------------- global Definitions and settings ---------------------------------
 const MIN_IMAGE_SIZE = 100;   // minimal file size in bytes to upload.
 const MAX_IMAGE_SIZE = 2560;  // value for resize to ...-scaled.jpg TODO: big_image_size_threshold : read from WP settings. But where?
-const RESIZE_QUALITY = 82;    // quality for image resizing in percent. I prefer maximum quality.
+const RESIZE_QUALITY = 82;    // quality for image resizing in percent.
 const REST_NAMESPACE = 'extmedialib/v1'; // namespace for REST-API.
 const EXT_SCALED     = 'scaled';    // filename extension for scaled images as constant. Maybe WP will change this in future.
 
@@ -77,7 +77,11 @@ add_filter('rest_authentication_errors', function ($result) {
 
 // REST-API-EXTENSION FOR WP MEDIA Library---------------------------------------------------------
 //--------------------------------------------------------------------
-// register custom-data 'gallery' as REST-API-Field only for attachments (media)
+/**
+ * register custom-data 'gallery' as REST-API-Field only for attachments (media)
+ *
+ * @return void
+ */ 
 function register_gallery()
 {
 	register_rest_field(
@@ -87,27 +91,51 @@ function register_gallery()
 			'get_callback' => '\mvbplugins\extmedialib\cb_get_gallery',
 			'update_callback' => '\mvbplugins\extmedialib\cb_upd_gallery',
 			'schema' => array(
-				'description' => 'gallery-field for Lightroom',
+				'description' => __('gallery-field for Lightroom'),
 				'type' => 'string',
 				),
 			)
 	);
 }
 
+/**
+ * callback to retrieve the gallery entry for the given attachment-id
+ *
+ * @param array $data key-value paired array from the get method with 'id'
+ * @return string the current entry for the gallery field
+ */
 function cb_get_gallery($data)
 {
-	return (string)get_post_meta($data['id'], 'gallery', true);
+	return (string) get_post_meta( $data['id'], 'gallery', true );
 }
 
+/**
+ * callback to update the gallery entry for the given attachment-id
+ *
+ * @param string $value new entry for the gallery field
+ * @param integer $post-id e.g. attachment which gallery should be updated
+ * @return bool success of the callback
+ */
 function cb_upd_gallery($value, $post)
 {
-	update_post_meta($post->ID, 'gallery', $value);
+	$ret = update_post_meta( $post->ID, 'gallery', $value );
+	if ( false === $ret ) {
+		return new WP_Error(
+		  'rest_gallery_field_update_failed',
+		  __( 'Failed to update gallery field.' ),
+		  array( 'status' => 500 )
+		);
+	}
 	return true;
 };
 
 
 //--------------------------------------------------------------------
-// register custom-data 'gallery_sort' as REST-API-Field only for attachments (media)
+/**
+ * register custom-data 'gallery_sort' as REST-API-Field only for attachments (media)
+ *
+ * @return void
+ */ 
 function register_gallery_sort()
 {
 	register_rest_field(
@@ -117,28 +145,51 @@ function register_gallery_sort()
 			'get_callback' => '\mvbplugins\extmedialib\cb_get_gallery_sort',
 			'update_callback' => '\mvbplugins\extmedialib\cb_upd_gallery_sort',
 			'schema' => array(
-				'description' => 'gallery-field for sort-order from Lightroom-Collection with custom sort activated',
+				'description' => __('Gallery-field for sort-order from Lightroom-Collection with custom sort activated'),
 				'type' => 'integer',
 				)
 			)
 	);
 }
 
+/**
+ * callback to retrieve the gallery-sort entry for the given attachment-id
+ *
+ * @param array $data key-value paired array from the get method with 'id'
+ * @return string the current entry for the gallery-sort field
+ */
 function cb_get_gallery_sort($data)
 {
-	return (string)get_post_meta($data['id'], 'gallery_sort', true);
+	return (string) get_post_meta($data['id'], 'gallery_sort', true);
 }
 
+/**
+ * callback to update the gallery-sort entry for the given attachment-id
+ *
+ * @param string $value new entry for the gallery-sort field
+ * @param integer $post-id e.g. attachment which gallery-sort should be updated
+ * @return bool success of the callback
+ */
 function cb_upd_gallery_sort($value, $post)
 {
-	update_post_meta($post->ID, 'gallery_sort', $value);
+	$ret = update_post_meta( $post->ID, 'gallery_sort', $value );
+	if ( false === $ret ) {
+		return new WP_Error(
+		  'rest_gallery_sort_field_update_failed',
+		  __( 'Failed to update gallery field for sorting.' ),
+		  array( 'status' => 500 )
+		);
+	}
 	return true;
 };
 
 
 //--------------------------------------------------------------------
-// register custom-data 'md5' as REST-API-Field only for attachments
-// provides md5 sum and size in bytes of original-file
+/**
+ * register custom-data 'md5' as REST-API-Field only for attachments. Provides md5 sum and size in bytes of original-file.
+ *
+ * @return void
+ */
 function register_md5_original()
 {
 	register_rest_field(
@@ -147,13 +198,20 @@ function register_md5_original()
 		array(
 			'get_callback' => '\mvbplugins\extmedialib\cb_get_md5',
 			'schema' => array(
-				'description' => 'provides md5 sum of original attachment file',
+				'description' => __('provides md5 sum and size in bytes of original attachment file'),
 				'type' => 'array',
 				),
 		)
 	);
 }
 
+/**
+ * callback to retrieve the MD5 sum and size in bytes for the given attachment-id
+ *
+ * @param array $data key-value paired array from the get method with 'id'
+ * @return array $md5['MD5']: the MD5 sum of the original attachment file, 
+ * 				$md5['size']: the size in bytes of the original attachment file
+ */
 function cb_get_md5($data)
 {
 	$original_filename = wp_get_original_image_path($data['id']);
@@ -175,13 +233,17 @@ function cb_get_md5($data)
 //--------------------------------------------------------------------
 // REST-API Endpoint to update a complete image under the same wordpress-ID. This will remain unchanged.
 
-# function to register the endpoint for updating an Image in the WP-Media-Catalog
+/**
+ * # function to register the endpoint for updating an Image in the WP-Media-Catalog
+ *
+ * @return void
+ */
 function register_update_image_route()
 {
 	$args = array(
 					'id' => array(
-						'validate_callback' => function ($param, $request, $key) {
-							return is_numeric($param);
+						'validate_callback' => function ( $param, $request, $key ) {
+							return is_numeric( $param );
 						},
 						'required' => true,
 						),
@@ -244,7 +306,7 @@ function get_image_update($data)
 		return new WP_Error('no_image', 'Invalid Image of any type: ' . $post_id, array( 'status' => 404 ));
 	};
 
-	return rest_ensure_response($getResp);
+	return rest_ensure_response ( $getResp );
 };
 
 // Callback for POST to defined REST-Route
