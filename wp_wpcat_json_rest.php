@@ -9,7 +9,7 @@
  * Plugin Name:       Ext_REST_Media_Lib
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
- * Version:           0.0.13
+ * Version:           0.0.14
  * Author:            Martin von Berg
  * Author URI:        www.mvb1.de
  * License:           GPL-2.0
@@ -25,7 +25,7 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
 // ----------------- global Definitions and settings ---------------------------------
 const MIN_IMAGE_SIZE = 100;   // minimal file size in bytes to upload.
 const MAX_IMAGE_SIZE = 2560;  // value for resize to ...-scaled.jpg TODO: big_image_size_threshold : read from WP settings. But where?
-const RESIZE_QUALITY = 82;    // quality for image resizing in percent. I prefer maximum quality.
+const RESIZE_QUALITY = 82;    // quality for image resizing in percent.
 const REST_NAMESPACE = 'extmedialib/v1'; // namespace for REST-API.
 const EXT_SCALED     = 'scaled';    // filename extension for scaled images as constant. Maybe WP will change this in future.
 
@@ -77,7 +77,11 @@ add_filter('rest_authentication_errors', function ($result) {
 
 // REST-API-EXTENSION FOR WP MEDIA Library---------------------------------------------------------
 //--------------------------------------------------------------------
-// register custom-data 'gallery' as REST-API-Field only for attachments (media)
+/**
+ * register custom-data 'gallery' as REST-API-Field only for attachments (media)
+ *
+ * @return void
+ */ 
 function register_gallery()
 {
 	register_rest_field(
@@ -87,27 +91,51 @@ function register_gallery()
 			'get_callback' => '\mvbplugins\extmedialib\cb_get_gallery',
 			'update_callback' => '\mvbplugins\extmedialib\cb_upd_gallery',
 			'schema' => array(
-				'description' => 'gallery-field for Lightroom',
+				'description' => __('gallery-field for Lightroom'),
 				'type' => 'string',
 				),
 			)
 	);
 }
 
+/**
+ * callback to retrieve the gallery entry for the given attachment-id
+ *
+ * @param array $data key-value paired array from the get method with 'id'
+ * @return string the current entry for the gallery field
+ */
 function cb_get_gallery($data)
 {
-	return (string)get_post_meta($data['id'], 'gallery', true);
+	return (string) get_post_meta( $data['id'], 'gallery', true );
 }
 
+/**
+ * callback to update the gallery entry for the given attachment-id
+ *
+ * @param string $value new entry for the gallery field
+ * @param integer $post-id e.g. attachment which gallery field should be updated
+ * @return bool success of the callback
+ */
 function cb_upd_gallery($value, $post)
 {
-	update_post_meta($post->ID, 'gallery', $value);
+	$ret = update_post_meta( $post->ID, 'gallery', $value );
+	if ( false === $ret ) {
+		return new WP_Error(
+		  'rest_gallery_field_update_failed',
+		  __( 'Failed to update gallery field.' ),
+		  array( 'status' => 500 )
+		);
+	}
 	return true;
 };
 
 
 //--------------------------------------------------------------------
-// register custom-data 'gallery_sort' as REST-API-Field only for attachments (media)
+/**
+ * register custom-data 'gallery_sort' as REST-API-Field only for attachments (media)
+ *
+ * @return void
+ */ 
 function register_gallery_sort()
 {
 	register_rest_field(
@@ -117,28 +145,51 @@ function register_gallery_sort()
 			'get_callback' => '\mvbplugins\extmedialib\cb_get_gallery_sort',
 			'update_callback' => '\mvbplugins\extmedialib\cb_upd_gallery_sort',
 			'schema' => array(
-				'description' => 'gallery-field for sort-order from Lightroom-Collection with custom sort activated',
+				'description' => __('Gallery-field for sort-order from Lightroom-Collection with custom sort activated'),
 				'type' => 'integer',
 				)
 			)
 	);
 }
 
+/**
+ * callback to retrieve the gallery-sort entry for the given attachment-id
+ *
+ * @param array $data key-value paired array from the get method with 'id'
+ * @return string the current entry for the gallery-sort field
+ */
 function cb_get_gallery_sort($data)
 {
-	return (string)get_post_meta($data['id'], 'gallery_sort', true);
+	return (string) get_post_meta($data['id'], 'gallery_sort', true);
 }
 
+/**
+ * callback to update the gallery-sort entry for the given attachment-id
+ *
+ * @param string $value new entry for the gallery-sort field
+ * @param integer $post-id e.g. attachment which gallery-sort-field should be updated
+ * @return bool success of the callback
+ */
 function cb_upd_gallery_sort($value, $post)
 {
-	update_post_meta($post->ID, 'gallery_sort', $value);
+	$ret = update_post_meta( $post->ID, 'gallery_sort', $value );
+	if ( false === $ret ) {
+		return new WP_Error(
+		  'rest_gallery_sort_field_update_failed',
+		  __( 'Failed to update gallery field for sorting.' ),
+		  array( 'status' => 500 )
+		);
+	}
 	return true;
 };
 
 
 //--------------------------------------------------------------------
-// register custom-data 'md5' as REST-API-Field only for attachments
-// provides md5 sum and size in bytes of original-file
+/**
+ * register custom-data 'md5' as REST-API-Field only for attachments. Provides md5 sum and size in bytes of original-file.
+ *
+ * @return void
+ */
 function register_md5_original()
 {
 	register_rest_field(
@@ -147,13 +198,20 @@ function register_md5_original()
 		array(
 			'get_callback' => '\mvbplugins\extmedialib\cb_get_md5',
 			'schema' => array(
-				'description' => 'provides md5 sum of original attachment file',
+				'description' => __('provides md5 sum and size in bytes of original attachment file'),
 				'type' => 'array',
 				),
 		)
 	);
 }
 
+/**
+ * callback to retrieve the MD5 sum and size in bytes for the given attachment-id
+ *
+ * @param array $data key-value paired array from the get method with 'id'
+ * @return array $md5['MD5']: the MD5 sum of the original attachment file, 
+ * 				$md5['size']: the size in bytes of the original attachment file
+ */
 function cb_get_md5($data)
 {
 	$original_filename = wp_get_original_image_path($data['id']);
@@ -174,14 +232,17 @@ function cb_get_md5($data)
 
 //--------------------------------------------------------------------
 // REST-API Endpoint to update a complete image under the same wordpress-ID. This will remain unchanged.
-
-# function to register the endpoint for updating an Image in the WP-Media-Catalog
+/**
+ * function to register the endpoint 'update' for updating an Image in the WP-Media-Catalog
+ *
+ * @return void
+ */
 function register_update_image_route()
 {
 	$args = array(
 					'id' => array(
-						'validate_callback' => function ($param, $request, $key) {
-							return is_numeric($param);
+						'validate_callback' => function ( $param, $request, $key ) {
+							return is_numeric( $param );
 						},
 						'required' => true,
 						),
@@ -212,10 +273,13 @@ function register_update_image_route()
 	);
 };
 
-// Callback for GET to defined REST-Route
-// Check wether Parameter id (integer!) is an WP media attachment, e.g. an image and calc md5-sum of original file
-// @param $data is the complete Request data
-function get_image_update($data)
+/**
+ * Callback for GET to REST-Route 'update/<id>'. Check wether Parameter id (integer!) is an WP media attachment, e.g. an image and calc md5-sum of original file
+ *
+ * @param object $data is the complete Request data of the REST-api GET
+ * @return array|WP_Error array for the rest response body or a WP Error object
+ */
+function get_image_update( $data )
 {
 	$post_id = $data['id'];
 	$att = wp_attachment_is_image($post_id);
@@ -223,9 +287,9 @@ function get_image_update($data)
 		
 	if ($att && (! $resized)) {
 		$original_filename = wp_get_original_image_path($post_id);
-		;
-		if (is_file($original_filename)) {
-			$md5 = strtoupper((string)md5_file($original_filename));
+		
+		if (is_file( $original_filename )) {
+			$md5 = strtoupper( (string) md5_file( $original_filename ) );
 		} else {
 			$md5 = 0;
 		}
@@ -244,14 +308,18 @@ function get_image_update($data)
 		return new WP_Error('no_image', 'Invalid Image of any type: ' . $post_id, array( 'status' => 404 ));
 	};
 
-	return rest_ensure_response($getResp);
+	return rest_ensure_response ( $getResp );
 };
 
-// Callback for POST to defined REST-Route
-// Update attachment with Parameter id (integer!) only if it is a jpg-image
-// @param $data is the complete Request data
-// Important Source: https://developer.wordpress.org/reference/classes/wp_rest_request/
-function post_image_update($data)
+
+/**
+ * Callback for POST to REST-Route 'update/<id>'. Update attachment with Parameter id (integer!) only if it is a jpg-image
+ * Important Source: https://developer.wordpress.org/reference/classes/wp_rest_request
+ *
+ * @param object $data is the complete Request data of the REST-api GET
+ * @return array|WP_Error array for the rest response body or a WP Error object
+ */
+function post_image_update( $data )
 {
 	include_once ABSPATH . 'wp-admin/includes/image.php';
 	$minsize   = MIN_IMAGE_SIZE;
@@ -350,8 +418,12 @@ function post_image_update($data)
 
 
 //--------------------------------------------------------------------
-// REST-API Endpoint to update image-metadata under the same wordpress-ID. This will remain unchanged.
-
+// REST-API Endpoint to update image-metadata under the same wordpress-ID. The image will remain unchanged.
+/**
+ * function to register the endpoint 'update_meta' for updating an Image in the WP-Media-Catalog
+ *
+ * @return void
+ */
 function register_update_image_meta_route()
 {
 	$args = array(
@@ -387,9 +459,12 @@ function register_update_image_meta_route()
 	);
 };
 
-// Callback for GET to defined REST-Route
-// Check wether Parameter id (integer!) is an WP media attachment
-// @param $data is the complete Request data
+/**
+ * Callback for GET to REST-Route 'update_meta/<id>'. Check wether Parameter id (integer!) is an WP media attachment 
+ * 
+ * @param object $data is the complete Request data of the REST-api GET
+ * @return object WP_Error for the rest response body or a WP Error object
+ */
 function get_meta_update($data)
 {
 	$post_id = $data['id'];
@@ -402,9 +477,12 @@ function get_meta_update($data)
 	};
 };
 
-// Callback for POST to defined REST-Route
-// Update image_meta of attachment with Parameter id (integer!) only if it is a jpg-image
-// @param $data is the complete Request data
+/**
+ * Callback for POST to REST-Route 'update_meta/<id>'. Update image_meta of attachment with Parameter id (integer!) only if it is a jpg-image
+ * 
+ * @param object $data is the complete Request data of the REST-api GET
+ * @return object WP_Error for the rest response body or a WP Error object
+ */
 function post_meta_update($data)
 {
 	$post_id = $data['id'];
@@ -425,18 +503,20 @@ function post_meta_update($data)
 	} elseif (($att) && (($type!='application/json') || ($newmeta == null))) {
 		return new WP_Error('wrong_data', 'Invalid JSON-Data in body', array( 'status' => 400 ));
 	} else {
-		return new WP_Error('no_image', 'Invalid JPG-Image: ' . $post_id, array( 'status' => 404 ));
+		return new WP_Error('no_image', 'Invalid Image: ' . $post_id, array( 'status' => 404 ));
 	};
 	
 	return rest_ensure_response($getResp);
 };
 
 //--------------------------------------------------------------------
-// REST-API Endpoint to add an image to a folder in the WP-Media-Catalog. Different from the standard folders under ../uploads
-// <Folder> must be provided as a REST-Parameter. Folder shall have only a-z, A-Z, 0-9, _ , -. No other characters allowed.
-// the jpg-image must be in the body of the POST-request.
-// Provides the new WP-ID and the filename that was written to the folder
-
+/**
+ * REST-API Endpoint to add an image to a folder in the WP-Media-Catalog. Different from the standard folders under ../uploads.
+ * <Folder> must be provided as a REST-Parameter. Folder shall have only a-z, A-Z, 0-9, _ , -. No other characters allowed. 
+ * The jpg-image must be in the body of the POST-request.
+ *
+ * @return void 
+ */
 function register_add_image_rest_route()
 {
 	$args = array(
@@ -472,10 +552,13 @@ function register_add_image_rest_route()
 	);
 };
 
-// Callback for GET to defined REST-Route
-// Check wether folder exists
-// @param $data is the complete Request data
-function get_add_image_to_folder($data)
+/**
+ * Callback for GET to REST-Route 'addtofolder/<folder>'. Check wether folder exists and provide message if so
+ * 
+ * @param object $data is the complete Request data of the REST-api GET
+ * @return array REST-response data for the folder if it exists
+ */
+function get_add_image_to_folder( $data )
 {
 	$dir = wp_upload_dir()['basedir'];
 	$folder = $dir . '/' . $data['folder'];
@@ -497,14 +580,18 @@ function get_add_image_to_folder($data)
 	return rest_ensure_response($getResp);
 };
 
-// Callback for POST to defined REST-Route
-// Check wether folder exists. If not, create the folder and add the jpg-image from the body to media cat
-// @param $data is the complete Request data
+/**
+ * Callback for POST to REST-Route 'addtofolder/<folder>'. Provides the new WP-ID and the filename that was written to the folder.
+ * Check wether folder exists. If not, create the folder and add the jpg-image from the body to media cat.
+ * URL request Parameters: namespace / 'addtofolder' / foldername / <subfoldername-if-needed> / .....
+ * required https Header Paramater: Content-Disposition = attachment; filename=example.jpg
+ * required body: the image file with identical mime-type!
+ * 
+ * @param object $data is the complete Request data of the REST-api POST
+ * @return array|WP_Error REST-response data for the folder if it exists of Error message
+ */
 function post_add_image_to_folder($data)
 {
-	//URL request Parameter <namespace> / addtofolder / <foldername> / <subfoldername-if-needed> / .....
-	// required https Header Param: Content-Disposition = attachment; filename=example.jpg
-	// required body: the image file with identical mime-type!
 	include_once ABSPATH . 'wp-admin/includes/image.php';
 	$minsize   = MIN_IMAGE_SIZE;
 		
@@ -546,7 +633,7 @@ function post_add_image_to_folder($data)
 	$newexists = file_exists($newfile);
 	
 	// add the new image if it is a jpg, png, or gif
-	if ((($type == 'image/jpeg') || ($type == 'image/png') || ($type == 'image/gif')) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) && (! $newexists)) {
+	if ( ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) ) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) && (! $newexists)) {
 		$success_new_file_write = file_put_contents($newfile, $image);
 		$new_file_mime = wp_check_filetype($newfile)['type'];
 		$mime_type_ok = $type == $new_file_mime;
@@ -599,12 +686,15 @@ function post_add_image_to_folder($data)
 };
 
 //--------------------------------------------------------------------
-// REST-API Endpoint to add images from a folder different from the WP-Standard-Folder (e.g. ../uploads/2020/12) to the  WP-Media-Catalog.
-// <Folder> must be provided as a REST-Parameter. Folder shall have only a-z, A-Z, 0-9, _ , -. No other characters allowed.
-// Provides the new WP-IDs and the filenames that were written to the folder as a JSON-array
-// if the jpg from the given folder was already added it will not be added again. But the image will be added if it is in another folder already.
-// POST-Request without image in Body and content-disposition. This will be ignored even if provided.
-
+/**
+ * REST-API Endpoint to add images from a folder different from the WP-Standard-Folder (e.g. ../uploads/2020/12) to the WP-Media-Catalog.
+ * 'Folder' must be provided as a REST-Parameter. 'Folder' shall have only a-z, A-Z, 0-9, _ , -. No other characters allowed.
+ * Provides the new WP-IDs and the filenames that were written to the folder as a JSON-array.
+ * If the jpg from the given folder was already added it will not be added again. But the image will be added if it is in another folder already.
+ * POST-Request without image in Body and content-disposition. This will be ignored even if provided.
+ *
+ * @return void
+ */
 function register_add_folder_rest_route()
 {
 	$args = array(
@@ -640,9 +730,12 @@ function register_add_folder_rest_route()
 	);
 };
 
-// Callback for GET to defined REST-Route
-// Check wether folder exists
-// @param $data is the complete Request data
+/**
+ * Callback for GET to REST-Route 'addfromfolder/<folder>'. Check wether folder exists and provide message if so
+ * 
+ * @param object $data is the complete Request data of the REST-api GET
+ * @return array REST-response data for the folder if it exists
+ */
 function get_add_image_from_folder($data)
 {
 	$dir = wp_upload_dir()['basedir'];
@@ -670,9 +763,16 @@ function get_add_image_from_folder($data)
 	return rest_ensure_response($getResp);
 };
 
-// Callback for POST to defined REST-Route
+
 // Check wether folder exists. Add now images from that folder to media cat
 // @param $data is the complete Request data
+/**
+ * Callback for POST to REST-Route 'addfromfolder/<folder>'. Check wether folder exists. Add now images from that folder to media cat.
+ * Provides the new WP-ID and the filename that was written to the folder.
+ * 
+ * @param object $data is the complete Request data of the REST-api POST
+ * @return array|WP_Error REST-response data for the folder if it exists of Error message
+ */
 function post_add_image_from_folder($data)
 {
 	include_once ABSPATH . 'wp-admin/includes/image.php';
@@ -708,7 +808,7 @@ function post_add_image_from_folder($data)
 		// add $file to media cat
 		$type = wp_check_filetype($file)['type']; //
 		
-		if ((($type == 'image/jpeg') || ($type == 'image/png') || ($type == 'image/gif'))) {
+		if ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) ) {
 			$newfile = $file;
 			$new_file_mime = $type;
 			$ext = pathinfo($newfile)['extension'];
