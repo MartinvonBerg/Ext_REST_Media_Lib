@@ -167,6 +167,20 @@ function update_metadata($post_id, $newmeta)
 		array_key_exists('copyright', $newmeta) ? $meta['image_meta']['copyright'] = $newmeta['copyright'] : '' ;
 		array_key_exists('caption', $newmeta)   ? $meta['image_meta']['caption']   = $newmeta['caption'] : ''   ;
 		array_key_exists('title', $newmeta)     ? $meta['image_meta']['title']     = $newmeta['title']  : ''     ;
+
+		// change the image capture metadata for webp only due to the fact that WP does not writes this data to the database
+		$type = get_post_mime_type($post_id); 
+		if ( 'image/webp' == $type) {
+			array_key_exists('aperture', $newmeta)          ? $meta['image_meta']['aperture']           = $newmeta['aperture'] : '' ;
+			array_key_exists('camera', $newmeta)            ? $meta['image_meta']['camera']             = $newmeta['camera'] : '' ;
+			array_key_exists('created_timestamp', $newmeta) ? $meta['image_meta']['created_timestamp']  = $newmeta['created_timestamp'] : '' ;
+			array_key_exists('focal_length', $newmeta)      ? $meta['image_meta']['focal_length']       = $newmeta['focal_length'] : '' ;
+			array_key_exists('iso', $newmeta)               ? $meta['image_meta']['iso']                = $newmeta['iso'] : '' ;
+			array_key_exists('shutter_speed', $newmeta)     ? $meta['image_meta']['shutter_speed']      = $newmeta['shutter_speed'] : '' ;
+			array_key_exists('orientation', $newmeta)       ? $meta['image_meta']['orientation']        = $newmeta['orientation'] : '' ;
+			
+		}
+
 	}
 
 	// write metadata.
