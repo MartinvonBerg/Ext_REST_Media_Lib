@@ -287,7 +287,7 @@ There are no FAQs just yet.
 
 = 0.0.14 =
 *   Readme and docblocks updated. 
-*   Added functionality to treat webp images as well. Tested with WP 5.8-test version.
+*   Added functionality to treat webp images as well. Tested with WP 5.8-RC4 test version.
 
 == Upgrade Notice ==
 
