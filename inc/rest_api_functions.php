@@ -35,7 +35,7 @@ function get_files_to_add( $folder ) {
 	$dir = str_replace( '//', '/', $dir);
 	$url = $upload_dir['baseurl'];
 
-	foreach ( $all as &$file ) {
+	foreach ( $all as $file ) {
 		$test = $file;
 		if (( ! preg_match_all( '/[0-9]+x[0-9]+/', $test)) && ( ! strstr( $test, '-' . EXT_SCALED)) && ( ! is_dir( $test ) ) ) {
 			// Check if one of the files in $result was already attached to WPCat.
@@ -76,7 +76,7 @@ function get_added_files_from_folder($folder)
 	$dir = str_replace('//', '/', $dir);
 	$url = $upload_dir['baseurl'];
 
-	foreach ($all as &$file) {
+	foreach ($all as $file) {
 		$test=$file;
 		if ((! preg_match_all('/[0-9]+x[0-9]+/', $test)) && (! strstr($test, '-' . EXT_SCALED)) && (! is_dir($test))) {
 			// Check if one of the files in $result was already attached to WPCat.
