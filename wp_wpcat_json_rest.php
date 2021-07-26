@@ -804,7 +804,7 @@ function post_add_image_from_folder($data)
 	$files_in_folder = array();
 	$i = 0;
 
-	foreach ($files as &$file) {
+	foreach ($files as $file) {
 		// add $file to media cat
 		$type = wp_check_filetype($file)['type']; //
 		
