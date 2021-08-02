@@ -9,7 +9,7 @@
  * Plugin Name:       Ext_REST_Media_Lib
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
- * Version:           0.0.14
+ * Version:           0.0.15
  * Author:            Martin von Berg
  * Author URI:        www.mvb1.de
  * License:           GPL-2.0
@@ -52,16 +52,16 @@ require_once __DIR__ . '/inc/rest_api_functions.php';
 // Only use together with https
 // require the user to be logged in for all REST requests
 
-add_filter('rest_authentication_errors', function ($result) {
+add_filter('rest_authentication_errors', function ( $result ) {
 	// If a previous authentication check was applied,
 	// pass that result along without modification.
-    if (true === $result || is_wp_error($result)) {
+    if ( true === $result || is_wp_error( $result ) ) {
         return $result;
     }
  
 	// No authentication has been performed yet.
 	// Return an error if user is not logged in.
-	if (! is_user_logged_in()) {
+	if ( ! is_user_logged_in()) {
 		return new WP_Error(
 			'rest_not_logged_in',
 			__('You are not currently logged in.'),
@@ -172,14 +172,8 @@ function cb_get_gallery_sort($data)
  */
 function cb_upd_gallery_sort($value, $post)
 {
-	$ret = update_post_meta( $post->ID, 'gallery_sort', $value );
-	if ( false === $ret ) {
-		return new WP_Error(
-		  'rest_gallery_sort_field_update_failed',
-		  __( 'Failed to update gallery field for sorting.' ),
-		  array( 'status' => 500 )
-		);
-	}
+	update_post_meta( $post->ID, 'gallery_sort', $value );
+	// do not check the return-value here as this causes problems with the LR plugin. 
 	return true;
 };
 
@@ -313,7 +307,7 @@ function get_image_update( $data )
 
 
 /**
- * Callback for POST to REST-Route 'update/<id>'. Update attachment with Parameter id (integer!) only if it is a jpg-image
+ * Callback for POST to REST-Route 'update/<id>'. Update attachment with Parameter id (integer!) 
  * Important Source: https://developer.wordpress.org/reference/classes/wp_rest_request
  *
  * @param object $data is the complete Request data of the REST-api GET
@@ -328,7 +322,7 @@ function post_image_update( $data )
 	$dir = wp_upload_dir()['basedir'];
 	$image = $data->get_body(); // body as string (=jpg-image) of POST-Request
 		
-	if (($att) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size())) {
+	if ( ($att) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) ) {
 		// get current metadata from WP-SQL Database
 		$meta = wp_get_attachment_metadata($post_id);
 		
@@ -360,6 +354,18 @@ function post_image_update( $data )
 		
 		if (($newfile_mime==$attmime) && ($newfile_mime==$newtype)) {
 			// resize missing images if mime-types are identical
+			
+			$att_array = array(
+				'ID'			 => $post_id,
+				'guid'           => $file5, // works only this way -- use a relative path to ... /uploads/ - folder
+				'post_mime_type' => $newfile_mime, // e.g.: 'image/jpg'
+				'post_title'     => $file3, // this creates the title and the permalink, if post_name is empty
+				'post_content'   => '',
+				'post_status'    => 'inherit',
+				'post_name' => '' , // this is used for Permalink :  https://example.com/title-88/, (if empty post_title is used)
+			);
+
+			wp_insert_attachment($att_array, $file5, 0, true);
 			$success_subsizes = wp_create_image_subsizes($file5, $post_id);
 		} else {
 			$success_subsizes = 'Mime-Type mismatch';
@@ -767,7 +773,7 @@ function get_add_image_from_folder($data)
 // Check wether folder exists. Add now images from that folder to media cat
 // @param $data is the complete Request data
 /**
- * Callback for POST to REST-Route 'addfromfolder/<folder>'. Check wether folder exists. Add now images from that folder to media cat.
+ * Callback for POST to REST-Route 'addfromfolder/<folder>'. Check wether folder exists. Add new images from that folder to media cat.
  * Provides the new WP-ID and the filename that was written to the folder.
  * 
  * @param object $data is the complete Request data of the REST-api POST
