@@ -51,6 +51,7 @@ require_once __DIR__ . '/inc/rest_api_functions.php';
 // ATTENTION: Do not use username and Password or Application Passwords from WP-AdminPage > Users > Profiles together with basic-auth and with http !!!!!!
 // Only use together with https
 // require the user to be logged in for all REST requests
+add_filter( 'wp_is_application_passwords_available', '__return_true' );
 
 add_filter('rest_authentication_errors', function ( $result ) {
 	// If a previous authentication check was applied,
@@ -366,6 +367,12 @@ function post_image_update( $data )
 			);
 
 			wp_insert_attachment($att_array, $file5, 0, true);
+			// use the hook:
+			
+			add_action( 'add_attachment', function( $post_id ) { 
+				// Do Stuff
+			});
+
 			$success_subsizes = wp_create_image_subsizes($file5, $post_id);
 		} else {
 			$success_subsizes = 'Mime-Type mismatch';
