@@ -316,108 +316,166 @@ function get_image_update( $data )
  */
 function post_image_update( $data )
 {
+	global $wpdb;
+
 	include_once ABSPATH . 'wp-admin/includes/image.php';
 	$minsize   = MIN_IMAGE_SIZE;
 	$post_id = $data['id'];
 	$att = wp_attachment_is_image($post_id);
 	$dir = wp_upload_dir()['basedir'];
 	$image = $data->get_body(); // body as string (=jpg-image) of POST-Request
-		
+	$postRequestFileName = explode( ';', $data->get_headers()['content_disposition'][0] )[1];
+	$postRequestFileName = trim( \str_replace('filename=', '', $postRequestFileName) );
+	$postRequestFileName = \sanitize_file_name( $postRequestFileName );
+			
 	if ( ($att) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) ) {
-		// get current metadata from WP-SQL Database
+		// get current metadata from WP-Database
 		$meta = wp_get_attachment_metadata($post_id);
 		
 		// Define filenames in different ways for the different functions
-		$file = $meta['file'];
-		$file2 = get_attached_file($post_id, true); // identical to $file
-		$file3 = basename($file);
-		$file4 = str_replace('-' . EXT_SCALED, '', $file3);
-		$file5 = str_replace('-' . EXT_SCALED, '', $file2); // This is used to save the POST-body
-		$ext = '.' . pathinfo($file5)['extension']; // Get the extension
-		$file6 = str_replace($ext, '', $file5); // Filename without extension for the deletion with Wildcard '*'
-		$new = str_replace($file3, '', $file2);
-		$gallerydir = str_replace($dir, '', $new);
+		$fileName_from_att_meta = $meta['file'];
+		$old_attached_file = get_attached_file($post_id, true); // identical to $fileName_from_att_meta
+		$old_original_fileName = str_replace( '-' . EXT_SCALED, '', $old_attached_file); // This is used to save the POST-body
+		$ext = '.' . pathinfo($old_original_fileName)['extension']; // Get the extension
+		$file6 = str_replace($ext, '', $old_original_fileName); // Filename without extension for the deletion with Wildcard '*'
+
+		// data for the REST-response
+		$base_fileName_from_att_meta = basename($fileName_from_att_meta);
+		$original_filename_old_file = str_replace('-' . EXT_SCALED, '', $base_fileName_from_att_meta);
+		$old_upload_dir = str_replace( $base_fileName_from_att_meta, '', $old_attached_file ); // This is the upload dir that was used for the original file
+		$gallerydir = str_replace($dir, '', $old_upload_dir);
 		$gallerydir = trim($gallerydir, '/\\');
 
 		// save old Files before, to redo them if something goes wrong
-		function filerename($file)
-		{
-			rename($file, $file . '.oldimagefile');
+		function filerename($fileName_from_att_meta) {
+			rename($fileName_from_att_meta, $fileName_from_att_meta . '.oldimagefile');
 		}
 		$filearray = glob($file6 . '*');
 		array_walk($filearray, '\mvbplugins\extmedialib\filerename');
 
-		// Save new file from POST-body and check MIME-Type
-		$success_new_file_write = file_put_contents($file5, $image);
-		$newfile_mime = wp_get_image_mime($file5);
-		$attmime = get_post_mime_type($post_id);
-		$newtype = $data->get_content_type()['value']; // upload content-type of POST-Request
+		// generate the filename for the new file
+		if ( $postRequestFileName == '' ) {
+			// if provided filename is empty : use the old filename
+			$path_to_new_file = $old_original_fileName;
+		} else {
+			// generate the complete path for the new uploaded file
+			$path_to_new_file = $old_upload_dir . $postRequestFileName;
+		}
 		
-		if (($newfile_mime==$attmime) && ($newfile_mime==$newtype)) {
-			// resize missing images if mime-types are identical
-			
+		// check if file exists alreay, don't overwrite
+		$fileexists = \is_file( $path_to_new_file );
+		if ( $fileexists ) {
+			$getResp = array(
+				__('message') => __('You requested upload of file') . ' '. $postRequestFileName . ' ' . __('with POST-Method'),
+				__('Error Details') => __('Path') . ': ' . $path_to_new_file,
+			);
+			return new WP_Error( __('File exists'), $getResp, array( 'status' => 409 ));
+		}
+
+		// Save new file from POST-body and check MIME-Type
+		$success_new_file_write = file_put_contents( $path_to_new_file, $image );
+		
+		// check the new file type and extension
+		$changemime = $data->get_params()['changemime'] == 'true' ? true : false;
+		$newfile_mime = wp_get_image_mime( $path_to_new_file );
+		$new_mime_from_header = $data->get_content_type()['value']; // upload content-type of POST-Request
+		$new_File_Extension = pathinfo( $path_to_new_file )['extension'];
+		$wp_allowed_mimes = \get_allowed_mime_types();
+		$wp_allowed_ext = array_search( $newfile_mime, $wp_allowed_mimes, false);
+		$new_ext_matches_mime = stripos( $wp_allowed_ext, $new_File_Extension)>-1 ? true : false;
+		$new_File_Extension = '.' . $new_File_Extension;
+		$new_File_Name  = pathinfo( $path_to_new_file )['filename'];
+
+		// mime type of the old attachment
+		$old_mime_from_att = get_post_mime_type( $post_id ) ;
+
+		if ( ! $changemime ) {
+			$all_mime_ext_OK = ($newfile_mime == $old_mime_from_att) && ($newfile_mime == $new_mime_from_header) && ($ext == $new_File_Extension) && $new_ext_matches_mime;
+		} else {
+			$all_mime_ext_OK = ($newfile_mime == $new_mime_from_header) && $new_ext_matches_mime;
+		}
+		
+		if ( $all_mime_ext_OK ) {
+
+			// store the original image-data in the media replacer class with construct-method of the class
+			$replacer = new \mvbplugins\extmedialib\Replacer( $post_id );
+
+			// resize missing images
 			$att_array = array(
 				'ID'			 => $post_id,
-				'guid'           => $file5, // works only this way -- use a relative path to ... /uploads/ - folder
+				'guid'           => $path_to_new_file, // works only this way -- use a relative path to ... /uploads/ - folder
 				'post_mime_type' => $newfile_mime, // e.g.: 'image/jpg'
-				'post_title'     => $file3, // this creates the title and the permalink, if post_name is empty
+				'post_title'     => $new_File_Name, // this creates the title and the permalink, if post_name is empty
 				'post_content'   => '',
 				'post_status'    => 'inherit',
 				'post_name' => '' , // this is used for Permalink :  https://example.com/title-88/, (if empty post_title is used)
 			);
 
-			wp_insert_attachment($att_array, $file5, 0, true);
-			// use the hook:
-			
-			add_action( 'add_attachment', function( $post_id ) { 
-				// Do Stuff
-			});
+			// update the attachment = image with standard methods of WP
+			wp_insert_attachment( $att_array, $path_to_new_file, 0, true, true );
+			$success_subsizes = wp_create_image_subsizes( $path_to_new_file, $post_id );
 
-			$success_subsizes = wp_create_image_subsizes($file5, $post_id);
+			// update post doesn't update GUID on updates. guid has to be the full url to the file
+			$url_to_new_file = get_upload_url() . '/' . $gallerydir . '/' . $new_File_Name . $new_File_Extension;
+			$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $post_id) );
+
+			//update the posts that use the image with class from plugin enable_media_replace
+			// This updates only the image url that are used in the post. The metadata e.g. caption is NOT updated.
+			// TODO: Check how to update the post with updated image metadata. The metadatas (caption, alt) is not changed up to now!
+			$replacer->new_location_dir = $gallerydir;
+			$replacer->target_url = $url_to_new_file;
+			$replacer->target_metadata = $success_subsizes;
+			$result = $replacer->API_doSearchReplace();
+
 		} else {
 			$success_subsizes = 'Mime-Type mismatch';
 		}
 				
 		if (($success_new_file_write != false) && (is_array($success_subsizes))) {
 			$getResp = array(
-				'message' => 'You requested update of '. $post_id . ' with POST-Method. Done, except Metadata. Do this with REST.',
-				'original_filename' => $file4,
-				'scaled_filename' => $file3,
-				'fullpath' => $file2,
-				'upload_dir' => $dir,
+				'ID' => $post_id,
+				'message' => __('Successful update. Except Metadata.'),
+				'old_filename' => $original_filename_old_file,
+				'new_fullpath' => $path_to_new_file,
 				'gallery' => $gallerydir,
 				'Bytes written' => $success_new_file_write,
 				);
 			
 			// delete old files
 			array_map("unlink", glob($file6 . '*oldimagefile'));
+
 		} else {
 			// something went wrong redo the change, recover the old files
 			if (is_array($success_subsizes)) {
-				$success_subsizes = 'Was OK';
+				$success_subsizes = __('Was OK');
 			} elseif (! is_string($success_subsizes)) {
 				$success_subsizes = implode($success_subsizes->get_error_messages());
 			};
 
 			$success_new_file_write = array(
-				'message' => 'ERROR. Something went wrong. Original files not touched!',
+				'message' => __('ERROR. Something went wrong. Original files not touched.'),
 				'new_file_write' => (string)$success_new_file_write,
 				'gen_subsizes' => $success_subsizes,
 			);
 
 			$getResp = array(
-				'message' => 'You requested update of '. $post_id . ' with POST-Method.',
+				'message' => __('You requested update with POST-Method of') . ' ID: '. $post_id,
 				'Error_Details' => $success_new_file_write,
 			);
-			function recoverfile($file)
-			{
-				rename($file, str_replace('.oldimagefile', '', $file));
+
+			// recover the original files if something went wrong
+			function recoverfile( $fileName_from_att_meta ) {
+				rename($fileName_from_att_meta, str_replace('.oldimagefile', '', $fileName_from_att_meta));
 			}
 			$filearray = glob($file6 . '*oldimagefile');
 			array_walk($filearray, '\mvbplugins\extmedialib\recoverfile');
-			unlink($file5);
+
+			// delete the file that was uploaded by REST - POST request
+			unlink($old_original_fileName);
+
 			return new WP_Error('Error', $getResp, array( 'status' => 400 ));
 		}
+		
 	} elseif (($att) && (strlen($image) < $minsize)) {
 		return new WP_Error('too_small', 'Invalid Image (smaller than: '. $minsize .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
 	} elseif (($att) && (strlen($image) > wp_max_upload_size())) {

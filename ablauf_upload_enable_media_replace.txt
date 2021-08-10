@@ -1,0 +1,46 @@
+$_POST: wird nur für die folgenden settings verwendet.
+
+upload.php settings Zeile 41 -45
+$settings = array( :: settings wird danach zur Verarbeitung nicht verwendet
+	"replace_type" : 'replace' : wird danach 2x verwendet, für entscheidungen
+	"timestamp_replace": 2 wird danach 2x verwendet, für entscheidungen
+	"new_location" : false : wird danach 2x verwendet, für entscheidungen
+	"new_location_dir" : 2021/08 : wird danach 2x verwendet, für entscheidungen
+); beim Standard-upload eines neuen Bildes
+
+Z,51: datetime wird auf current_time gesetzt
+
+Z.86 - Z.87
+
+Z. 105
+
+Z.113
+
+Z.132-135
+
+Aufruf replaceWith
+	$file: enthält das temporäre, gespeicherte File, den vollen Dateipfad dorthin
+	$fileName : enthält den reinen Dateinamen des neuen Files
+	
+	Z. 109: $targetfile : enthält den vollen Dateipfad des ursprünglichen Files, also dasdas ers
+	ersetzt werden soll
+	
+	Z.118 : Das Objekt enthält dann alle relevanten Dateiinformationen
+	
+	Z.119 : versucht den Ordner zu erzeugen, falls es ein neuer sein sollte
+	
+	Z.136 : $targetfile wird jetzt zum Objekt, das alle Daten der ursprünglichen Datei enthält
+	Bei direkten Ersatz sind sourceFile und targetFile identisch
+	
+	Z.452: Daher sind auch hier die urls dieselben Arrays
+	
+	Z.470, Z.471 Dieselben Arrays
+	
+	Z.534 Aufruf doReplaceQuery
+		$base_url : enthält ohne siteadresse die url der Datei ohne Extension.
+		Die site-url fehlt wahrscheinlich wegen der Einstellung
+		
+	in doReplaceQuery
+	Z. 451: bestimmt die array für source und target
+	
+	Z. 534 die arrays für source und target sind nun leer
