@@ -44,6 +44,8 @@ add_action('rest_api_init', '\mvbplugins\extmedialib\register_add_folder_rest_ro
 
 // load the helper functions
 require_once __DIR__ . '/inc/rest_api_functions.php';
+require_once __DIR__ . '/classes/replacer.php';
+require_once __DIR__ . '/classes/emrFile.php';
 
 
 //-------------------- AUTH REQUIRED ------------------------------------------------
@@ -130,7 +132,6 @@ function cb_upd_gallery($value, $post)
 	return true;
 };
 
-
 //--------------------------------------------------------------------
 /**
  * register custom-data 'gallery_sort' as REST-API-Field only for attachments (media)
@@ -177,7 +178,6 @@ function cb_upd_gallery_sort($value, $post)
 	// do not check the return-value here as this causes problems with the LR plugin. 
 	return true;
 };
-
 
 //--------------------------------------------------------------------
 /**
@@ -306,7 +306,6 @@ function get_image_update( $data )
 	return rest_ensure_response ( $getResp );
 };
 
-
 /**
  * Callback for POST to REST-Route 'update/<id>'. Update attachment with Parameter id (integer!) 
  * Important Source: https://developer.wordpress.org/reference/classes/wp_rest_request
@@ -421,11 +420,11 @@ function post_image_update( $data )
 
 			//update the posts that use the image with class from plugin enable_media_replace
 			// This updates only the image url that are used in the post. The metadata e.g. caption is NOT updated.
-			// TODO: Check how to update the post with updated image metadata. The metadatas (caption, alt) is not changed up to now!
 			$replacer->new_location_dir = $gallerydir;
 			$replacer->target_url = $url_to_new_file;
 			$replacer->target_metadata = $success_subsizes;
 			$result = $replacer->API_doSearchReplace();
+			$replacer = null;
 
 		} else {
 			$success_subsizes = 'Mime-Type mismatch';
@@ -486,7 +485,6 @@ function post_image_update( $data )
 	
 	return rest_ensure_response($getResp);
 };
-
 
 //--------------------------------------------------------------------
 // REST-API Endpoint to update image-metadata under the same wordpress-ID. The image will remain unchanged.
@@ -556,16 +554,24 @@ function get_meta_update($data)
  */
 function post_meta_update($data)
 {
-	$post_id = $data['id'];
-	$att = wp_attachment_is_image($post_id);
+	$post_id = $data[ 'id' ];
+	$att = wp_attachment_is_image( $post_id );
 	$type = $data->get_content_type()['value']; // upload content-type of POST-Request
 	$newmeta = $data->get_body(); // body e.g. as JSON with new metadata as string of POST-Request
+	$isJSON = bodyIsJSON( $newmeta );
 	$newmeta = json_decode($newmeta, $assoc=true);
 
-	if (($att) && ($type == 'application/json') && ($newmeta != null)) {
+	if ( ($att) && ( 'application/json' == $type ) && ($newmeta != null) ) {
+
+		// store the original image-data in the media replacer class with construct-method of the class
+		$replacer = new \mvbplugins\extmedialib\Replacer( $post_id );
+
 		// update metadata
 		$success = update_metadata($post_id, $newmeta);
-	
+
+		// TODO: do the update of the corresponding posts here
+		$result = $replacer->API_doMetaUpdate(); 
+			
 		$getResp = array(
 			'message' => 'You requested image_meta update of '. $post_id . '. Done.',
 			'note' => 'NOT changed: aperture, camera, created_timestamp, focal_length, iso, shutter_speed, orientation',
@@ -834,9 +840,6 @@ function get_add_image_from_folder($data)
 	return rest_ensure_response($getResp);
 };
 
-
-// Check wether folder exists. Add now images from that folder to media cat
-// @param $data is the complete Request data
 /**
  * Callback for POST to REST-Route 'addfromfolder/<folder>'. Check wether folder exists. Add new images from that folder to media cat.
  * Provides the new WP-ID and the filename that was written to the folder.
