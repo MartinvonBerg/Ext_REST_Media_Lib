@@ -18,8 +18,8 @@
             "port": 9000,
             "xdebugSettings": {
                 "max_children": 200,
-                "max_data": 512,
-                "max_depth": 3
+                "max_data": 1024,
+                "max_depth": 5
             }
         },
         {

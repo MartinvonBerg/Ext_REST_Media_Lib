@@ -561,24 +561,28 @@ function post_meta_update($data)
 	$isJSON = bodyIsJSON( $newmeta );
 	$newmeta = json_decode($newmeta, $assoc=true);
 
-	if ( ($att) && ( 'application/json' == $type ) && ($newmeta != null) ) {
+	if ( ($att) && ( 'application/json' == $type ) && ($newmeta != null) && $isJSON ) {
 
 		// store the original image-data in the media replacer class with construct-method of the class
 		$replacer = new \mvbplugins\extmedialib\Replacer( $post_id );
 
 		// update metadata
-		$success = update_metadata($post_id, $newmeta);
+		$success = update_metadata( $post_id, $newmeta );
 
-		// TODO: do the update of the corresponding posts here
-		$result = $replacer->API_doMetaUpdate(); 
+		// do the update of the corresponding posts here
+		$result = $replacer->API_doMetaUpdate( $newmeta ); 
+		$replacer = null;
 			
 		$getResp = array(
 			'message' => 'You requested image_meta update of '. $post_id . '. Done.',
 			'note' => 'NOT changed: aperture, camera, created_timestamp, focal_length, iso, shutter_speed, orientation',
 			'Bytes written' => (string)$success,
+			'Number of Updates' => (string)$result,
 		);
+
 	} elseif (($att) && (($type!='application/json') || ($newmeta == null))) {
 		return new WP_Error('wrong_data', 'Invalid JSON-Data in body', array( 'status' => 400 ));
+
 	} else {
 		return new WP_Error('no_image', 'Invalid Image: ' . $post_id, array( 'status' => 404 ));
 	};

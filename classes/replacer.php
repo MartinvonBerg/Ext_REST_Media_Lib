@@ -111,41 +111,50 @@ class Replacer
 		$this->updateDate(); //  
 	}
 
-	public function API_doMetaUpdate() {
-		// settings 
-		$baseurl = wp_upload_dir()['baseurl'];
+	public function API_doMetaUpdate( $newmeta ) {
+
+		// prepare the metadata from the REST POST request
+		$this->target_metadata = $this->source_metadata;
+		$newmeta = $newmeta['image_meta'];
+		$target_meta = array();
+		// TODO: sanitize the input
+		array_key_exists('alt_text', $newmeta)  ? $target_meta['alt_text'] = $newmeta['alt_text'] : '' ;
+		array_key_exists('caption',  $newmeta)  ? $target_meta['caption']  = $newmeta['caption']  : '' ;
+		$this->target_metadata['image_meta']['caption'] = $target_meta['caption'];
+		$this->target_metadata['image_meta']['alt_text'] = $target_meta['alt_text'];
+
+		$source_alt_text = get_post_meta( $this->post_id, '_wp_attachment_image_alt', true) ?? '' ;
+		$this->source_metadata['image_meta']['alt_text'] = $source_alt_text;
+
+		// get the directory in the uploads folder that contains the image 
+		$baseurl = \mvbplugins\extmedialib\get_upload_url() ; // TODO: replace with my special func to catch all cases
 		$gallerydir = \str_replace( $baseurl, '', $this->source_url );
 		$file = $this->source_metadata['original_image'];
+		if ( ! $file ) $file = $this->sourceFile->getFileName();
+
 		$gallerydir = str_replace( $file, '', $gallerydir );
 		$gallerydir = rtrim( $gallerydir, '/');
 		$gallerydir = ltrim( $gallerydir, '/');
 
 		$this->new_location_dir = $gallerydir;
 		$this->target_url = $this->source_url;
-		$this->target_metadata = $this->source_metadata;
-
-		// settings from upload.php 
+		
+		// settings from original /view/upload.php 
 		$this->replace_type = 'replace_and_search';
 		$this->timestamp_replace = 1;
 		$this->do_new_location = false;
 		
-		$args = array(
-			'thumbnails_only' => false, // means resized images only
-		);
-	
 		// Search Replace will also update thumbnails.
 		$this->setTimeMode( $this->timestamp_replace );
 
 		// Search-and-replace filename in post database
 		// TODO: Check this with scaled images. This is from the original code from enable_media_replacer
-		$base_url = parse_url($this->source_url, PHP_URL_PATH);// emr_get_match_url( $this->source_url);
+		$base_url = parse_url( $this->source_url, PHP_URL_PATH );// emr_get_match_url( $this->source_url);
 		$base_url = str_replace('.' . pathinfo($base_url, PATHINFO_EXTENSION), '', $base_url);
-		$search_urls = array();
-		$replace_urls = array();
-
+		
 		// replace-run for the baseurl only
 		$updated = $this->doMetaReplaceQuery( $base_url );
-		
+		return $updated;	
 	}
 
 	protected function doSearchReplace($args = array()) {
@@ -397,13 +406,109 @@ class Replacer
 	}
 
 	/**
-	 * search for $base_url in the database and replace the search_urls with replace_urls
+	 * search for $base_url in the database and replace metadata 'alt' and 'caption' in the code of the post
 	 *
 	 * @param string $base_url
 	 * @return int $number_of_updates
 	 */	  
 	private function doMetaReplaceQuery( $base_url )
 	{
+		/*
+		Strukturen in wp-posts, in den alt und caption ersetzt werden kann:
+			<!-- wp:media-text {"mediaId":6027, 
+				"mediaLink":"https://www.mvb1.de/franz-alpen-2015-08-133-bearbeitet-bearbeitet-2/", "mediaType":"image","mediaWidth":56,"verticalAlignment":"center","imageFill":true,"focalPoint":{"x":"0.63","y":"0.41"}} -->
+			<figure class="wp-block-media-text__media" 
+				style="background-image:url(http://www.mvb1.de/smrtzl/uploads/Alben_Website/Bike-Tete-de-Viraysse/Franz_Alpen_2015_08-133-Bearbeitet-Bearbeitet-2.jpg);background-position:63% 41%">
+				<img src="http://www.mvb1.de/smrtzl/uploads/Alben_Website/Bike-Tete-de-Viraysse/Franz_Alpen_2015_08-133-Bearbeitet-Bearbeitet-2.jpg" 
+				alt="" class="wp-image-6027 size-full"/>
+			</figure>
+			... weiterer code 
+			<!-- /wp:media-text -->
+
+			<!-- wp:image {"align":"center","id":6262,"width":-3,"height":-2,"sizeSlug":"medium","linkDestination":"none","className":"is-style-rounded"} -->
+			<div class="wp-block-image is-style-rounded">
+			<figure class="aligncenter size-medium is-resized">
+				<img src="https://www.mvb1.de/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-25-450x300.jpg" 
+				alt="Der Autor auf dem Gipfel der Serra del Prete" class="wp-image-6262" width="-3" height="-2"/>
+				<figcaption>Der Autor auf dem Gipfel der Serra del Prete</figcaption>
+			</figure>
+			</div>
+			<!-- /wp:image -->
+
+			<!-- wp:gallery {"ids":[6265,6264,6209,6260,6201,6202,6199,6598],"columns":2,"linkTo":"none","block_id":"add99315"} -->
+				<figure class="wp-block-gallery columns-2 is-cropped">
+				<ul class="blocks-gallery-grid">
+					<li class="blocks-gallery-item">
+						<figure>
+							<img src="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Italien_2018_12-1091.jpg"
+								alt="Schöne Abendstimmung am Schlafplatz" data-id="6265"
+								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Italien_2018_12-1091.jpg"
+								data-link="https://www.mvb1.de/italien-2018-12-1091/" class="wp-image-6265" />
+							<figcaption class="blocks-gallery-item__caption">Abendstimmung am Schlafplatz</figcaption>
+						</figure>
+					</li>
+					<li class="blocks-gallery-item">
+						<figure>
+							<img src="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-50.jpg" alt=""
+								data-id="6264"
+								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-50.jpg"
+								data-link="https://www.mvb1.de/hike-serra-del-prete-50/" class="wp-image-6264" />
+							<figcaption class="blocks-gallery-item__caption">Aussicht nach Nordwesten</figcaption>
+						</figure>
+					</li>
+					<li class="blocks-gallery-item">
+						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-949.jpg" alt=""
+								data-id="6209"
+								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-949.jpg"
+								data-link="https://www.mvb1.de/italien-2018-12-949/" class="wp-image-6209" />
+							<figcaption class="blocks-gallery-item__caption">Blick in die Schlucht</figcaption>
+						</figure>
+					</li>
+					<li class="blocks-gallery-item">
+						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-47.jpg"
+								alt="" data-id="6260"
+								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-47.jpg"
+								data-link="https://www.mvb1.de/hike-serra-del-prete-47/" class="wp-image-6260" />
+							<figcaption class="blocks-gallery-item__caption">Höhenzug der Serra del Prete</figcaption>
+						</figure>
+					</li>
+					<li class="blocks-gallery-item">
+						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-1001.jpg"
+								alt="" data-id="6201"
+								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-1001.jpg"
+								data-link="https://www.mvb1.de/italien-2018-12-1001/" class="wp-image-6201" />
+							<figcaption class="blocks-gallery-item__caption">Winterlicher Wald bei Civita</figcaption>
+						</figure>
+					</li>
+					<li class="blocks-gallery-item">
+						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-997.jpg" alt=""
+								data-id="6202"
+								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-997.jpg"
+								data-link="https://www.mvb1.de/italien-2018-12-997/" class="wp-image-6202" />
+							<figcaption class="blocks-gallery-item__caption">Aufstieg von der Teufelsbrücke</figcaption>
+						</figure>
+					</li>
+					<li class="blocks-gallery-item">
+						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-1009.jpg"
+								alt="" data-id="6199"
+								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-1009.jpg"
+								data-link="https://www.mvb1.de/italien-2018-12-1009/" class="wp-image-6199" />
+							<figcaption class="blocks-gallery-item__caption">Picknickplatz mit schöner Aussicht</figcaption>
+						</figure>
+					</li>
+					<li class="blocks-gallery-item">
+						<figure><img src="/smrtzl/uploads/2021/08/DSC_1667.webp" alt="Weltkugel am Hauptplatz in Wittenberg"
+								data-id="6598" data-full-url="/smrtzl/uploads/2021/08/DSC_1667.webp"
+								data-link="https://www.mvb1.de/dsc_1667/" class="wp-image-6598" />
+							<figcaption class="blocks-gallery-item__caption">Hauptplatz in Wittenberg</figcaption>
+						</figure>
+					</li>
+				</ul>
+			</figure>
+			<!-- /wp:gallery -->
+
+		*/
+
 		global $wpdb;
 		/* Search and replace in WP_POSTS */
 		// Removed $wpdb->remove_placeholder_escape from here, not compatible with WP 4.8
@@ -416,50 +521,53 @@ class Replacer
 	
 		if ( ! empty( $rs ) ) {
 			foreach ( $rs AS $rows ) {
-				$number_of_updates = $number_of_updates + 1;
-		
-				// replace old URLs with new URLs.
 				$post_content = $rows["post_content"];
+				$replaced_content = $post_content;
 				$post_id = $rows['ID'];
 
-				// find the images
-				$html = $rs[0]['post_content'];
-
+				// get all the figures in the post_content
 				$dom=new \domDocument;
-				$dom->loadHTML($html);
+				$dom->loadHTML($post_content);
+				//$figures = $dom->getElementsByTagName('figure'); // every image has to be a figure, works only with gutenberg
 
-				$figures = $dom->getElementsByTagName('figure'); // every image has to be a figure, works only with gutenberg
-
+				// get all the comments in the post_content
 				$xpath = new \DOMXpath($dom);
 				$comments = $xpath->query("//comment()");
 
-				$index = 0;
-				foreach ( $comments as $c ) { // every image has to be in a htmls comment , works only with gutenberg
+				// find all the html comments that contain gutenberg code and replace the metadata
+				// every image has to be in a html comment , works only with gutenberg
+				//$index = 0;
+				foreach ( $comments as $c ) { 
 					$text = $c->data;
 					$pos = \strpos( $text, $this->post_id );
-					if ( false !== $pos ) {
-						$found = $index;
-					}
-					$index += 1;
-				}
-				$innerhtml = $figures[ $found ];
-				// get the alt and caption
-				$result = $this->getAltCaption( $innerhtml );
 
-				// get and check current Meta-Data from WP-database.
-				$meta = wp_get_attachment_metadata( $this->$post_id );
-				
-				$replaced_content = $post_content;
-	
+					// Check whether the comment defines a Image, Gallery, or Media-with-Text. Find only the start, therefore include '{'
+					$isWpImage = 	 \strpos( $text, 'wp:image {' ) > 0 ? true : false; // Attention: works only if there is a space before 'wp:...'! Otherwise the result would be = 0
+					$isWpGallery = 	 \strpos( $text, 'wp:gallery {' ) > 0 ? true : false;
+					$isWpMediatext = \strpos( $text, 'wp:media-text {' ) > 0 ? true : false;
+					
+					// the wp-comment contains the post-id of the image, so do the replacement
+					if ( false !== $pos && ( $isWpImage || $isWpGallery || $isWpMediatext) ) {
+						$number_of_updates = $number_of_updates + 1;
+						//$found = $index;
+						//$foundtext = $text;
+						
+						// do the replacement here, because images could be used more than once in the post.
+						$replaced_content = $this->replaceMetaInContent( $base_url, $replaced_content, $text, $isWpImage, $isWpGallery, $isWpMediatext );
+					}
+
+					// increment the counter for the figures in the post, assumes that every type includes one figure
+					//if ( $isWpImage || $isWpGallery || $isWpMediatext)
+					//	$index += 1;
+					
+				}
+
+				// update the post in the database with the new content
 				if ($replaced_content !== $post_content)
 				{
-					//Log::addDebug('POST CONTENT TO SAVE', $replaced_content);
-
-					//  $result = wp_update_post($post_ar);
 					$sql = 'UPDATE ' . $wpdb->posts . ' SET post_content = %s WHERE ID = %d';
 					$sql = $wpdb->prepare($sql, $replaced_content, $post_id);
 
-					//Log::addDebug("POSt update query " . $sql);
 					$result = $wpdb->query($sql);
 		
 					if ($result === false)
@@ -468,10 +576,12 @@ class Replacer
 						//Log::addError('WP-Error during post update', $result);
 						return 0;
 					}
+				} else {
+					return 0;
 				}
 
 				// Change the post date on a post with a status other than 'draft', 'pending' or 'auto-draft'
-				// We do this always, event if the content of the post was not changed, but maybe the image-file was changed. And we are here after several checks of the REST-API.
+				// We do this always, event if the content of the post was not changed, but maybe the image-file was changed. 
 				$arg = array(
 					'ID'            => $post_id,
 					'post_date'     => $this->datetime,
@@ -479,7 +589,7 @@ class Replacer
 				);
 				$result = wp_update_post( $arg );
 				wp_cache_delete( $post_id, 'posts' );
-	
+				
 		  	}
 		}
 	
@@ -568,6 +678,83 @@ class Replacer
 		return $content;
   	}
 
+	private function replaceMetaInContent( $base_url, $post_content, $foundtext, $isWpImage, $isWpGallery, $isWpMediatext ) {
+	
+		// get the target alt and caption
+		$target_alt_caption = array(
+			'alt_text' => $this->target_metadata['image_meta']['alt_text'],
+			'caption' => $this->target_metadata['image_meta']['caption'],
+		);
+
+		// get the original html of the figure tag
+		$comment_length = strlen( $foundtext );
+		$comment_start =  strpos( $post_content, $foundtext );
+		$comment_end = 0;
+
+		if 		($isWpImage) {
+			$comment_end = \strpos( $post_content, '/wp:image', $comment_start );
+			$comment_length += strlen( '/wp:image' );
+		}
+		// 
+		elseif	($isWpGallery) {
+			$comment_end = \strpos( $post_content, '/wp:gallery', $comment_start );
+			$comment_length += strlen( '/wp:gallery' );
+		}
+		// TODO: this code won't work for media-with-text
+		elseif	($isWpMediatext) {
+			$comment_end = \strpos( $post_content, '/wp:media-text', $comment_start );
+			$comment_length += strlen( '/wp:media-text' );
+		}
+	
+		$innerhtml = substr( $post_content, $comment_start+$comment_length+4, $comment_end-$comment_length );
+		$newhtml = $innerhtml;
+
+		// get the target alt and caption
+		$source_alt_caption = $this->getAltCaption( $innerhtml );
+
+		// and correct if for the gallery
+		if ( $isWpGallery ) {
+			$start = strpos( $innerhtml, $base_url);
+			$altstart = strpos( $innerhtml, 'alt="', $start + strlen( $base_url) );
+			$altend = strpos( $innerhtml, '"', $altstart+6);
+			$source_alt_caption['alt_text'] = substr( $innerhtml, $altstart +5 , $altend - $altstart - 5);
+			$figures = explode( '<figure>', $innerhtml);
+
+			foreach ($figures as $f ) {
+				$pos = \strpos( $f, $this->post_id );
+				if ($pos > 0) {
+					$source_alt_caption = $this->getAltCaption( $f );
+					$innerhtml = $f;
+					break;
+				}
+			}
+			// do the replacement for the wp:gallery
+			if ( ! is_null( $target_alt_caption['caption'] ) )
+				$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $innerhtml);
+			if ( ! is_null( $target_alt_caption['alt_text'] ) )
+				$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $newhtml);
+		}
+
+		// do the replacement
+		if ( ! is_null( $target_alt_caption['alt_text'] ) && ( ! $isWpGallery ) )
+			$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $innerhtml);
+			
+		if ( ! is_null( $target_alt_caption['caption'] ) && $isWpImage ) {
+			if ( strlen($source_alt_caption['caption']) > 0 ) {
+				$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $newhtml);
+			} elseif ( $isWpImage ) {
+				$newcaption = '<figcaption>' . $target_alt_caption['caption'] . '</figcaption></figure>'; 
+				$newhtml = \str_replace( '</figure>', $newcaption, $newhtml);
+			}
+		}
+
+		
+	
+		// finally replace the figure content		
+		$replaced_content = str_replace( $innerhtml, $newhtml, $post_content); 
+		return $replaced_content;
+	}  
+
   	/* Check if given content is JSON format. */
 	private function isJSON($content) {
 		if (is_array($content) || is_object($content))
@@ -650,24 +837,39 @@ class Replacer
 		return $number_of_updates;
 	} // function  
 
-	private function getAltCaption ( $html ) {
-		foreach ( $html->childNodes as $child) {
-			$tag = $child->tagName;
-			if ( $tag == 'figcaption') ''; {
-				$caption = $child->textContent;
-			}
-			if ( $tag == 'img') ''; {
-				$alt = $child->attributes;
-				foreach ( $alt as $a ) {
-					if ( $a->name == 'alt') {
-						$alttext = $a->textContent;
-					}
-				}
-			}		
-		}
+	/**
+	 * Take the html-object and extract alt_text and caption of the figure tag
+	 *
+	 * @param string $html html-string representation of the html-code using the wp image from the Mediacatalog
+	 * @return array array with the current alt_text and caption of the post with the image
+	 */
+	private function getAltCaption ( string $html ) {
+		// find the alt attribute content, assuming that there is only one.
+		$patternstart = 'alt="';
+		$patternend   = '"';
+		$offset = 6;
+
+		// TODO: clean the alt and caption if there are special characters
+		$start =  strpos( $html, $patternstart );
+		$stop  =  strpos( $html, $patternend, $start + $offset );
+		
+		$alttext = \utf8_decode( substr( $html, $start + $offset -1, $stop - $start - $offset +1 ) );
+		$alttext2 = ( substr( $html, $start + $offset -1, $stop - $start - $offset +1 ) );
+		
+		$patternstart = '<figcaption';
+		$patternend   = '</figcaption>';
+		$offset = 13;
+
+		$start =  strpos( $html, $patternstart );
+		$start =  strpos( $html, '>', $start );
+		$stop  =  strpos( $html, $patternend  );
+		
+		$caption = \utf8_decode( substr( $html, $start +1 , $stop - $start -1  ) );
+		$caption2 = ( substr( $html, $start +1 , $stop - $start -1  ) );
+
 		return array(
-			'alt' => $alttext,
-			'caption' => $caption );
+			'alt_text' => $alttext2,
+			'caption' => $caption2 );
 	}
 	
 }

@@ -120,15 +120,16 @@ function special_replace($string)
 }
 
 /**
- * Update image_meta (only keywords, credit, copyright, caption, title) function to update meta-data given by $post_ID (int) and new metadata (array)
+ * Update image_meta function to update meta-data given by $post_ID and new metadata
+ * (for jpgs: only keywords, credit, copyright, caption, title) 
  *
  * @param int   $post_id ID of the attachment in the WP-Mediacatalog.
  *
- * @param array $newmeta array with newmeta data taken from the JSON-data in the POST-Request body.
+ * @param array $newmeta array with new metadata taken from the JSON-data in the POST-Request body.
  *
  * @return bool true if success, false if not: ouput of the WP function to update attachment metadata
  */
-function update_metadata($post_id, $newmeta)
+function update_metadata( int $post_id, array $newmeta)
 {
 	// get and check current Meta-Data from WP-database.
 	$meta = wp_get_attachment_metadata($post_id);
@@ -144,7 +145,7 @@ function update_metadata($post_id, $newmeta)
 		array_key_exists('title', $newmeta)     ? $meta['image_meta']['title']     = $newmeta['title']  : ''     ;
 
 		// change the image capture metadata for webp only due to the fact that WP does not write this data to the database.
-		$type = get_post_mime_type($post_id); 
+		$type = get_post_mime_type( $post_id ); 
 		if ( 'image/webp' == $type) {
 			array_key_exists('aperture', $newmeta)          ? $meta['image_meta']['aperture']           = $newmeta['aperture'] : '' ;
 			array_key_exists('camera', $newmeta)            ? $meta['image_meta']['camera']             = $newmeta['camera'] : '' ;
@@ -153,8 +154,16 @@ function update_metadata($post_id, $newmeta)
 			array_key_exists('iso', $newmeta)               ? $meta['image_meta']['iso']                = $newmeta['iso'] : '' ;
 			array_key_exists('shutter_speed', $newmeta)     ? $meta['image_meta']['shutter_speed']      = $newmeta['shutter_speed'] : '' ;
 			array_key_exists('orientation', $newmeta)       ? $meta['image_meta']['orientation']        = $newmeta['orientation'] : '' ;
-			
 		}
+
+		// Update the image_alt_text
+		// TODO: This is somehow inconsinstent as all other metadata is updated with WP standard rest requests
+		// ON the other hand is it necessary to keep the alt in the database and in the Post(s) consistent.
+		if ( array_key_exists('alt_text', $newmeta) )
+			$result = update_post_meta( $post_id, '_wp_attachment_image_alt', $newmeta['alt_text'] ); 
+
+		//if ( array_key_exists('caption', $newmeta) );
+			//$result = update_post_meta( $post_id, 'caption', $newmeta['caption'] );
 
 	}
 
@@ -169,7 +178,7 @@ function update_metadata($post_id, $newmeta)
  *
  * @return string the url of the upload dir
  */
-function get_upload_url () {
+function get_upload_url() {
 	$upload_dir = wp_upload_dir();
 	//$dir = $upload_dir['basedir'];
 	//$dir = str_replace('\\', '/', $dir);
