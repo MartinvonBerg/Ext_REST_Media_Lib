@@ -567,6 +567,7 @@ function post_meta_update($data)
 		$replacer = new \mvbplugins\extmedialib\Replacer( $post_id );
 
 		// update metadata
+		// TODO: implement a variable in the request to do the caption alternatively, like ?docaption=true
 		$success = update_metadata( $post_id, $newmeta );
 
 		// do the update of the corresponding posts here

@@ -127,7 +127,7 @@ class Replacer
 		$this->source_metadata['image_meta']['alt_text'] = $source_alt_text;
 
 		// get the directory in the uploads folder that contains the image 
-		$baseurl = \mvbplugins\extmedialib\get_upload_url() ; // TODO: replace with my special func to catch all cases
+		$baseurl = \mvbplugins\extmedialib\get_upload_url() ; // TODO: replace with my special func to catch all cases for http and https
 		$gallerydir = \str_replace( $baseurl, '', $this->source_url );
 		$file = $this->source_metadata['original_image'];
 		if ( ! $file ) $file = $this->sourceFile->getFileName();
@@ -695,12 +695,10 @@ class Replacer
 			$comment_end = \strpos( $post_content, '/wp:image', $comment_start );
 			$comment_length += strlen( '/wp:image' );
 		}
-		// 
 		elseif	($isWpGallery) {
 			$comment_end = \strpos( $post_content, '/wp:gallery', $comment_start );
 			$comment_length += strlen( '/wp:gallery' );
 		}
-		// TODO: this code won't work for media-with-text
 		elseif	($isWpMediatext) {
 			$comment_end = \strpos( $post_content, '/wp:media-text', $comment_start );
 			$comment_length += strlen( '/wp:media-text' );
