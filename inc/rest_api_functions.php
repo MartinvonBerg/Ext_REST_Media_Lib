@@ -174,18 +174,25 @@ function update_metadata( int $post_id, array $newmeta)
 }
 
 /**
- * get the upload url which corresponds to the upload directory
+ * Get the upload URL/path in right way (works with SSL).
  *
- * @return string the url of the upload dir
+ * @param string $param  "basedir" or "baseurl"
+ * @param string $subfolder  subfolder to append to basedir or baseurl
+ * @return string the base appended with subfolder
  */
-function get_upload_url() {
-	$upload_dir = wp_upload_dir();
-	//$dir = $upload_dir['basedir'];
-	//$dir = str_replace('\\', '/', $dir);
-	//$dir = str_replace('\\\\', '/', $dir);
-	//$dir = str_replace('//', '/', $dir);
-	$url = $upload_dir['baseurl'];
-	return $url;
+function get_upload_url()
+{
+	$param = 'baseurl';
+	$subfolder = '';
+
+	$upload_dir = wp_get_upload_dir();
+	$url = $upload_dir[$param];
+
+	if ($param === 'baseurl' && is_ssl()) {
+		$url = str_replace('http://', 'https://', $url);
+	}
+
+	return $url . $subfolder;
 }
 
 /* Check if given content is JSON format. */

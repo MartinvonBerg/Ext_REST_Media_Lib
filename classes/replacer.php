@@ -38,6 +38,7 @@ class Replacer
 	protected $timestamp_replace ;
 	protected $do_new_location;
 	public    $new_location_dir;
+	protected $docaption;
 
 	protected $replaceMode = 1; // replace if nothing is set
 	protected $timeMode = 1;
@@ -111,13 +112,18 @@ class Replacer
 		$this->updateDate(); //  
 	}
 
-	public function API_doMetaUpdate( $newmeta ) {
+	public function API_doMetaUpdate( $newmeta, $dothecaption ) {
+
+		$this->docaption = $dothecaption;
 
 		// prepare the metadata from the REST POST request
 		$this->target_metadata = $this->source_metadata;
 		$newmeta = $newmeta['image_meta'];
 		$target_meta = array();
-		// TODO: sanitize the input
+
+		// sanitize the input
+		$newmeta['alt_text'] = filter_var( $newmeta['alt_text'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
+		$newmeta['caption'] = filter_var( $newmeta['caption'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
 		array_key_exists('alt_text', $newmeta)  ? $target_meta['alt_text'] = $newmeta['alt_text'] : '' ;
 		array_key_exists('caption',  $newmeta)  ? $target_meta['caption']  = $newmeta['caption']  : '' ;
 		$this->target_metadata['image_meta']['caption'] = $target_meta['caption'];
@@ -127,7 +133,7 @@ class Replacer
 		$this->source_metadata['image_meta']['alt_text'] = $source_alt_text;
 
 		// get the directory in the uploads folder that contains the image 
-		$baseurl = \mvbplugins\extmedialib\get_upload_url() ; // TODO: replace with my special func to catch all cases for http and https
+		$baseurl = \mvbplugins\extmedialib\get_upload_url() ; 
 		$gallerydir = \str_replace( $baseurl, '', $this->source_url );
 		$file = $this->source_metadata['original_image'];
 		if ( ! $file ) $file = $this->sourceFile->getFileName();
@@ -150,7 +156,7 @@ class Replacer
 		// Search-and-replace filename in post database
 		// TODO: Check this with scaled images. This is from the original code from enable_media_replacer
 		$base_url = parse_url( $this->source_url, PHP_URL_PATH );// emr_get_match_url( $this->source_url);
-		$base_url = str_replace('.' . pathinfo($base_url, PATHINFO_EXTENSION), '', $base_url);
+		$base_url = str_replace('.' . pathinfo($base_url, PATHINFO_EXTENSION), '', $base_url );
 		
 		// replace-run for the baseurl only
 		$updated = $this->doMetaReplaceQuery( $base_url );
@@ -688,12 +694,12 @@ class Replacer
 
 		// get the original html of the figure tag
 		$comment_length = strlen( $foundtext );
-		$comment_start =  strpos( $post_content, $foundtext );
+		$comment_start =  strpos( $post_content, $foundtext ) +1;
 		$comment_end = 0;
 
 		if 		($isWpImage) {
-			$comment_end = \strpos( $post_content, '/wp:image', $comment_start );
-			$comment_length += strlen( '/wp:image' );
+			$comment_end = \strpos( $post_content, '/wp:image', $comment_start ) +1;
+			//$comment_length += strlen( '/wp:image' );
 		}
 		elseif	($isWpGallery) {
 			$comment_end = \strpos( $post_content, '/wp:gallery', $comment_start );
@@ -701,10 +707,10 @@ class Replacer
 		}
 		elseif	($isWpMediatext) {
 			$comment_end = \strpos( $post_content, '/wp:media-text', $comment_start );
-			$comment_length += strlen( '/wp:media-text' );
+			//$comment_length += strlen( '/wp:media-text' );
 		}
 	
-		$innerhtml = substr( $post_content, $comment_start+$comment_length+4, $comment_end-$comment_length );
+		$innerhtml = substr( $post_content, $comment_start + $comment_length, $comment_end-$comment_start - $comment_length );
 		$newhtml = $innerhtml;
 
 		// get the target alt and caption
@@ -727,7 +733,7 @@ class Replacer
 				}
 			}
 			// do the replacement for the wp:gallery
-			if ( ! is_null( $target_alt_caption['caption'] ) )
+			if ( ! is_null( $target_alt_caption['caption'] ) && $this->docaption )
 				$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $innerhtml);
 			if ( ! is_null( $target_alt_caption['alt_text'] ) )
 				$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $newhtml);
@@ -737,7 +743,7 @@ class Replacer
 		if ( ! is_null( $target_alt_caption['alt_text'] ) && ( ! $isWpGallery ) )
 			$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $innerhtml);
 			
-		if ( ! is_null( $target_alt_caption['caption'] ) && $isWpImage ) {
+		if ( ! is_null( $target_alt_caption['caption'] ) && $isWpImage && $this->docaption ) {
 			if ( strlen($source_alt_caption['caption']) > 0 ) {
 				$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $newhtml);
 			} elseif ( $isWpImage ) {
@@ -844,26 +850,35 @@ class Replacer
 	private function getAltCaption ( string $html ) {
 		// find the alt attribute content, assuming that there is only one.
 		$patternstart = 'alt="';
-		$patternend   = '"';
-		$offset = 6;
+		$patternend   = '" ';
+		$offset = 5;
 
-		// TODO: clean the alt and caption if there are special characters
 		$start =  strpos( $html, $patternstart );
 		$stop  =  strpos( $html, $patternend, $start + $offset );
 		
-		$alttext = \utf8_decode( substr( $html, $start + $offset -1, $stop - $start - $offset +1 ) );
-		$alttext2 = ( substr( $html, $start + $offset -1, $stop - $start - $offset +1 ) );
+		if ( $start && $stop ) {
+			$alttext = \utf8_decode( substr( $html, $start + $offset, $stop - $start - $offset +1 ) );
+			$alttext2 = ( substr( $html, $start + $offset -1, $stop - $start - $offset +1 ) );
+			$alttext2 = \str_replace( '"', '', $alttext2);
+		} else
+			$alttext2 = null;
 		
+		// ----------------------------------------------------
 		$patternstart = '<figcaption';
 		$patternend   = '</figcaption>';
 		$offset = 13;
 
 		$start =  strpos( $html, $patternstart );
-		$start =  strpos( $html, '>', $start );
+		if ( $start )
+			$start =  strpos( $html, '>', $start );
 		$stop  =  strpos( $html, $patternend  );
 		
-		$caption = \utf8_decode( substr( $html, $start +1 , $stop - $start -1  ) );
-		$caption2 = ( substr( $html, $start +1 , $stop - $start -1  ) );
+		if ( $start && $stop ) {
+			$caption = \utf8_decode( substr( $html, $start +1 , $stop - $start -1  ) );
+			$caption2 = ( substr( $html, $start +1 , $stop - $start -1  ) );
+			$caption2 = \str_replace( '"', '', $caption2);
+		} else
+			$caption2 = null;
 
 		return array(
 			'alt_text' => $alttext2,

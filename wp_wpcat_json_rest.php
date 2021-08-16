@@ -560,6 +560,7 @@ function post_meta_update($data)
 	$newmeta = $data->get_body(); // body e.g. as JSON with new metadata as string of POST-Request
 	$isJSON = bodyIsJSON( $newmeta );
 	$newmeta = json_decode($newmeta, $assoc=true);
+	$docaption = $data->get_params()['docaption'] == 'true' ? true : false;
 
 	if ( ($att) && ( 'application/json' == $type ) && ($newmeta != null) && $isJSON ) {
 
@@ -567,11 +568,13 @@ function post_meta_update($data)
 		$replacer = new \mvbplugins\extmedialib\Replacer( $post_id );
 
 		// update metadata
-		// TODO: implement a variable in the request to do the caption alternatively, like ?docaption=true
 		$success = update_metadata( $post_id, $newmeta );
 
 		// do the update of the corresponding posts here
-		$result = $replacer->API_doMetaUpdate( $newmeta ); 
+		// regard the variable in the request to do the caption alternatively, ?docaption=true
+		// if there is no caption at all it will only be generated for wp:image, not for wp:gallery
+		// wp:media-text doesn't have a caption at all. The alt_tag will be set always
+		$result = $replacer->API_doMetaUpdate( $newmeta, $docaption ); 
 		$replacer = null;
 			
 		$getResp = array(
