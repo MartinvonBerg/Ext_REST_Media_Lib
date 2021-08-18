@@ -4,6 +4,8 @@ import json
 import os.path
 import magic
 import array
+import re
+import xmltojson
 
 # define the tested site. TODO: read this from a file
 wp_site = {
@@ -34,6 +36,11 @@ def find_plugin_in_json_resp_body( resp_body, key, plugin_name):
             break
         index += 1
     return index  
+
+def remove_html_tags(text):
+    """Remove html tags from a string"""
+    clean = re.compile('<.*?>')
+    return re.sub(clean, '', text)
 
 class WP_REST_API():
     """Class with the WordPress site that is tested"""
@@ -127,9 +134,10 @@ class WP_REST_API():
         #super().__init__() # use this to call the constructor of the parent class if any
    
     def get_rest_fields( self, id, posttype= 'media', fields = {}):
-        newfields = fields
-        newfields['httpstatus'] = 0
-        newfields['message'] = 'Wrong id for media: not an integer above zero.'
+        
+        resp_body = {}
+        resp_body['httpstatus'] = 0
+        resp_body['message'] = 'Wrong id for media: not an integer above zero.'
 
         if isinstance(id, int) and id>0: # omitt this check for a more complete test
             keys = fields.keys()
@@ -142,12 +150,12 @@ class WP_REST_API():
             response = requests.get(geturl, headers=self.headers )
             
             resp_body = response.json()
-            resp_body['_links'] = ''
+            #resp_body['_links'] = ''
             resp_body['httpstatus'] = response.status_code
-            resp_body['message'] = 'Success'
-            newfields = resp_body
+            if response.status_code == 200:
+                resp_body['message'] = response.reason
         
-        return newfields 
+        return resp_body 
 
     def set_rest_fields( self, id, posttype= 'media', fields = {} ):
 
@@ -250,6 +258,149 @@ class WP_REST_API():
 
         return resp_body
 
+    def add_post( self, data, posttype= 'post' ):
+        resp_body = {}
+        resp_body['httpstatus'] = 0
+        resp_body['message'] = ''
+
+        # upload new image
+        if posttype == 'post':
+            geturl = self.url + '/wp-json/wp/v2/posts/'
+        elif posttype == 'page':
+            geturl = self.url + '/wp-json/wp/v2/pages/'
+        else:
+            resp_body['message'] = 'wrong posttype'
+            return resp_body
+
+        response = requests.post( geturl, headers=self.headers, data=json.dumps(data) )
+        body = json.loads( response.text)
+        resp_body['httpstatus'] = response.status_code
+        resp_body.update(body)
+        if response.status_code == 201:
+                resp_body['message'] = response.reason
+
+        return resp_body
+
+    def get_post_content(self, id, posttype= 'posts'):
+        resp_body = {}
+        resp_body['httpstatus'] = 0
+        resp_body['message'] = 'Wrong id for media: not an integer above zero.'
+
+        geturl = self.url + '/wp-json/wp/v2/' + posttype + '/' + str(id)
+        response = requests.get(geturl, headers=self.headers )
+        
+        resp_body = response.json()
+        #resp_body['_links'] = ''
+        resp_body['httpstatus'] = response.status_code
+        if response.status_code == 200:
+            resp_body['message'] = 'OK'
+        
+        return resp_body
+
+
+    def create_wp_image_gtb (self, id):
+        
+        fields = {}
+        result = self.get_rest_fields(id, 'media', fields)
+        
+        altcaption = result['media_details']['image_meta']['caption']
+        altcaption_from_title = result['media_details']['image_meta']['title']
+
+        caption = result['caption']['rendered']
+        if caption != '':
+            caption = '<figcaption>' + result['caption']['rendered'] + '</figcaption>'
+
+        alt = result['alt_text']
+        src = result['media_details']['sizes']['full']['source_url']
+
+        if result['httpstatus'] == 200:
+             content = f'\
+                <!-- wp:image {{"id":{id},"sizeSlug":"large"}} -->\
+                    <figure class="wp-block-image size-large">\
+                    <img src="{src}" alt="{alt}" class="wp-image-{id}"/>\
+                    {caption}</figure>\
+                <!-- /wp:image -->' 
+        else: 
+            content = 'Could not find image that was requested to generate the wp-image block!'
+        
+        return content
+
+    def create_wp_media_text_gtb (self, id, text, imagewidth=50, imageFill = 'false'):
+        # wp:media-text does not have a caption
+        fields = {}
+        result = self.get_rest_fields(id, 'media', fields)
+        
+        alt = result['alt_text']
+        #src = result['media_details']['sizes']['full']['source_url']
+        src = result['media_details']['sizes']['large']['source_url']
+        link = result['link']
+
+        if result['httpstatus'] == 200:
+            content = f'\
+                <!-- wp:media-text {{"mediaId":{id},"mediaLink":"{link}","mediaType":"image","mediaWidth":{imagewidth},"imageFill":{imageFill}}} -->\
+                    <div class="wp-block-media-text alignwide is-stacked-on-mobile" style="grid-template-columns:{imagewidth}% auto">\
+                    <figure class="wp-block-media-text__media">\
+                        <img src="{src}" alt="{alt}" class="wp-image-{id} size-full"/>\
+                    </figure>\
+                    <div class="wp-block-media-text__content">\
+                    <!-- wp:paragraph {{"placeholder":"Inhalt...","fontSize":"large"}} -->\
+                        <p class="has-large-font-size">{text}</p>\
+                    <!-- /wp:paragraph --></div></div>\
+                <!-- /wp:media-text -->' 
+        else: 
+            content = 'Could not find image that was requested to generate the wp-image block!'
+        
+        return content
+
+    def create_wp_gallery_gtb( self, ids={}, columns=2, galcaption = ''):
+        fields = {}
+        idsstring = ",".join( ids.values() )
+        content = ''
+        columens = str(columns)
+        if galcaption == '':
+            galcaption = 'No Caption for the Galery provided.'
+        
+
+        for id in ids.values():
+            result = self.get_rest_fields( int(id), 'media', fields)
+
+            # check http status, skip if not 200 and remove id from idsstring
+            if result['httpstatus'] == 200:
+                alt = result['alt_text']
+                srcfull = result['media_details']['sizes']['full']['source_url']
+                try:
+                    src = result['media_details']['sizes']['large']['source_url']
+                except:
+                    src = result['media_details']['sizes']['full']['source_url']
+
+                link = result['link']
+
+                caption = result['caption']['rendered']
+                caption = remove_html_tags( caption )
+                if caption == '':
+                    caption = 'No Caption found'
+                 
+                content += f'\
+                            <li class="blocks-gallery-item">\
+                            <figure><img src="{src}" alt="{alt}" data-id="{id}" data-full-url="{srcfull}"\
+                                data-link="{link}" class="wp-image-{id}" />\
+                                <figcaption class="blocks-gallery-item__caption">{caption}</figcaption>\
+                            </figure></li>'
+            
+            else:
+                idsstring = idsstring.replace( id + ',', '')
+                idsstring = idsstring.replace( id, '')
+             
+        contentbefore= f'<!-- wp:gallery {{"ids":[{idsstring}],"columns":{columns},"linkTo":"none"}} -->\
+                    <figure class="wp-block-gallery columns-{columns} is-cropped">\
+                    <ul class="blocks-gallery-grid">'    
+
+        content = contentbefore + content    
+        
+        content += f'</ul><figcaption class="blocks-gallery-caption">{galcaption}</figcaption>\
+                    </figure><!-- /wp:gallery -->'
+        
+        return content
 
 class WP_EXT_REST_API(WP_REST_API):
     """Extension with methods for Extended REST-API of the Class with the WordPress site that is tested"""
@@ -403,9 +554,53 @@ class WP_EXT_REST_API(WP_REST_API):
         return resp_body
 
     def post_add_image_to_folder( self, folder, imagefile ):
-        method = 'post'
-        return 0
+        resp_body = {}
+        resp_body['httpstatus'] = 0
+        resp_body['message'] = ''
 
+        # check path to the image file
+        isfile = os.path.isfile( imagefile )
+        if not isfile:
+            path = os.getcwd()
+            # TODO: this is only correct for windows!
+            fname = path + '\\test\\testdata\\' + imagefile
+            isfile = os.path.isfile( fname )
+            if not isfile:
+                return 0
+        else: 
+            fname = imagefile
+
+        # read the image file to a binary string
+        fin = open(fname, "rb")
+        data = fin.read()
+        fin.close()
+
+        #get the base filename with extension
+        imagefile = os.path.basename( fname )
+
+        # check image mime
+        mime = magic.Magic(mime=True)
+        mimetype = mime.from_file(fname)
+        if mimetype not in self.mimetypes:
+            resp_body['message'] = 'Wrong mime type. Try it anyway.'
+       
+        # upload new image
+        geturl = self.url + '/wp-json/extmedialib/v1/addtofolder/' + folder
+        # set the header. 
+        header = self.headers
+        header['Content-Disposition'] = 'attachment; filename=' + imagefile
+        header['Content-Type'] = mimetype
+
+        response = requests.post(geturl, headers=header, data=data )
+        resp_body.update( json.loads( response.text) )
+
+        # return id of the new image on success
+        resp_body['httpstatus'] = response.status_code
+        #resp_body['message'] += response.reason
+       
+        return resp_body
+      
+    # ------ This methodes are currently not implemented and therefore not tested
     def get_add_image_from_folder( self ):
         method = 'get'
         return 0
@@ -430,7 +625,7 @@ if __name__ == '__main__':
         'mime_type': '',
         'media_details' : ''
     }
-    id = 133
+    id = 199
    
     result = wp.set_attachment_image_meta( id, 'media', {
         'image_meta' : { 
@@ -463,10 +658,41 @@ if __name__ == '__main__':
     #result = wp.post_update_image(id, 'DSC_1722.webp')
     #print ( str(result['httpstatus']) + ' : ' + result['message'] )
 
-    result = wp.get_update_image( 133 )
+    #result = wp.get_update_image( 133 )
+    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
+
+    #result = wp.post_add_image_to_folder( 'test333', 'DSC_1722.webp')
+    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
+    # 
+    id = 133
+
+    content = wp.create_wp_image_gtb(id)
+    content += wp.create_wp_media_text_gtb(11, 'Verdammt des is so a sauwetter, da magst net raus', 75, 'false')
+    content += wp.create_wp_image_gtb(11)
+    content += wp.create_wp_image_gtb(241)
+    ids = {
+        0: '149',
+        1: '148',
+        2: '135',
+        3: '280',
+        4: '9999',
+        5: '22',
+        6: '23'
+    }
+
+    newcontent = wp.create_wp_gallery_gtb( ids)
+    
+  
+    data = \
+    {
+        "title":"Beitrag mit drei Bildern",
+        "content": newcontent,
+        "status": "publish",
+    }
+
+    result = wp.add_post( data, 'post' )
     print ( str(result['httpstatus']) + ' : ' + result['message'] )
 
-    result = wp.get_add_image_to_folder( 'test333' )
-    print ( str(result['httpstatus']) + ' : ' + result['message'] )
-    # 
-    
+    newcreated = result['id']
+    newcontent = wp.get_post_content( newcreated)
+
