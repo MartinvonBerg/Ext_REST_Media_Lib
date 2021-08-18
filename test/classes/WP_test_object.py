@@ -6,6 +6,7 @@ import magic
 import array
 import re
 import xmltojson
+from copy import copy
 
 # define the tested site. TODO: read this from a file
 wp_site = {
@@ -41,6 +42,42 @@ def remove_html_tags(text):
     """Remove html tags from a string"""
     clean = re.compile('<.*?>')
     return re.sub(clean, '', text)
+
+def find_image_tag_in_dic(newdict, id, tag):
+    result = []
+    path = []
+    
+    # i is the index of the list that dict_obj is part of
+    def find_path(dict_obj,key,i=None):
+        for k,v in dict_obj.items():
+            # add key to path
+            path.append(k)
+            if isinstance(v,dict):
+                # continue searching
+                find_path(v, key,i)
+            if isinstance(v,list):
+                # search through list of dictionaries
+                for i,item in enumerate(v):
+                    # add the index of list that item dict is part of, to path
+                    path.append(i)
+                    if isinstance(item,dict):
+                        # continue searching in item dict
+                        find_path(item, key,i)
+                    # if reached here, the last added index was incorrect, so removed
+                    path.pop()
+            #if k == key:
+            if v == key:
+                # add path to our result
+                result.append(copy(path))
+            # remove the key added in the first line
+            if path != []:
+                path.pop()
+    
+    # default starting index is set to None
+    find_path(newdict , str(id))
+    # [['figure', 'ul', 'li', 0, 'figure', 'img', '@data-id']]
+    
+    return result
 
 class WP_REST_API():
     """Class with the WordPress site that is tested"""
@@ -690,9 +727,16 @@ if __name__ == '__main__':
         "status": "publish",
     }
 
-    result = wp.add_post( data, 'post' )
-    print ( str(result['httpstatus']) + ' : ' + result['message'] )
+    #result = wp.add_post( data, 'post' )
+    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
 
-    newcreated = result['id']
-    newcontent = wp.get_post_content( newcreated)
+    newcreated = 394
+    newcontent = wp.get_post_content( newcreated)['content']['rendered']
+    html = xmltojson.parse(newcontent)
+    new = json.loads(html)
+    
+    result= find_image_tag_in_dic(new, 149, 'alt')
+    print(result)
+    a=1
+    
 
