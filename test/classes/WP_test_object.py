@@ -27,10 +27,13 @@ def validateJSON(jsonData):
         return False
     return True
 
-def find_plugin_in_json_resp_body( resp_body, key, plugin_name ):
-     index = 0
-     
-     return index
+def find_plugin_in_json_resp_body( resp_body, key, plugin_name):
+    index = 0
+    for pi in resp_body:
+        if pi[key] == plugin_name:
+            break
+        index += 1
+    return index  
 
 class WP_REST_API():
     """Class with the WordPress site that is tested"""
@@ -253,9 +256,19 @@ class WP_EXT_REST_API(WP_REST_API):
     tested_plugin_dir = 'wp-wpcat-json-rest/wp_wpcat_json_rest'
     tested_plugin_name = 'Ext_REST_Media_Lib'
     tested_plugin_min_version = '0.0.14'
+    tested_plugin_version = ''
+    tested_plugin_activated = False
+
+    def get_tested_plugin ( self ):
+        self.tested_plugin_version = ''
+        index = find_plugin_in_json_resp_body( self.plugins, 'name', self.tested_plugin_name)
+        self.tested_plugin_version = self.plugins[index]['version']
+        if self.plugins[index]['status'] == 'active':
+            self.tested_plugin_activated = True
 
     def __init__(self, args_in_array):
         super().__init__( args_in_array )
+        self.get_tested_plugin()
 
     def set_attachment_image_meta( self, id, posttype= 'media', fields = {} ):
 
@@ -302,10 +315,22 @@ class WP_EXT_REST_API(WP_REST_API):
         
         return resp_body
 
-    
-    def get_update_image( self ):
-        method = 'get'
-        return 0
+    def get_update_image( self, id ):
+        resp_body = {}
+        resp_body['httpstatus'] = 0
+        resp_body['message'] = ''
+
+        # upload new image
+        geturl = self.url + '/wp-json/extmedialib/v1/update/' + str(id)
+        
+        response = requests.get(geturl, headers=self.headers )
+        resp_body.update( json.loads( response.text) )
+
+        # return id of the new image on success
+        if response.status_code == 200:
+            resp_body['httpstatus'] = response.status_code
+        
+        return resp_body
 
     def post_update_image( self, id, imagefile, changemime=True ):
         resp_body = {}
@@ -320,6 +345,7 @@ class WP_EXT_REST_API(WP_REST_API):
             fname = path + '\\test\\testdata\\' + imagefile
             isfile = os.path.isfile( fname )
             if not isfile:
+                resp_body['message'] = 'File not found'
                 return resp_body
         else: 
             fname = imagefile
@@ -352,20 +378,31 @@ class WP_EXT_REST_API(WP_REST_API):
         resp_body.update( json.loads( response.text) )
 
         # return id of the new image on success
-        if response.status_code == 201:
+        if response.status_code == 200:
             resp_body['httpstatus'] = response.status_code
-            resp_body['message'] += response.reason
+        
         else:
             resp_body['message'] += 'Error. Could not update image.'
 
         return resp_body
        
+    def get_add_image_to_folder( self, folder ):
+        resp_body = {}
+        resp_body['httpstatus'] = 0
+        resp_body['message'] = ''
 
-    def get_add_image_to_folder( self ):
-        method = 'get'
-        return 0
+        # upload new image
+        geturl = self.url + '/wp-json/extmedialib/v1/addtofolder/' + folder
+        
+        response = requests.get(geturl, headers=self.headers )
+        resp_body.update( json.loads( response.text) )
 
-    def post_add_image_to_folder( self ):
+        # return id of the new image on success
+        resp_body['httpstatus'] = response.status_code
+        
+        return resp_body
+
+    def post_add_image_to_folder( self, folder, imagefile ):
         method = 'post'
         return 0
 
@@ -423,7 +460,13 @@ if __name__ == '__main__':
     #result = wp.delete_media( result['id'])
     #print ( str(result['httpstatus']) + ' : ' + result['message'] )
 
-    result = wp.post_update_image(id, 'DC_1972.webp')
+    #result = wp.post_update_image(id, 'DSC_1722.webp')
+    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
+
+    result = wp.get_update_image( 133 )
+    print ( str(result['httpstatus']) + ' : ' + result['message'] )
+
+    result = wp.get_add_image_to_folder( 'test333' )
     print ( str(result['httpstatus']) + ' : ' + result['message'] )
     # 
     
