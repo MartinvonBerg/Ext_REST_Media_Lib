@@ -7,6 +7,7 @@ import array
 import re
 import xmltojson
 from copy import copy
+from lxml import html, etree
 
 # define the tested site. TODO: read this from a file
 wp_site = {
@@ -43,7 +44,7 @@ def remove_html_tags(text):
     clean = re.compile('<.*?>')
     return re.sub(clean, '', text)
 
-def find_image_tag_in_dic(newdict, id, tag):
+def find_image_tag_in_dic(newdict, id, tagtype, tag):
     result = []
     path = []
     
@@ -73,10 +74,43 @@ def find_image_tag_in_dic(newdict, id, tag):
             if path != []:
                 path.pop()
     
-    # default starting index is set to None
+    # find the value ins the dict: default starting index is set to None
     find_path(newdict , str(id))
     # [['figure', 'ul', 'li', 0, 'figure', 'img', '@data-id']]
-    
+    # get the tag of the 'img' element
+    index = 0
+    for t in result[0]:
+        if index == 0:
+            wert = newdict[t]
+        else:
+            wert = wert[t]
+        if t == 'img':
+            break
+        index += 1
+
+    imageindex = index
+
+    if tagtype == 'img':        
+        result = wert['@'+tag]
+
+    elif tagtype == 'figcaption':
+        if tag == 'text': 
+            tag = '#text'
+        else:
+            tag = '@' + tag
+
+        index = 0
+        for t in result[0]:
+            if index == 0:
+                wert = newdict[t]
+            else:
+                wert = wert[t]
+            if index == imageindex-1:
+                break
+            index += 1
+
+        result = wert['figcaption'][tag]
+            
     return result
 
 class WP_REST_API():
@@ -329,6 +363,7 @@ class WP_REST_API():
         resp_body = response.json()
         #resp_body['_links'] = ''
         resp_body['httpstatus'] = response.status_code
+        resp_body['headers'] = response.headers
         if response.status_code == 200:
             resp_body['message'] = 'OK'
         
@@ -647,7 +682,7 @@ class WP_EXT_REST_API(WP_REST_API):
         return 0    
 
 if __name__ == '__main__':
-    wp = WP_EXT_REST_API( wp_site2 )   
+    wp = WP_EXT_REST_API( wp_site )   
     wp.get_number_of_posts() 
     print (wp.url,  ' with version: ', wp.wpversion) 
     #wp.media['count'] = 93
@@ -662,24 +697,24 @@ if __name__ == '__main__':
         'mime_type': '',
         'media_details' : ''
     }
-    id = 199
+    id = 6538
    
-    result = wp.set_attachment_image_meta( id, 'media', {
-        'image_meta' : { 
-            'aperture' : '88', 
-            'credit' : 'Martin von Berg', 
-            'camera' : 'Nikon D7500',
-            "caption": "des is a buildl mit schiffli",
-            #"created_timestamp": "0",
-            "copyright": "vom maddin",
-            "focal_length": "500",
-            "iso": "100",
-            "shutter_speed": "0.001",
-            "title": "superbild von mir mit schiffen",
-            "orientation": "1",
-            "keywords": [ 'bild', 'hafen', 'stralsund', 'schiffe']
-            } } )
-    print ( str(result['httpstatus']) + ' : ' + result['message'] )
+    #result = wp.set_attachment_image_meta( id, 'media', {
+    #    'image_meta' : { 
+    #        'aperture' : '88', 
+    #        'credit' : 'Martin von Berg', 
+    #        'camera' : 'Nikon D7500',
+    #        "caption": "des is a buildl mit schiffli",
+    #        #"created_timestamp": "0",
+    #        "copyright": "vom maddin",
+    #        "focal_length": "500",
+    #        "iso": "100",
+    #        "shutter_speed": "0.001",
+    #        "title": "superbild von mir mit schiffen",
+    #        "orientation": "1",
+    #        "keywords": [ 'bild', 'hafen', 'stralsund', 'schiffe']
+    #        } } )
+    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
 
     result = wp.get_rest_fields( id, 'media', fields )
     print ( str(result['httpstatus']) + ' : ' + result['message'] )
@@ -701,12 +736,12 @@ if __name__ == '__main__':
     #result = wp.post_add_image_to_folder( 'test333', 'DSC_1722.webp')
     #print ( str(result['httpstatus']) + ' : ' + result['message'] )
     # 
-    id = 133
+   #id = 133
 
-    content = wp.create_wp_image_gtb(id)
-    content += wp.create_wp_media_text_gtb(11, 'Verdammt des is so a sauwetter, da magst net raus', 75, 'false')
-    content += wp.create_wp_image_gtb(11)
-    content += wp.create_wp_image_gtb(241)
+    #content = wp.create_wp_image_gtb(id)
+    #content += wp.create_wp_media_text_gtb(11, 'Verdammt des is so a sauwetter, da magst net raus', 75, 'false')
+    #content += wp.create_wp_image_gtb(11)
+    #content += wp.create_wp_image_gtb(241)
     ids = {
         0: '149',
         1: '148',
@@ -717,26 +752,37 @@ if __name__ == '__main__':
         6: '23'
     }
 
-    newcontent = wp.create_wp_gallery_gtb( ids)
+    #newcontent = wp.create_wp_gallery_gtb( ids)
     
   
-    data = \
-    {
-        "title":"Beitrag mit drei Bildern",
-        "content": newcontent,
-        "status": "publish",
-    }
+    #data = \
+    #{
+    #    "title":"Beitrag mit drei Bildern",
+    #    "content": newcontent,
+    #    "status": "publish",
+    #}
 
     #result = wp.add_post( data, 'post' )
     #print ( str(result['httpstatus']) + ' : ' + result['message'] )
 
-    newcreated = 394
-    newcontent = wp.get_post_content( newcreated)['content']['rendered']
-    html = xmltojson.parse(newcontent)
-    new = json.loads(html)
+    newcreated = 6568
     
-    result= find_image_tag_in_dic(new, 149, 'alt')
+    newcontent = wp.get_post_content(newcreated, posttype='posts')
+    #newcontent = newcontent.replace('\n','')
+    #isJSON = validateJSON(newcontent)
+    #if isJSON:
+    #    html = xmltojson.parse(newcontent)
+    #    new = json.loads(html)
+    
+    #doc = html.fromstring( newcontent)
+    
+    #result = find_image_tag_in_dic(new, 149, 'img', 'alt')
+    # possible tag-values for an image in a gallery are:
+    #       all with @ before: loading, width, height, src, alt, data-id, data-full-url, data-link, class, srcset, sizes
+    # figcaption is parallel to image und figure in all cases and has #text and @class nothing else
+    #print(result)
+
+    #result = find_image_tag_in_dic(new, 149, 'figcaption', 'text')
     print(result)
-    a=1
     
 
