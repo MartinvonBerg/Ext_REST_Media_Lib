@@ -24,14 +24,14 @@ wp_site2 = {
     'authentication' : 'Basic TWFydGluOm4yc2pLdlE5Z1ZzaUNQRzJ0OGZjeUFCMA=='
 }
 
-def validateJSON(jsonData):
+def validateJSON(jsonData: str):
     try:
         json.loads(jsonData)
     except:
         return False
     return True
 
-def find_plugin_in_json_resp_body( resp_body, key, plugin_name):
+def find_plugin_in_json_resp_body( resp_body: dict, key: str, plugin_name: str):
     index = 0
     for pi in resp_body:
         if pi[key] == plugin_name:
@@ -39,17 +39,19 @@ def find_plugin_in_json_resp_body( resp_body, key, plugin_name):
         index += 1
     return index  
 
-def remove_html_tags(text):
+def remove_html_tags(text: str):
     """Remove html tags from a string"""
     clean = re.compile('<.*?>')
     return re.sub(clean, '', text)
 
-def find_image_tag_in_dic(newdict, id, tagtype, tag):
+def find_value_in_dic(newdict: dict, id: int, tagtype: str, tag: str):
+    """ Find an img-tag specified by id in a dictionary of html-tags 
+    and return the path of keys (list-type) to the tag of this value."""
     result = []
     path = []
     
     # i is the index of the list that dict_obj is part of
-    def find_path(dict_obj,key,i=None):
+    def find_path(dict_obj: dict ,key: str,i=None):
         for k,v in dict_obj.items():
             # add key to path
             path.append(k)
@@ -114,7 +116,7 @@ def find_image_tag_in_dic(newdict, id, tagtype, tag):
     return result
 
 class WP_REST_API():
-    """Class with the WordPress site that is tested"""
+    """Class with methods to access a WordPress site via the REST-API"""
     url = ''
     rest_route = ''
     wpuser = ''
@@ -161,7 +163,7 @@ class WP_REST_API():
                   self.isgutbgactive = True
               index += 1
 
-    def get_number_of_posts( self, posttype= 'media'):
+    def get_number_of_posts( self, posttype='media'):
         if posttype == 'media':
             count = 0
             pagenumber = 1
@@ -187,7 +189,7 @@ class WP_REST_API():
         if posttype == 'posts':
             self.posts['count'] = 0 
     
-    def __init__(self, args_in_array):
+    def __init__(self, args_in_array: dict):
         self.url = args_in_array['url']
         self.rest_route = args_in_array['rest_route']
         self.wpauth = args_in_array['authentication']
@@ -204,7 +206,7 @@ class WP_REST_API():
         #self.get_number_of_posts( 'media')
         #super().__init__() # use this to call the constructor of the parent class if any
    
-    def get_rest_fields( self, id, posttype= 'media', fields = {}):
+    def get_rest_fields( self, id: int, posttype='media', fields = {}):
         
         resp_body = {}
         resp_body['httpstatus'] = 0
@@ -228,7 +230,7 @@ class WP_REST_API():
         
         return resp_body 
 
-    def set_rest_fields( self, id, posttype= 'media', fields = {} ):
+    def set_rest_fields( self, id: int, posttype='media', fields = {} ):
 
         resp_body = {}
         resp_body['httpstatus'] = 0
@@ -266,7 +268,7 @@ class WP_REST_API():
         
         return resp_body
 
-    def add_media( self, imagefile ):
+    def add_media( self, imagefile: str ):
 
         resp_body = {}
         resp_body['httpstatus'] = 0
@@ -317,7 +319,7 @@ class WP_REST_API():
 
         return resp_body
 
-    def delete_media( self, id, posttype= 'media' ):
+    def delete_media( self, id: int, posttype='media' ):
         #do : http://127.0.0.1/wordpress/wp-json/wp/v2/media/3439?force=1
         
         # delete image 
@@ -329,7 +331,7 @@ class WP_REST_API():
 
         return resp_body
 
-    def add_post( self, data, posttype= 'post' ):
+    def add_post( self, data: dict, posttype='post' ):
         resp_body = {}
         resp_body['httpstatus'] = 0
         resp_body['message'] = ''
@@ -343,16 +345,20 @@ class WP_REST_API():
             resp_body['message'] = 'wrong posttype'
             return resp_body
 
-        response = requests.post( geturl, headers=self.headers, data=json.dumps(data) )
+        header = self.headers
+        header["Content-Type"] = "application/json"
+
+        response = requests.post( geturl, headers=header, data=json.dumps(data) )
         body = json.loads( response.text)
         resp_body['httpstatus'] = response.status_code
         resp_body.update(body)
+
         if response.status_code == 201:
                 resp_body['message'] = response.reason
 
         return resp_body
 
-    def get_post_content(self, id, posttype= 'posts'):
+    def get_post_content(self, id: int, posttype='posts'):
         resp_body = {}
         resp_body['httpstatus'] = 0
         resp_body['message'] = 'Wrong id for media: not an integer above zero.'
@@ -369,8 +375,7 @@ class WP_REST_API():
         
         return resp_body
 
-
-    def create_wp_image_gtb (self, id):
+    def create_wp_image_gtb (self, id: int):
         
         fields = {}
         result = self.get_rest_fields(id, 'media', fields)
@@ -397,7 +402,7 @@ class WP_REST_API():
         
         return content
 
-    def create_wp_media_text_gtb (self, id, text, imagewidth=50, imageFill = 'false'):
+    def create_wp_media_text_gtb (self, id:int, text: str, imagewidth=50, imageFill ='false'):
         # wp:media-text does not have a caption
         fields = {}
         result = self.get_rest_fields(id, 'media', fields)
@@ -474,15 +479,21 @@ class WP_REST_API():
         
         return content
 
-class WP_EXT_REST_API(WP_REST_API):
-    """Extension with methods for Extended REST-API of the Class with the WordPress site that is tested"""
+class WP_EXT_REST_API( WP_REST_API ):
+    """Extend the class WP_REST_API with methods for the plugin that
+    extendeds the REST-API of WordPress to update images and add images 
+    to dedicated folders."""
     tested_plugin_dir = 'wp-wpcat-json-rest/wp_wpcat_json_rest'
     tested_plugin_name = 'Ext_REST_Media_Lib'
     tested_plugin_min_version = '0.0.14'
     tested_plugin_version = ''
     tested_plugin_activated = False
+    created_images = {}
+    created_posts = {}
+    created_pages = {}
 
     def get_tested_plugin ( self ):
+        """ Get some information about the tested plugin."""
         self.tested_plugin_version = ''
         index = find_plugin_in_json_resp_body( self.plugins, 'name', self.tested_plugin_name)
         self.tested_plugin_version = self.plugins[index]['version']
@@ -493,8 +504,9 @@ class WP_EXT_REST_API(WP_REST_API):
         super().__init__( args_in_array )
         self.get_tested_plugin()
 
-    def set_attachment_image_meta( self, id, posttype= 'media', fields = {} ):
-
+    def set_attachment_image_meta( self, id: int, posttype= 'media', fields = {} ):
+        """ Write the image_meta given in fields via REST-API Extension to WordPress. 
+        Othe values than image_meta are silently ignored."""
         resp_body = {}
         resp_body['httpstatus'] = 0
         resp_body['message'] = ''
@@ -538,7 +550,8 @@ class WP_EXT_REST_API(WP_REST_API):
         
         return resp_body
 
-    def get_update_image( self, id ):
+    def get_update_image( self, id: int ):
+        """ Call the GET-method of route 'update' of REST-API Extension"""
         resp_body = {}
         resp_body['httpstatus'] = 0
         resp_body['message'] = ''
@@ -555,7 +568,9 @@ class WP_EXT_REST_API(WP_REST_API):
         
         return resp_body
 
-    def post_update_image( self, id, imagefile, changemime=True ):
+    def post_update_image( self, id: int, imagefile: str, changemime=True ):
+        """ Call the POST-method of route 'update' of REST-API Extension. Update the image 
+        with the provided path to the imagefile. Update meta-data seperately."""
         resp_body = {}
         resp_body['httpstatus'] = 0
         resp_body['message'] = ''
@@ -609,7 +624,8 @@ class WP_EXT_REST_API(WP_REST_API):
 
         return resp_body
        
-    def get_add_image_to_folder( self, folder ):
+    def get_add_image_to_folder( self, folder: str ):
+        """ Call the GET-method of route 'addtofolder' of REST-API Extension."""
         resp_body = {}
         resp_body['httpstatus'] = 0
         resp_body['message'] = ''
@@ -625,7 +641,10 @@ class WP_EXT_REST_API(WP_REST_API):
         
         return resp_body
 
-    def post_add_image_to_folder( self, folder, imagefile ):
+    def post_add_image_to_folder( self, folder: str, imagefile: str ):
+        """ Call the POST-method of route 'addtofolder' of REST-API Extension and add
+        the provided imagefile to the folder under ../uploads in WordPress. Similar to
+        method 'add_media' of the Base-Class but adds the image to a dedicated folder."""
         resp_body = {}
         resp_body['httpstatus'] = 0
         resp_body['message'] = ''
@@ -682,7 +701,7 @@ class WP_EXT_REST_API(WP_REST_API):
         return 0    
 
 if __name__ == '__main__':
-    wp = WP_EXT_REST_API( wp_site )   
+    wp = WP_EXT_REST_API( wp_site2 )   
     wp.get_number_of_posts() 
     print (wp.url,  ' with version: ', wp.wpversion) 
     #wp.media['count'] = 93
@@ -752,22 +771,23 @@ if __name__ == '__main__':
         6: '23'
     }
 
-    #newcontent = wp.create_wp_gallery_gtb( ids)
+    newcontent = wp.create_wp_gallery_gtb( ids, 3, 'Untertitel der besten Galerie aller Zeiten')
     
   
-    #data = \
-    #{
-    #    "title":"Beitrag mit drei Bildern",
-    #    "content": newcontent,
-    #    "status": "publish",
-    #}
+    data = \
+    {
+        "title":"Galerie mit sechs Bildern",
+        "content": newcontent,
+        "status": "publish",
+    }
 
-    #result = wp.add_post( data, 'post' )
-    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
+    result = wp.add_post( data, 'post' )
+    print ( str(result['httpstatus']) + ' : ' + result['message'] )
 
-    newcreated = 6568
+    if result['httpstatus'] == 200:
+        newcreated = result['id']
+        newcontent = wp.get_post_content(newcreated, posttype='posts')
     
-    newcontent = wp.get_post_content(newcreated, posttype='posts')
     #newcontent = newcontent.replace('\n','')
     #isJSON = validateJSON(newcontent)
     #if isJSON:
@@ -783,6 +803,6 @@ if __name__ == '__main__':
     #print(result)
 
     #result = find_image_tag_in_dic(new, 149, 'figcaption', 'text')
-    print(result)
+    #print(result)
     
 
