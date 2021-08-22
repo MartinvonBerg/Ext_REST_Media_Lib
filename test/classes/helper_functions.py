@@ -18,7 +18,9 @@ def find_plugin_in_json_resp_body( resp_body: dict, key: str, plugin_name: str):
 def remove_html_tags(text: str):
     """Remove html tags from a string"""
     clean = re.compile('<.*?>')
-    return re.sub(clean, '', text)
+    text = re.sub(clean, '', text)
+    text = text.replace('\n','')
+    return text
 
 def find_value_in_dic(newdict: dict, id: int, tagtype: str, tag: str):
     """ Find an img-tag specified by id in a dictionary of html-tags 

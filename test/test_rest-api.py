@@ -12,7 +12,7 @@ SCRIPT_DIR2 = os.path.join(SCRIPT_DIR, 'classes')
 sys.path.append(SCRIPT_DIR2)
 
 from WP_test_object import WP_EXT_REST_API, WP_REST_API
-from helper_functions import find_plugin_in_json_resp_body
+from helper_functions import find_plugin_in_json_resp_body, remove_html_tags
 
 # define the tested site.
 wp_site = {
@@ -41,6 +41,14 @@ files = os.listdir( testdata )
 jpgfiles = [x for x in files if x.endswith('.jpg') == True]
 webpfiles = [x for x in files if x.endswith('.webp') == True]
 files = jpgfiles + webpfiles
+
+cfpath = os.path.join(SCRIPT_DIR, 'createdfiles.json')
+if os.path.isfile( cfpath ):
+     f = open( cfpath )
+     files = json.load(f)
+     f.close()
+     
+
 print('Files collected')
 
 # --------------- tests --------------------------------------------
@@ -137,13 +145,14 @@ def test_rest_api_request_active_theme():
      assert resp_body[pi_index]['status'] == 'active'
      assert ( StrictVersion( resp_body[pi_index]['version'] ) >= '0.0.1' ) == True
 
-def test_get_number_of_images_in_medialib():
+def xxxtest_get_number_of_images_in_medialib():
      wp.get_number_of_posts() 
      print ('--- Counted ' +  str(wp.media['count']) + ' images in the media library.')
      assert wp.media['count'] > 0
 
 @pytest.mark.parametrize( "image_file", files)
-def test_image_upload_with_ext_rest_api( image_file):
+def xxxtest_image_upload_with_ext_rest_api( image_file ):
+     createdfiles = []
      image_number_before = wp.media['count']
 
      # get current time and
@@ -167,6 +176,13 @@ def test_image_upload_with_ext_rest_api( image_file):
           wp.created_images[n]['original_file'] = result['new_file_name']
           wp.last_media_id = result['id']
           wp.last_index_in_created_images = n
+          createdfiles.append( [ result['id'], image_file ] )
+
+
+     #save filename and id
+     if (n+1) == len(files):
+           with open('createdfiles.json', 'w', encoding='utf-8') as f:
+               json.dump( createdfiles, f, ensure_ascii=False, indent=4)
 
      print('--- ', result['message'])
      
@@ -198,7 +214,7 @@ def test_image_upload_with_ext_rest_api( image_file):
          
 
      # check the attachment type
-     print('--- attachment tpye: ', result['media_type'])
+     print('--- attachment type: ', result['media_type'])
      assert result['media_type'] == 'image'
 
      # check the guid
@@ -207,12 +223,13 @@ def test_image_upload_with_ext_rest_api( image_file):
      assert result['guid']['rendered'] ==  expguid 
      
      #assert result['source_url'] == expguid
+     # check the link url
      basename = os.path.splitext( image_file)[0]
      explink = wp.url + '/' + basename + '/'
      explink = explink.lower()
      explink = explink.replace('_','-')
      print('--- link: ', result['link'])
-     assert result['link'] == explink # wp.url + filename ohne extension / am Ende
+     assert result['link'] == explink # wp.url + filename ohne extension, aber '/' am Ende
 
      # check the time
      imagetime = datetime.datetime.strptime( result['modified_gmt'], "%Y-%m-%dT%H:%M:%S")
@@ -226,18 +243,106 @@ def test_image_upload_with_ext_rest_api( image_file):
      mimetype = mime.from_file( fullpath )
      print('--- mime-type: ', result['mime_type'])
      assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
-     
-def test_id_of_created_images():
-     #img = wp.created_images[ wp.last_index_in_created_images ]
-     id = wp.last_media_id
-     #assert 0 == 1 # use this for debugging with pytest --pdb. pytest stops at the first assertion error
-     assert isinstance(id, int) == True
 
-     end = len(wp.created_images)
-     for i in range(0, end): 
-           assert isinstance( wp.created_images[i]['id'], int) == True   
+@pytest.mark.parametrize( "image_file", files)     
+def test_id_of_created_images( image_file ):
+     if type(image_file) == list:
+          id = image_file[0]
+          file = image_file[1]
+          print('entry: ', image_file, ' is type ', type(image_file), '. ID=',id, 'and file is', file)
+          assert isinstance(id, int) == True
+          assert isinstance(file, str) == True
+     else:     
+          #img = wp.created_images[ wp.last_index_in_created_images ]
+          id = wp.last_media_id
+          #assert 0 == 1 # use this for debugging with pytest --pdb. pytest stops at the first assertion error
+          assert isinstance(id, int) == True
 
-def test_clean_up():
+          end = len(wp.created_images)
+          for i in range(0, end): 
+               assert isinstance( wp.created_images[i]['id'], int) == True 
+      
+def test_get_number_of_posts_and_upload_dir():
+     # check the number of media in the media library
+     wp.get_number_of_posts()
+     print('--- new image count: ', wp.media['count'])
+
+@pytest.mark.parametrize( "image_file", files)
+def test_update_image_metadata( image_file ): 
+     uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=5) 
+
+     if type(image_file) == list:
+          id = image_file[0]
+          sid = str(id)
+          imgfile = image_file[1]
+          ts = str( round(datetime.datetime.now().timestamp()) )
+          rest_fields = { 
+               'title' :        'title' + sid + '_' + ts, 
+               'gallery_sort' : sid, 
+               'description' : 'descr' + sid + '_' + ts, 
+               'caption' :     'caption' + sid + '_' + ts, 
+               'alt_text' :    'alt' + sid + '_' + ts }
+
+          result = wp.set_rest_fields( id, 'media', rest_fields )
+          assert result['httpstatus'] == 200 
+
+          result = wp.get_rest_fields( id, 'media' )
+          assert result['httpstatus'] == 200 
+
+          print ('Comparing: ', result['id'])  
+          assert result['id'] == id
+
+          print('--- title: ', result['title']['rendered'] )
+          assert result['title']['rendered'] == rest_fields['title']
+
+          print('--- gallery_sort: ', result['gallery_sort'] )
+          assert result['gallery_sort'] == rest_fields['gallery_sort']
+
+          #assert result['description'] == rest_fields['description']
+          cap = remove_html_tags( result['caption']['rendered'] )
+
+          print('--- caption: ', cap )
+          assert cap == rest_fields['caption']
+
+          print('--- alt_text: ', rest_fields['alt_text'] )
+          assert result['alt_text'] == rest_fields['alt_text']
+
+          # check the attachment type
+          print('--- attachment type: ', result['media_type'])
+          assert result['media_type'] == 'image'
+
+          # check the gallery
+          print('--- gallery: ', result['gallery'])
+          assert result['gallery'] == wp.tested_site['testfolder']
+
+          # check the guid
+          expguid = wp.wp_upload_dir + imgfile # wp_upload_dir is set with get_number_of_posts only!
+          print('--- guid: ', result['guid']['rendered'])
+          assert result['guid']['rendered'] ==  expguid 
+
+            # check the link url
+          basename = os.path.splitext( imgfile)[0]
+          explink = wp.url + '/' + basename + '/'
+          explink = explink.lower()
+          explink = explink.replace('_','-')
+          print('--- link: ', result['link'])
+          assert result['link'] == explink # wp.url + filename ohne extension, aber '/' am Ende
+
+          # check the time
+          imagetime = datetime.datetime.strptime( result['modified_gmt'], "%Y-%m-%dT%H:%M:%S")
+          print('--- time: ', uploadtime, 'image-time: ', result['modified_gmt'])
+          assert imagetime >= uploadtime # format "2021-08-16T14:51:39" upload-time
+
+          # check image mime
+          path = os.getcwd()
+          fullpath = os.path.join(path, 'testdata', imgfile)
+          mime = magic.Magic(mime=True)
+          mimetype = mime.from_file( fullpath )
+          print('--- mime-type: ', result['mime_type'])
+          assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
+
+def xxxtest_clean_up():
      #assert 0 == 1 # use this for debugging with pytest --pdb. pytest stops at the first assertion error
      # delete all created images, posts, pages
      end = len(wp.created_images)
@@ -261,5 +366,13 @@ def test_clean_up():
      print('Done.')
 
 if __name__ == '__main__':
+     ts = round(datetime.datetime.now().timestamp())
+     print('Done') 
+     """
+     newl = []
+     index = 400
      for f in files:
-          test_image_upload_with_rest_api( f)
+         newl.append(f)
+         newl.append( [ index, 'DSC_' + str(index) + '.webp' ]) 
+         index +=1
+     """

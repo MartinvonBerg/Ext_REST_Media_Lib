@@ -160,7 +160,7 @@ class WP_REST_API():
             if f not in self.media_writeable_rest_fields:
                 # only the last one will be stored
                 resp_body['message'] += 'Setting of Field "' + f + '" is not allowed'
-                #return resp_body
+                #return
 
         if posttype != 'media':
             resp_body['message'] = 'Setting fields only for media allowd'
