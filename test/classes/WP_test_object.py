@@ -3,118 +3,15 @@ import requests
 import json
 import os.path
 import magic
-import array
-import re
-import xmltojson
-from copy import copy
-from lxml import html, etree
+from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, validateJSON
 
-# define the tested site. TODO: read this from a file
-wp_site = {
-    'url' : 'https://www.mvb1.de',
-    'rest_route' : '/wp-json/wp/v2',
-    'user' : 'wp2_dhz',
-    'authentication' : 'Basic d3AyX2RoejptZ2xvYXczQmpCcUk3TWl5RmlKWTVROTA='
-}
+import os, sys
 
-wp_site2 = {
-    'url' : 'https://www.bergreisefoto.de/wordpress',
-    'rest_route' : '/wp-json/wp/v2',
-    'user' : 'martin',
-    'authentication' : 'Basic TWFydGluOm4yc2pLdlE5Z1ZzaUNQRzJ0OGZjeUFCMA=='
-}
+SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
+#SCRIPT_DIR = os.path.join(SCRIPT_DIR, 'classes')
+sys.path.append(SCRIPT_DIR)
 
-def validateJSON(jsonData: str):
-    try:
-        json.loads(jsonData)
-    except:
-        return False
-    return True
-
-def find_plugin_in_json_resp_body( resp_body: dict, key: str, plugin_name: str):
-    index = 0
-    for pi in resp_body:
-        if pi[key] == plugin_name:
-            break
-        index += 1
-    return index  
-
-def remove_html_tags(text: str):
-    """Remove html tags from a string"""
-    clean = re.compile('<.*?>')
-    return re.sub(clean, '', text)
-
-def find_value_in_dic(newdict: dict, id: int, tagtype: str, tag: str):
-    """ Find an img-tag specified by id in a dictionary of html-tags 
-    and return the path of keys (list-type) to the tag of this value."""
-    result = []
-    path = []
-    
-    # i is the index of the list that dict_obj is part of
-    def find_path(dict_obj: dict ,key: str,i=None):
-        for k,v in dict_obj.items():
-            # add key to path
-            path.append(k)
-            if isinstance(v,dict):
-                # continue searching
-                find_path(v, key,i)
-            if isinstance(v,list):
-                # search through list of dictionaries
-                for i,item in enumerate(v):
-                    # add the index of list that item dict is part of, to path
-                    path.append(i)
-                    if isinstance(item,dict):
-                        # continue searching in item dict
-                        find_path(item, key,i)
-                    # if reached here, the last added index was incorrect, so removed
-                    path.pop()
-            #if k == key:
-            if v == key:
-                # add path to our result
-                result.append(copy(path))
-            # remove the key added in the first line
-            if path != []:
-                path.pop()
-    
-    # find the value ins the dict: default starting index is set to None
-    find_path(newdict , str(id))
-    # [['figure', 'ul', 'li', 0, 'figure', 'img', '@data-id']]
-    # get the tag of the 'img' element
-    index = 0
-    for t in result[0]:
-        if index == 0:
-            wert = newdict[t]
-        else:
-            wert = wert[t]
-        if t == 'img':
-            break
-        index += 1
-
-    imageindex = index
-
-    if tagtype == 'img':        
-        result = wert['@'+tag]
-
-    elif tagtype == 'figcaption':
-        if tag == 'text': 
-            tag = '#text'
-        else:
-            tag = '@' + tag
-
-        index = 0
-        for t in result[0]:
-            if index == 0:
-                wert = newdict[t]
-            else:
-                wert = wert[t]
-            if index == imageindex-1:
-                break
-            index += 1
-
-        result = wert['figcaption'][tag]
-            
-    return result
-
+# Class definitions for WordPress
 class WP_REST_API():
     """Class with methods to access a WordPress site via the REST-API"""
     url = ''
@@ -135,6 +32,8 @@ class WP_REST_API():
     mimetypes = { 'image/webp', 'image/jpg'}
 
     headers = {}
+
+    wp_upload_dir = ''
 
     def get_wp_version( self ): 
         self.wpversion = '5.8.0'
@@ -170,18 +69,39 @@ class WP_REST_API():
             geturl = self.url + '/wp-json/wp/v2/media/?per_page=100&page='+ str(pagenumber)
             response = requests.get(geturl, headers=self.headers )
             resp_body = response.json()
-            self.media['maxid'] = resp_body[0]['id']
 
+            # get the (relative) upload dir of wordpress from the first media
+            guid = resp_body[00]['guid']['rendered']
+            base = os.path.basename(guid)
+            self.wp_upload_dir = guid.replace(base, '')
+
+            # get the maxid of images in the medialib which we assume to retrieve by the first request
+            # get the minid of the first reponse, could be anywhere due to updates, even at the beginning
+            allids = [d['id'] for d in resp_body]
+            maxid = 0
+            minid = 1000000
+            for id in allids:
+                if id > maxid: maxid = id
+                if id < minid: minid = id
+
+            self.media['maxid'] = maxid
+                       
+            # retrieve all images in the medialib 
             while len(resp_body) == 100:
                 count = count + 100
                 pagenumber += 1
                 geturl = self.url + '/wp-json/wp/v2/media/?per_page=100&page='+ str(pagenumber)
                 response = requests.get(geturl, headers=self.headers )
                 resp_body = response.json()
+
+                allids = [d['id'] for d in resp_body]
+                for id in allids:
+                    if id < minid: minid = id
             
             count = count + len(resp_body)
-            self.media['minid'] = resp_body[ len(resp_body)-1 ]['id']
             self.media['count'] = count
+
+            self.media['minid'] = minid
 
         if posttype == 'pages':
             self.pages['count'] = 0
@@ -278,8 +198,7 @@ class WP_REST_API():
         isfile = os.path.isfile( imagefile )
         if not isfile:
             path = os.getcwd()
-            # TODO: this is only correct for windows!
-            fname = path + '\\test\\testdata\\' + imagefile
+            fname = os.path.join(path, 'testdata', imagefile) 
             isfile = os.path.isfile( fname )
             if not isfile:
                 return 0
@@ -319,7 +238,7 @@ class WP_REST_API():
 
         return resp_body
 
-    def delete_media( self, id: int, posttype='media' ):
+    def delete_media( self, id, posttype='media' ):
         #do : http://127.0.0.1/wordpress/wp-json/wp/v2/media/3439?force=1
         
         # delete image 
@@ -491,6 +410,9 @@ class WP_EXT_REST_API( WP_REST_API ):
     created_images = {}
     created_posts = {}
     created_pages = {}
+    tested_site = {}
+    last_media_id = 0
+    last_index_in_created_images = 0
 
     def get_tested_plugin ( self ):
         """ Get some information about the tested plugin."""
@@ -502,6 +424,7 @@ class WP_EXT_REST_API( WP_REST_API ):
 
     def __init__(self, args_in_array):
         super().__init__( args_in_array )
+        self.tested_site = args_in_array
         self.get_tested_plugin()
 
     def set_attachment_image_meta( self, id: int, posttype= 'media', fields = {} ):
@@ -579,8 +502,7 @@ class WP_EXT_REST_API( WP_REST_API ):
         isfile = os.path.isfile( imagefile )
         if not isfile:
             path = os.getcwd()
-            # TODO: this is only correct for windows!
-            fname = path + '\\test\\testdata\\' + imagefile
+            fname = os.path.join(path, 'testdata', imagefile) 
             isfile = os.path.isfile( fname )
             if not isfile:
                 resp_body['message'] = 'File not found'
@@ -653,11 +575,12 @@ class WP_EXT_REST_API( WP_REST_API ):
         isfile = os.path.isfile( imagefile )
         if not isfile:
             path = os.getcwd()
-            # TODO: this is only correct for windows!
-            fname = path + '\\test\\testdata\\' + imagefile
+            fname = os.path.join(path, 'testdata', imagefile)
+            print('Upload File: ', fname)
             isfile = os.path.isfile( fname )
             if not isfile:
-                return 0
+                resp_body['message'] = 'Cannot find file'
+                return resp_body
         else: 
             fname = imagefile
 
@@ -699,110 +622,4 @@ class WP_EXT_REST_API( WP_REST_API ):
     def post_add_image_from_folder( self ):
         method = 'post'
         return 0    
-
-if __name__ == '__main__':
-    wp = WP_EXT_REST_API( wp_site2 )   
-    wp.get_number_of_posts() 
-    print (wp.url,  ' with version: ', wp.wpversion) 
-    #wp.media['count'] = 93
-    print ('Counted ' +  str(wp.media['count']) + ' images in the media library.')
-    fields = { 
-        'gallery' : '',
-        'gallery_sort' : '',
-        'media_details' : '' ,
-        "md5_original_file": '',
-        'caption' : '',
-        'alt_text' : '',
-        'mime_type': '',
-        'media_details' : ''
-    }
-    id = 6538
-   
-    #result = wp.set_attachment_image_meta( id, 'media', {
-    #    'image_meta' : { 
-    #        'aperture' : '88', 
-    #        'credit' : 'Martin von Berg', 
-    #        'camera' : 'Nikon D7500',
-    #        "caption": "des is a buildl mit schiffli",
-    #        #"created_timestamp": "0",
-    #        "copyright": "vom maddin",
-    #        "focal_length": "500",
-    #        "iso": "100",
-    #        "shutter_speed": "0.001",
-    #        "title": "superbild von mir mit schiffen",
-    #        "orientation": "1",
-    #        "keywords": [ 'bild', 'hafen', 'stralsund', 'schiffe']
-    #        } } )
-    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
-
-    result = wp.get_rest_fields( id, 'media', fields )
-    print ( str(result['httpstatus']) + ' : ' + result['message'] )
-    #print(json.dumps( result['media_details']['image_meta'], indent=4, sort_keys=True))
-
-    #result = wp.add_media( 'DSC_1722.webp')
-    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
-    #print('Done. Added media with id: ', result['id'])
-    
-    #result = wp.delete_media( result['id'])
-    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
-
-    #result = wp.post_update_image(id, 'DSC_1722.webp')
-    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
-
-    #result = wp.get_update_image( 133 )
-    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
-
-    #result = wp.post_add_image_to_folder( 'test333', 'DSC_1722.webp')
-    #print ( str(result['httpstatus']) + ' : ' + result['message'] )
-    # 
-   #id = 133
-
-    #content = wp.create_wp_image_gtb(id)
-    #content += wp.create_wp_media_text_gtb(11, 'Verdammt des is so a sauwetter, da magst net raus', 75, 'false')
-    #content += wp.create_wp_image_gtb(11)
-    #content += wp.create_wp_image_gtb(241)
-    ids = {
-        0: '149',
-        1: '148',
-        2: '135',
-        3: '280',
-        4: '9999',
-        5: '22',
-        6: '23'
-    }
-
-    newcontent = wp.create_wp_gallery_gtb( ids, 3, 'Untertitel der besten Galerie aller Zeiten')
-    
-  
-    data = \
-    {
-        "title":"Galerie mit sechs Bildern",
-        "content": newcontent,
-        "status": "publish",
-    }
-
-    result = wp.add_post( data, 'post' )
-    print ( str(result['httpstatus']) + ' : ' + result['message'] )
-
-    if result['httpstatus'] == 200:
-        newcreated = result['id']
-        newcontent = wp.get_post_content(newcreated, posttype='posts')
-    
-    #newcontent = newcontent.replace('\n','')
-    #isJSON = validateJSON(newcontent)
-    #if isJSON:
-    #    html = xmltojson.parse(newcontent)
-    #    new = json.loads(html)
-    
-    #doc = html.fromstring( newcontent)
-    
-    #result = find_image_tag_in_dic(new, 149, 'img', 'alt')
-    # possible tag-values for an image in a gallery are:
-    #       all with @ before: loading, width, height, src, alt, data-id, data-full-url, data-link, class, srcset, sizes
-    # figcaption is parallel to image und figure in all cases and has #text and @class nothing else
-    #print(result)
-
-    #result = find_image_tag_in_dic(new, 149, 'figcaption', 'text')
-    #print(result)
-    
-
+# End of Class
