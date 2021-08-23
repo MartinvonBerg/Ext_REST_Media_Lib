@@ -1,47 +1,46 @@
 import requests
 import json
-from jsonschema import validate
-from jsonschema import Draft6Validator
 from distutils.version import StrictVersion
 import os, sys, magic, pathlib, string
-import datetime, pytest
+import datetime, pytest, base64
 
-# prepare the path for the import of the WP-class
+# prepare the path for the import of the WP-class. VS Code doesn't detect the files therefore and shows a warning here
 SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
 SCRIPT_DIR2 = os.path.join(SCRIPT_DIR, 'classes')
 sys.path.append(SCRIPT_DIR2)
-
 from WP_test_object import WP_EXT_REST_API, WP_REST_API
-from helper_functions import find_plugin_in_json_resp_body, remove_html_tags
+from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, get_image
 
 # define the tested site(s) which shall undergo the test.
 wp_site1 = {
     'url' : 'https://www.mvb1.de',
     'rest_route' : '/wp-json/wp/v2',
-    'user' : 'wp2_dhz',
-    'authentication' : 'Basic d3AyX2RoejptZ2xvYXczQmpCcUk3TWl5RmlKWTVROTA=',
-    'testfolder' : 'pythontest2'
+    'user' : 'user',
+    'password' : 'pwd',
+    'testfolder' : 'pythontest'
 }
 
 wp_site2 = {
     'url' : 'https://www.bergreisefoto.de/wordpress',
     'rest_route' : '/wp-json/wp/v2',
-    'user' : 'martin',
-    'authentication' : 'Basic TWFydGluOm4yc2pLdlE5Z1ZzaUNQRzJ0OGZjeUFCMA==',
-    'testfolder' : 'pythontest2'
+    'user' : 'Martin',
+    'password' : 'n2sjKvQ9gVsiCPG2t8fcyAB0',
+    'testfolder' : 'pythontest'
 }
 
 wp_site3 = {
     'url' : 'http://127.0.0.1/wordpress',
     'rest_route' : '/wp-json/wp/v2',
-    'user' : 'martin',
-    'authentication' : 'Basic bWFydGluOnV6RHZYa1dnT3B6M2VRbGtBclAzOXl6Zg==',
-    'testfolder' : 'pythontest3'
+    'user' : 'user',
+    'password' : 'pwd',
+    'testfolder' : 'pythontest'
 }
 
+wp_site = wp_site2
+wp_site['authentication'] = 'Basic ' + base64.b64encode( (wp_site['user'] + ':' + wp_site['password']).encode('ascii')).decode('ascii')
+
 # generate the WordPress-Class that will be tested
-wp = WP_EXT_REST_API( wp_site3 )
-pre = 'updated'
+wp = WP_EXT_REST_API( wp_site )
 print('Class generated')
 
 # get all the image files from /testdata
@@ -50,12 +49,21 @@ files = os.listdir( testdata )
 jpgfiles = [x for x in files if x.endswith('.jpg') == True]
 webpfiles = [x for x in files if x.endswith('.webp') == True]
 files = jpgfiles + webpfiles
+newfiles = []
 
 cfpath = os.path.join(SCRIPT_DIR, 'createdfiles.json')
 if os.path.isfile( cfpath ):
-     f = open( cfpath )
-     files = json.load(f)
-     f.close()
+     #f = open( cfpath )
+     #newfiles = json.load(f)
+     #f.close()
+     os.remove(cfpath)
+
+cfpath = os.path.join(SCRIPT_DIR, 'report.html')
+if os.path.isfile( cfpath ):
+     #f = open( cfpath )
+     #newfiles = json.load(f)
+     #f.close()
+     os.remove(cfpath)
      
 print('Files collected')
 
@@ -166,7 +174,7 @@ def test_get_number_of_posts_and_upload_dir():
      assert wp.media['count'] > 0
 
 @pytest.mark.parametrize( "image_file", files)
-def xxxxtest_image_upload_to_folder_with_ext_rest_api( image_file ):
+def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      createdfiles = []
      image_number_before = wp.media['count']
 
@@ -233,7 +241,7 @@ def xxxxtest_image_upload_to_folder_with_ext_rest_api( image_file ):
      # check the guid
      expguid = wp.wp_upload_dir + image_file
      print('--- guid: ', result['guid']['rendered'])
-     #assert result['guid']['rendered'] ==  expguid 
+     assert result['guid']['rendered'] ==  expguid 
      
      #assert result['source_url'] == expguid
      # check the link url
@@ -257,17 +265,25 @@ def xxxxtest_image_upload_to_folder_with_ext_rest_api( image_file ):
      print('--- mime-type: ', result['mime_type'])
      assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
 
+# Mind: the generated IDs are not known before the test, but the filenames are.
+# So, the generated IDs are loaded from an intermediate file to list 'newfiles', that should be deleted afterwards
+# or at least right before the next test
 def test_created_json_file_list():
-     global files
+     global newfiles
 
      cfpath = os.path.join(SCRIPT_DIR, 'createdfiles.json')
+     print('--- Read created files from: ', cfpath)
+     assert os.path.isfile( cfpath ) == True
+
      if os.path.isfile( cfpath ):
           f = open( cfpath )
-          files = json.load(f)
+          newfiles = json.load(f)
           f.close()
 
 @pytest.mark.parametrize( "image_file", files)     
 def test_id_of_created_images( image_file ):
+     image_file = get_image( newfiles, image_file)
+
      if type(image_file) == list:
           id = image_file[0]
           file = image_file[1]
@@ -285,6 +301,7 @@ def test_id_of_created_images( image_file ):
       
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_metadata( image_file ): 
+     image_file = get_image( newfiles, image_file)
      uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
      uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=5) 
 
@@ -357,7 +374,7 @@ def test_update_image_metadata( image_file ):
           # check the guid
           expguid = wp.wp_upload_dir + imgfile # wp_upload_dir is set with get_number_of_posts only!
           print('--- guid: ', result['guid']['rendered'])
-          #assert result['guid']['rendered'] ==  expguid 
+          assert result['guid']['rendered'] ==  expguid 
 
             # check the link url
           basename = os.path.splitext( imgfile)[0]
@@ -380,12 +397,20 @@ def test_update_image_metadata( image_file ):
           print('--- mime-type: ', result['mime_type'])
           assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
 
-          # check the image_meta
-          assert result['media_details']['image_meta'] == fields['image_meta']
+          # check the image_meta: complete for webg
+          if mimetype == 'image/webp':
+               assert result['media_details']['image_meta'] == fields['image_meta']
+          # for jpg only Common items: 'caption', 'copyright', 'credit', 'keywords', 'title'
+          if mimetype == 'image/jepg':
+               assert result['media_details']['image_meta']['caption'] == fields['image_meta']['caption']
+               assert result['media_details']['image_meta']['copyright'] == fields['image_meta']['copyright']
+               assert result['media_details']['image_meta']['credit'] == fields['image_meta']['credit']
+               assert result['media_details']['image_meta']['title'] == fields['image_meta']['title']
+               assert result['media_details']['image_meta']['keywords'] == fields['image_meta']['keywords']
 
 @pytest.mark.parametrize( "image_file", files)
 def test_create_gtb_post_with_one_image( image_file ): 
-
+     image_file = get_image( newfiles, image_file)
      ts = str( round(datetime.datetime.now().timestamp()) )
 
      if type(image_file) == list:
@@ -417,11 +442,15 @@ def test_create_gtb_post_with_one_image( image_file ):
                if result['httpstatus'] == 200:
                     wp.created_posts[n]['post'] =  result
 
+def test_create_gtb_gallery_with_all_images():
+     allimgs = newfiles
+
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_metadata_after_post_was_created( image_file ): 
+     image_file = get_image( newfiles, image_file)
      uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
      uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=5) 
-     pre = 'hunger_'
+     pre = 'updated_'
 
      if type(image_file) == list:
           id = image_file[0]
@@ -454,8 +483,8 @@ def test_update_image_metadata_after_post_was_created( image_file ):
             "shutter_speed": "0." + sid,
             "title": pre + 'title' + sid + '_' + ts,
             "orientation": "1",
-            "keywords": [ pre + 'generated' + '_' + ts],
-            'alt_text' :    pre + 'alt' + sid + '_' + ts 
+            "keywords": [ pre + 'generated' + '_' + ts]
+            #'alt_text' :    pre + 'alt' + sid + '_' + ts 
           } }
 
           result = wp.set_attachment_image_meta( id, 'media', fields )
@@ -495,7 +524,7 @@ def test_update_image_metadata_after_post_was_created( image_file ):
           # check the guid
           expguid = wp.wp_upload_dir + imgfile # wp_upload_dir is set with get_number_of_posts only!
           print('--- guid: ', result['guid']['rendered'])
-          #assert result['guid']['rendered'] ==  expguid 
+          assert result['guid']['rendered'] ==  expguid 
 
           # check the link url
           basename = os.path.splitext( imgfile)[0]
@@ -518,12 +547,20 @@ def test_update_image_metadata_after_post_was_created( image_file ):
           print('--- mime-type: ', result['mime_type'])
           assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
 
-          # check the image_meta
-          fields['image_meta'].pop('alt_text', None)
-          assert result['media_details']['image_meta'] == fields['image_meta']
-          
+          # check the image_meta: complete for webg
+          if mimetype == 'image/webp':
+               assert result['media_details']['image_meta'] == fields['image_meta']
+          # for jpg only Common items: 'caption', 'copyright', 'credit', 'keywords', 'title'
+          if mimetype == 'image/jepg':
+               assert result['media_details']['image_meta']['caption'] == fields['image_meta']['caption']
+               assert result['media_details']['image_meta']['copyright'] == fields['image_meta']['copyright']
+               assert result['media_details']['image_meta']['credit'] == fields['image_meta']['credit']
+               assert result['media_details']['image_meta']['title'] == fields['image_meta']['title']
+               assert result['media_details']['image_meta']['keywords'] == fields['image_meta']['keywords']
+
 @pytest.mark.parametrize( "image_file", files)
 def test_updated_posts( image_file ):
+     image_file = get_image( newfiles, image_file)
      end = len(wp.created_posts)
 
      if type(image_file) == list:
@@ -532,7 +569,7 @@ def test_updated_posts( image_file ):
           for i in range(0, end):
                post = wp.created_posts[i]
                if id == post['used_image']:
-                    print('--- Found image ', id, ' in post ', post['id'])
+                    print('--- Found image ', id, ' in post ', post['id'], '. Now comparing with content.')
                     postid = post['id']
 
           # get the image data
@@ -547,14 +584,16 @@ def test_updated_posts( image_file ):
           content = result['content']['rendered']       
                   
           # compare now alt and caption. These two have to be changed in a gtb wp:image
-          print(content)
           found = content.find( imgalt )
+          print(content)
+          print('--- ', imgalt)
           assert found > 10
+
           found = content.find( imgcaption )
+          print('--- ', imgcaption)
           assert found > 10
 
-
-def xxxtest_clean_up():
+def test_clean_up():
      # delete all created images, posts, pages
      end = len(wp.created_images)
      for i in range(0, end): 
@@ -566,6 +605,7 @@ def xxxtest_clean_up():
      end = len(wp.created_posts)
      for i in range(0, end):
           result = wp.delete_media( wp.created_posts[i]['id'], 'posts' )
+          print('--- Deleted post-id: ', wp.created_posts[i]['id'])
           assert result['httpstatus'] == 200
      
      # delete all created pages
@@ -576,21 +616,7 @@ def xxxtest_clean_up():
      
      print('Done.')
 
+# just here for debugging the tests 
 if __name__ == '__main__':
-     #ts = round(datetime.datetime.now().timestamp())
-     fields = {
-          "alt_text" : "umwandlung in string",
-          "caption"  : "mittagessen!!!",
-          'docaption': 'true'
-     }
-     result = wp.set_rest_fields( 6034, 'media', fields )
-     result = wp.get_post_content( 6061, 'posts' )
-     print('Done') 
-     
-     newl = []
-     index = 400
-     for f in files:
-         newl.append(f)
-         newl.append( [ index, 'DSC_' + str(index) + '.webp' ]) 
-         index +=1
-     
+     ts = round(datetime.datetime.now().timestamp())
+    

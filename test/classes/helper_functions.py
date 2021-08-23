@@ -92,3 +92,8 @@ def find_value_in_dic(newdict: dict, id: int, tagtype: str, tag: str):
         result = wert['figcaption'][tag]
             
     return result
+
+def get_image( files, image_file):
+    print(files)
+    found = [x for x in files if image_file in x[1] ][0]
+    return found

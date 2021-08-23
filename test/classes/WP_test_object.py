@@ -244,8 +244,11 @@ class WP_REST_API():
     def delete_media( self, id, posttype='media' ):
         #do : http://127.0.0.1/wordpress/wp-json/wp/v2/media/3439?force=1
         
-        # delete image 
-        geturl = self.url + '/wp-json/wp/v2/media/' + str(id) + '?force=true'
+        geturl = self.url + '/wp-json/wp/v2/' + posttype + '/' + str(id)
+
+        # delete image or post
+        if  posttype=='media':
+            geturl = geturl + '?force=true'
         response = requests.delete(geturl, headers=self.headers )    
         resp_body = json.loads( response.text)
         resp_body['httpstatus'] = response.status_code
