@@ -129,10 +129,11 @@ function special_replace($string)
  *
  * @return bool true if success, false if not: ouput of the WP function to update attachment metadata
  */
-function update_metadata( int $post_id, array $newmeta)
+function update_metadata( int $post_id, array $newmeta, string $origin)
 {
 	// get and check current Meta-Data from WP-database.
 	$meta = wp_get_attachment_metadata($post_id);
+	$oldmeta = $meta;
 
 	if (array_key_exists('image_meta', $newmeta)) {
 		$newmeta = $newmeta['image_meta'];
@@ -157,6 +158,11 @@ function update_metadata( int $post_id, array $newmeta)
 		}
 	}
 
+	// reset title and caption in $meta to prevent overwrite with the route update_meta
+	if ( 'mvbplugin' == $origin) {
+		$meta['image_meta']['title'] = $oldmeta['image_meta']['title'];
+		$meta['image_meta']['caption'] = $oldmeta['image_meta']['caption'];
+	}
 	// write metadata.
 	$success = wp_update_attachment_metadata($post_id, $meta); // write new Meta-data to WP SQL-Database.
 

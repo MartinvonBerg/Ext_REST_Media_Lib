@@ -546,7 +546,7 @@ class Replacer
 				//$index = 0;
 				foreach ( $comments as $c ) { 
 					$text = $c->data;
-					$pos = \strpos( $text, $this->post_id );
+					$pos = \strpos( $text, strval($this->post_id) );
 
 					// Check whether the comment defines an Image, Gallery, or Media-with-Text. Find only the start, therefore include '{'
 					$isWpImage = 	 \strpos( $text, 'wp:image {' ) > 0 ? true : false; // Attention: works only if there is a space before 'wp:...'! Otherwise the result would be = 0

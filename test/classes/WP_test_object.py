@@ -179,7 +179,10 @@ class WP_REST_API():
             append = append[:-1] # remove the last "&"
             geturl = self.url + '/wp-json/wp/v2/' + posttype + '/' + str(id) + '/?' + append
             response = requests.post(geturl, headers=self.headers )
-            resp_body.update( response.json() ) 
+            #idpos = response.text.find('"id"')
+            #st = response.text[idpos-1:]
+            #response.text = st
+            #resp_body.update( response.json() ) 
             resp_body['httpstatus'] = response.status_code
             resp_body['message'] += 'Success'
         
@@ -448,9 +451,7 @@ class WP_EXT_REST_API( WP_REST_API ):
 
             for f in keys:           
                 if f == 'image_meta':
-                    # localhost/wordpress/wp-json/extmedialib/v1/update_meta/5866?docaption=true
-                    geturl = self.url + '/wp-json/extmedialib/v1/update_meta/' + str(id) + '?docaption=true'
-                    #geturl = self.url + '/wp-json/extmedialib/v1/update_meta/' + str(id) 
+                    geturl = self.url + '/wp-json/extmedialib/v1/update_meta/' + str(id) 
                     piece = {}
                     piece['image_meta'] = fields['image_meta']
                     body = json.dumps(piece) 
