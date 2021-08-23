@@ -450,6 +450,7 @@ class WP_EXT_REST_API( WP_REST_API ):
                 if f == 'image_meta':
                     # localhost/wordpress/wp-json/extmedialib/v1/update_meta/5866?docaption=true
                     geturl = self.url + '/wp-json/extmedialib/v1/update_meta/' + str(id) + '?docaption=true'
+                    #geturl = self.url + '/wp-json/extmedialib/v1/update_meta/' + str(id) 
                     piece = {}
                     piece['image_meta'] = fields['image_meta']
                     body = json.dumps(piece) 

@@ -155,16 +155,6 @@ function update_metadata( int $post_id, array $newmeta)
 			array_key_exists('shutter_speed', $newmeta)     ? $meta['image_meta']['shutter_speed']      = $newmeta['shutter_speed'] : '' ;
 			array_key_exists('orientation', $newmeta)       ? $meta['image_meta']['orientation']        = $newmeta['orientation'] : '' ;
 		}
-
-		// Update the image_alt_text
-		// TODO: This is somehow inconsinstent as all other metadata is updated with WP standard rest requests
-		// ON the other hand is it necessary to keep the alt in the database and in the Post(s) consistent.
-		if ( array_key_exists('alt_text', $newmeta) )
-			$result = update_post_meta( $post_id, '_wp_attachment_image_alt', $newmeta['alt_text'] ); 
-
-		//if ( array_key_exists('caption', $newmeta) );
-			//$result = update_post_meta( $post_id, 'caption', $newmeta['caption'] );
-
 	}
 
 	// write metadata.

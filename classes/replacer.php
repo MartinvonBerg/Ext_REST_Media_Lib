@@ -121,16 +121,17 @@ class Replacer
 		$newmeta = $newmeta['image_meta'];
 		$target_meta = array();
 
+		// get the current alt_text of the image
+		$source_alt_text = get_post_meta( $this->post_id, '_wp_attachment_image_alt', true) ?? '' ;
+		$this->source_metadata['image_meta']['alt_text'] = $source_alt_text;
+
 		// sanitize the input
 		$newmeta['alt_text'] = filter_var( $newmeta['alt_text'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
 		$newmeta['caption'] = filter_var( $newmeta['caption'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
-		array_key_exists('alt_text', $newmeta)  ? $target_meta['alt_text'] = $newmeta['alt_text'] : '' ;
-		array_key_exists('caption',  $newmeta)  ? $target_meta['caption']  = $newmeta['caption']  : '' ;
+		array_key_exists('alt_text', $newmeta)  ? $target_meta['alt_text'] = $newmeta['alt_text'] : null ;
+		array_key_exists('caption',  $newmeta)  ? $target_meta['caption']  = $newmeta['caption']  : null ;
 		$this->target_metadata['image_meta']['caption'] = $target_meta['caption'];
 		$this->target_metadata['image_meta']['alt_text'] = $target_meta['alt_text'];
-
-		$source_alt_text = get_post_meta( $this->post_id, '_wp_attachment_image_alt', true) ?? '' ;
-		$this->source_metadata['image_meta']['alt_text'] = $source_alt_text;
 
 		// get the directory in the uploads folder that contains the image 
 		$baseurl = \mvbplugins\extmedialib\get_upload_url() ; 
@@ -547,7 +548,7 @@ class Replacer
 					$text = $c->data;
 					$pos = \strpos( $text, $this->post_id );
 
-					// Check whether the comment defines a Image, Gallery, or Media-with-Text. Find only the start, therefore include '{'
+					// Check whether the comment defines an Image, Gallery, or Media-with-Text. Find only the start, therefore include '{'
 					$isWpImage = 	 \strpos( $text, 'wp:image {' ) > 0 ? true : false; // Attention: works only if there is a space before 'wp:...'! Otherwise the result would be = 0
 					$isWpGallery = 	 \strpos( $text, 'wp:gallery {' ) > 0 ? true : false;
 					$isWpMediatext = \strpos( $text, 'wp:media-text {' ) > 0 ? true : false;

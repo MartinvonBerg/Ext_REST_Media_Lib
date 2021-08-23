@@ -77,6 +77,46 @@ add_filter('rest_authentication_errors', function ( $result ) {
 	return $result;
 });
 
+// Filter to catch every REST Request and do action relevant for this plugin
+add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_rest', 10, 3 );
+
+function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_Rest_Request $request) {
+	// alt_text is only available once at 'top-level' of the json - response
+	// title and caption are availabe at 'top-level' of the json - response AND response['media_details']['image_meta']
+	// This function keeps these values consistent
+	$route = $request->get_route(); // wp/v2/media/id
+	$method = $request->get_method(); // 'POST'
+
+	$params = $request->get_params(); // id as int
+	
+	$id = array_key_exists('id', $params) ? $params['id'] : null;
+	$route = \str_replace( \strval( $id ), '', $route );
+	$att = wp_attachment_is_image( $id );
+
+	$hascaption = array_key_exists('caption', $params);
+	$hastitle = array_key_exists('title', $params);
+	#$hasdescription = array_key_exists('description', $params);
+	$hasalt_text = array_key_exists('alt_text', $params);
+
+	$newmeta["image_meta"] = array(); 
+
+	if ( $hascaption || $hastitle || $hasalt_text) {
+		if ( $hascaption ) $newmeta["image_meta"]['caption'] = $params['caption'];
+		if ( $hastitle ) $newmeta["image_meta"]['title'] = $params['title'];
+		if ( $hasalt_text ) $alt_text = $params['alt_text'];
+	}
+
+	if ( ($att) && ('POST' == $method) && ('/wp/v2/media/' == $route) && \is_int( $id ) && ($hascaption || $hastitle) ) {
+		// update the image_meta title and caption also 
+		$success = update_metadata( $id, $newmeta );
+		if ( $success ) {
+			if ($hascaption) $result["media_details"]["image_meta"]["caption"] = $newmeta["image_meta"]['caption'];
+			if ($hastitle)  $result["media_details"]["image_meta"]["title"] = $newmeta["image_meta"]['title'];
+		}
+	}
+	return $result;
+}
+
 
 // REST-API-EXTENSION FOR WP MEDIA Library---------------------------------------------------------
 //--------------------------------------------------------------------

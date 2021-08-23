@@ -15,7 +15,7 @@ from WP_test_object import WP_EXT_REST_API, WP_REST_API
 from helper_functions import find_plugin_in_json_resp_body, remove_html_tags
 
 # define the tested site.
-wp_site = {
+wp_site1 = {
     'url' : 'https://www.mvb1.de',
     'rest_route' : '/wp-json/wp/v2',
     'user' : 'wp2_dhz',
@@ -28,6 +28,14 @@ wp_site2 = {
     'rest_route' : '/wp-json/wp/v2',
     'user' : 'martin',
     'authentication' : 'Basic TWFydGluOm4yc2pLdlE5Z1ZzaUNQRzJ0OGZjeUFCMA==',
+    'testfolder' : 'pythontest2'
+}
+
+wp_site3 = {
+    'url' : 'http://127.0.0.1/wordpress',
+    'rest_route' : '/wp-json/wp/v2',
+    'user' : 'martin',
+    'authentication' : 'Basic bWFydGluOnV6RHZYa1dnT3B6M2VRbGtBclAzOXl6Zg==',
     'testfolder' : 'pythontest2'
 }
 
@@ -145,13 +153,13 @@ def test_rest_api_request_active_theme():
      assert resp_body[pi_index]['status'] == 'active'
      assert ( StrictVersion( resp_body[pi_index]['version'] ) >= '0.0.1' ) == True
 
-def xxxtest_get_number_of_images_in_medialib():
+def test_get_number_of_posts_and_upload_dir():
      wp.get_number_of_posts() 
      print ('--- Counted ' +  str(wp.media['count']) + ' images in the media library.')
      assert wp.media['count'] > 0
 
 @pytest.mark.parametrize( "image_file", files)
-def xxxtest_image_upload_with_ext_rest_api( image_file ):
+def xxxtest_image_upload_to_folder_with_ext_rest_api( image_file ):
      createdfiles = []
      image_number_before = wp.media['count']
 
@@ -244,6 +252,13 @@ def xxxtest_image_upload_with_ext_rest_api( image_file ):
      print('--- mime-type: ', result['mime_type'])
      assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
 
+def xxxtest_created_json_file_list():
+     cfpath = os.path.join(SCRIPT_DIR, 'createdfiles.json')
+     if os.path.isfile( cfpath ):
+          f = open( cfpath )
+          files = json.load(f)
+          f.close()
+
 @pytest.mark.parametrize( "image_file", files)     
 def test_id_of_created_images( image_file ):
      if type(image_file) == list:
@@ -262,11 +277,6 @@ def test_id_of_created_images( image_file ):
           for i in range(0, end): 
                assert isinstance( wp.created_images[i]['id'], int) == True 
       
-def test_get_number_of_posts_and_upload_dir():
-     # check the number of media in the media library
-     wp.get_number_of_posts()
-     print('--- new image count: ', wp.media['count'])
-
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_metadata( image_file ): 
      uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
@@ -282,11 +292,31 @@ def test_update_image_metadata( image_file ):
                'gallery_sort' : sid, 
                'description' : 'descr' + sid + '_' + ts, 
                'caption' :     'caption' + sid + '_' + ts, 
-               'alt_text' :    'alt' + sid + '_' + ts }
+               'alt_text' :    'old_alt' + sid + '_' + ts }
 
           result = wp.set_rest_fields( id, 'media', rest_fields )
           assert result['httpstatus'] == 200 
 
+          # set now the image_meta. Done here to have the same timestamp ts
+          fields =  {'image_meta' : {
+            "aperture": sid,
+            "credit": 'Martin' + '_' + ts,
+            "camera": "camera" + '_' + ts,
+            "caption": 'caption' + sid + '_' + ts,
+            "created_timestamp": ts,
+            "copyright": "copy" + '_' + ts,
+            "focal_length": sid,
+            "iso": sid,
+            "shutter_speed": "0." + sid,
+            "title": 'title' + sid + '_' + ts,
+            "orientation": "1",
+            "keywords": [ 'generated' + '_' + ts]
+          } }
+
+          result = wp.set_attachment_image_meta( id, 'media', fields )
+          assert result['httpstatus'] == 200
+
+          # Now compare the new data
           result = wp.get_rest_fields( id, 'media' )
           assert result['httpstatus'] == 200 
 
@@ -342,6 +372,186 @@ def test_update_image_metadata( image_file ):
           print('--- mime-type: ', result['mime_type'])
           assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
 
+          # check the image_meta
+          assert result['media_details']['image_meta'] == fields['image_meta']
+
+@pytest.mark.parametrize( "image_file", files)
+def test_create_gtb_post_with_one_image( image_file ): 
+
+     ts = str( round(datetime.datetime.now().timestamp()) )
+
+     if type(image_file) == list:
+          id = image_file[0]
+          content = wp.create_wp_image_gtb(id)
+          data = \
+          {
+               "title":"Post with one Image " + ts,
+               "content": content,
+               "status": "publish",
+          }
+
+          result = wp.add_post( data, 'post' )
+          assert result['httpstatus'] == 201
+
+          if result['httpstatus'] == 201:
+               current = len(wp.created_posts)
+               if current == 0: 
+                    n = 0
+               else:  
+                    n = current
+               wp.created_posts[n] = {}
+               wp.created_posts[n]['id'] = result['id']
+               wp.created_posts[n]['used_image'] = id
+
+               # retrieve the rest-response for the new created post
+               result = wp.get_post_content( result['id'], 'posts' )
+               # store the rest response to /media/id to wp.created_images
+               if result['httpstatus'] == 200:
+                    wp.created_posts[n]['post'] =  result
+
+@pytest.mark.parametrize( "image_file", files)
+def test_update_image_metadata_after_post_was_created( image_file ): 
+     uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=5) 
+     pre = 'mist_'
+
+     if type(image_file) == list:
+          id = image_file[0]
+          sid = str(id)
+          imgfile = image_file[1]
+          ts = str( round(datetime.datetime.now().timestamp()) )
+          rest_fields = { 
+               'title' :        pre + 'title' + sid + '_' + ts, 
+               'gallery_sort' : sid, 
+               'description' : pre + 'descr' + sid + '_' + ts, 
+               'caption' :     pre + 'caption' + sid + '_' + ts, 
+               #'alt_text' :    pre + 'alt' + sid + '_' + ts 
+               }
+
+          result = wp.set_rest_fields( id, 'media', rest_fields )
+          assert result['httpstatus'] == 200 
+
+          # set now the image_meta. Done here to have the same timestamp ts
+          fields =  {'image_meta' : {
+            "aperture": sid,
+            "credit": 'Martin' + '_' + ts,
+            "camera": "camera" + '_' + ts,
+            "caption": pre + 'caption' + sid + '_' + ts,
+            "created_timestamp": ts,
+            "copyright": "copy" + '_' + ts,
+            "focal_length": sid,
+            "iso": sid,
+            "shutter_speed": "0." + sid,
+            "title": pre + 'title' + sid + '_' + ts,
+            "orientation": "1",
+            "keywords": [ pre + 'generated' + '_' + ts],
+            #'alt_text' :    pre + 'alt' + sid + '_' + ts 
+          } }
+
+          fields = {
+          "image_meta": {
+            "aperture" : 777,
+            "alt_text" : "was ist jetzt?"
+               }
+          }
+
+          result = wp.set_attachment_image_meta( id, 'media', fields )
+          assert result['httpstatus'] == 200
+          """
+          # Now compare the new data
+          result = wp.get_rest_fields( id, 'media' )
+          assert result['httpstatus'] == 200 
+
+          print ('Comparing: ', result['id'])  
+          assert result['id'] == id
+
+          print('--- title: ', result['title']['rendered'] )
+          assert result['title']['rendered'] == rest_fields['title']
+
+          print('--- gallery_sort: ', result['gallery_sort'] )
+          assert result['gallery_sort'] == rest_fields['gallery_sort']
+
+          #assert result['description'] == rest_fields['description']
+          cap = remove_html_tags( result['caption']['rendered'] )
+
+          print('--- caption: ', cap )
+          assert cap == rest_fields['caption']
+
+          if 'alt_text' in rest_fields:
+               print('--- alt_text: ', rest_fields['alt_text'] )
+               assert result['alt_text'] == rest_fields['alt_text']
+
+          # check the attachment type
+          print('--- attachment type: ', result['media_type'])
+          assert result['media_type'] == 'image'
+
+          # check the gallery
+          print('--- gallery: ', result['gallery'])
+          assert result['gallery'] == wp.tested_site['testfolder']
+
+          # check the guid
+          expguid = wp.wp_upload_dir + imgfile # wp_upload_dir is set with get_number_of_posts only!
+          print('--- guid: ', result['guid']['rendered'])
+          assert result['guid']['rendered'] ==  expguid 
+
+          # check the link url
+          basename = os.path.splitext( imgfile)[0]
+          explink = wp.url + '/' + basename + '/'
+          explink = explink.lower()
+          explink = explink.replace('_','-')
+          print('--- link: ', result['link'])
+          assert result['link'] == explink # wp.url + filename ohne extension, aber '/' am Ende
+
+          # check the time
+          imagetime = datetime.datetime.strptime( result['modified_gmt'], "%Y-%m-%dT%H:%M:%S")
+          print('--- time: ', uploadtime, 'image-time: ', result['modified_gmt'])
+          assert imagetime >= uploadtime # format "2021-08-16T14:51:39" upload-time
+
+          # check image mime
+          path = os.getcwd()
+          fullpath = os.path.join(path, 'testdata', imgfile)
+          mime = magic.Magic(mime=True)
+          mimetype = mime.from_file( fullpath )
+          print('--- mime-type: ', result['mime_type'])
+          assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
+
+          # check the image_meta
+          fields['image_meta'].pop('alt_text', None)
+          assert result['media_details']['image_meta'] == fields['image_meta']
+          """
+@pytest.mark.parametrize( "image_file", files)
+def test_updated_posts( image_file ):
+     end = len(wp.created_posts)
+
+     if type(image_file) == list:
+          id = image_file[0]
+           
+          for i in range(0, end):
+               post = wp.created_posts[i]
+               if id == post['used_image']:
+                    print('--- Found image ', id, ' in post ', post['id'])
+                    postid = post['id']
+
+          # get the image data
+          result = wp.get_post_content( id, 'media' )
+          assert result['httpstatus'] == 200
+          imgcaption = remove_html_tags( result['caption']['rendered'] )
+          imgalt2 = result['alt_text']
+          imgalt = 'was ist jetzt?'
+         
+          # get the post data
+          result = wp.get_post_content( postid, 'posts' )
+          assert result['httpstatus'] == 200
+          content = result['content']['rendered']       
+                  
+          # compare now alt and caption. These two have to be changed in a gtb wp:image
+          print(content)
+          found = content.find( imgalt )
+          assert found > 0
+          found = content.find( imgcaption )
+          assert found > 0
+
+
 def xxxtest_clean_up():
      #assert 0 == 1 # use this for debugging with pytest --pdb. pytest stops at the first assertion error
      # delete all created images, posts, pages
@@ -366,7 +576,15 @@ def xxxtest_clean_up():
      print('Done.')
 
 if __name__ == '__main__':
-     ts = round(datetime.datetime.now().timestamp())
+     #ts = round(datetime.datetime.now().timestamp())
+     fields = {
+          "image_meta": {
+           "alt_text" : "22-habicht-kassel",
+            "caption"  : "Ederstausee"
+          }
+     }
+     result = wp.set_attachment_image_meta( 494, 'media', fields )
+     result = wp.get_post_content( 771, 'posts' )
      print('Done') 
      """
      newl = []
