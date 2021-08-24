@@ -661,7 +661,7 @@ def test_update_image_metadata( image_file ):
 
 @pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
-def test_create_gtb_post_with_one_image( image_file ): 
+def test_create_gtb_image_with_one_image( image_file ): 
      image_file = get_image( newfiles, image_file)
      ts = str( round(datetime.datetime.now().timestamp()) )
 
@@ -687,6 +687,7 @@ def test_create_gtb_post_with_one_image( image_file ):
                wp.created_posts[n] = {}
                wp.created_posts[n]['id'] = result['id']
                wp.created_posts[n]['used_image'] = id
+               wp.created_posts[n]['type'] = 'wp-image'
 
                # retrieve the rest-response for the new created post
                result = wp.get_post_content( result['id'], 'posts' )
@@ -715,6 +716,59 @@ def test_create_gtb_gallery_with_all_images():
 
      result = wp.add_post( data, 'post' )
      assert result['httpstatus'] == 201
+
+     if result['httpstatus'] == 201:
+          current = len(wp.created_posts)
+          if current == 0: 
+               n = 0
+          else:  
+               n = current
+          wp.created_posts[n] = {}
+          wp.created_posts[n]['id'] = result['id']
+          wp.created_posts[n]['used_image'] = ids
+          wp.created_posts[n]['type'] = 'wp-gallery'
+
+          # retrieve the rest-response for the new created post
+          result = wp.get_post_content( result['id'], 'posts' )
+          # store the rest response to /media/id to wp.created_images
+          if result['httpstatus'] == 200:
+               wp.created_posts[n]['post'] =  result
+
+@pytest.mark.testimage
+@pytest.mark.parametrize( "image_file", files)
+def test_create_gtb_image_text( image_file ): 
+     image_file = get_image( newfiles, image_file)
+     ts = str( round(datetime.datetime.now().timestamp()) )
+
+     if type(image_file) == list:
+          id = image_file[0]
+          content = wp.create_wp_media_text_gtb(id, 'Created at: ' + ts)
+          data = \
+          {
+               "title":"Post with one Image and Text " + ts,
+               "content": content,
+               "status": "publish",
+          }
+
+          result = wp.add_post( data, 'post' )
+          assert result['httpstatus'] == 201
+
+          if result['httpstatus'] == 201:
+               current = len(wp.created_posts)
+               if current == 0: 
+                    n = 0
+               else:  
+                    n = current
+               wp.created_posts[n] = {}
+               wp.created_posts[n]['id'] = result['id']
+               wp.created_posts[n]['used_image'] = id
+               wp.created_posts[n]['type'] = 'wp-image-text'
+
+               # retrieve the rest-response for the new created post
+               result = wp.get_post_content( result['id'], 'posts' )
+               # store the rest response to /media/id to wp.created_images
+               if result['httpstatus'] == 200:
+                    wp.created_posts[n]['post'] =  result
 
 @pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
@@ -762,6 +816,8 @@ def test_update_image_metadata_after_post_was_created( image_file ):
           result = wp.set_attachment_image_meta( id, 'media', fields )
           assert result['httpstatus'] == 200
           
+          # wait a second for the wp database
+          time.sleep(1)
           # Now compare the new data
           result = wp.get_rest_fields( id, 'media' )
           assert result['httpstatus'] == 200 
@@ -832,30 +888,68 @@ def test_update_image_metadata_after_post_was_created( image_file ):
 
 @pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
-def test_updated_posts( image_file ):
+def test_updated_posts_with_images( image_file ):
      image_file = get_image( newfiles, image_file)
      end = len(wp.created_posts)
 
      if type(image_file) == list:
           id = image_file[0]
-           
+
+          # loop through all created posts 
           for i in range(0, end):
                post = wp.created_posts[i]
-               if id == post['used_image']:
+
+               if id == post['used_image'] and not post['type'] == 'wp-gallery':
                     print('--- Found image ', id, ' in post ', post['id'], '. Now comparing with content.')
                     postid = post['id']
+                    isimage = post['type'] == 'wp-image'
+
+                    # get the image data
+                    result = wp.get_post_content( id, 'media' )
+                    assert result['httpstatus'] == 200
+                    imgcaption = remove_html_tags( result['caption']['rendered'] )
+                    imgalt = result['alt_text']
+               
+                    # get the post data
+                    result = wp.get_post_content( postid, 'posts' )
+                    assert result['httpstatus'] == 200
+                    content = result['content']['rendered']       
+                         
+                    # compare now alt and caption. These two have to be changed in a gtb wp:image
+                    found = content.find( 'alt="' + imgalt )
+                    print(content)
+                    print('--- ', imgalt)
+                    assert found > 10
+
+                    if isimage:
+                         found = content.find( '>' + imgcaption + '</' )
+                         print('--- ', imgcaption)
+                         assert found > 10
+                    
+@pytest.mark.testgallery
+def test_updated_post_with_gallery():
+     end = len(wp.created_posts)
+
+     for i in range(0, end):
+          if wp.created_posts[i]['type'] == 'wp-gallery':
+               postid = wp.created_posts[i]['id']
+               print('--- Found gallery ', postid, ' Now comparing with content.')
+
+     # get the post data
+     result = wp.get_post_content( postid, 'posts' )
+     assert result['httpstatus'] == 200
+     content = result['content']['rendered']
+
+     allimgs = newfiles
+     for i in allimgs:
+          id = str(i[0]) # this is the image id
 
           # get the image data
           result = wp.get_post_content( id, 'media' )
           assert result['httpstatus'] == 200
           imgcaption = remove_html_tags( result['caption']['rendered'] )
           imgalt = result['alt_text']
-         
-          # get the post data
-          result = wp.get_post_content( postid, 'posts' )
-          assert result['httpstatus'] == 200
-          content = result['content']['rendered']       
-                  
+
           # compare now alt and caption. These two have to be changed in a gtb wp:image
           found = content.find( 'alt="' + imgalt )
           print(content)
@@ -865,9 +959,7 @@ def test_updated_posts( image_file ):
           found = content.find( '>' + imgcaption + '</' )
           print('--- ', imgcaption)
           assert found > 10
-
-          time.sleep(1)
-
+         
 
 # --------------- clean-up the WP installation
 @pytest.mark.cleanup
@@ -897,6 +989,6 @@ def test_clean_up():
 # just here for debugging the tests 
 if __name__ == '__main__':
      ts = round(datetime.datetime.now().timestamp())
-     test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype()
+     test_updated_post_with_gallery()
      #test_create_gtb_gallery_with_all_images()
     

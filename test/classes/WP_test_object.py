@@ -342,7 +342,7 @@ class WP_REST_API():
                 <!-- wp:media-text {{"mediaId":{id},"mediaLink":"{link}","mediaType":"image","mediaWidth":{imagewidth},"imageFill":{imageFill}}} -->\
                     <div class="wp-block-media-text alignwide is-stacked-on-mobile" style="grid-template-columns:{imagewidth}% auto">\
                     <figure class="wp-block-media-text__media">\
-                        <img src="{src}" alt="{alt}" class="wp-image-{id} size-full"/>\
+                        <img src="{src}" alt="{alt}" class="wp-image-{id} size-full" />\
                     </figure>\
                     <div class="wp-block-media-text__content">\
                     <!-- wp:paragraph {{"placeholder":"Inhalt...","fontSize":"large"}} -->\
