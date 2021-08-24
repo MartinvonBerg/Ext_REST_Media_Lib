@@ -188,15 +188,14 @@ function cb_get_gallery($data)
  */
 function cb_upd_gallery($value, $post)
 {
+	$old = (string) get_post_meta( $post->ID, 'gallery', true );
 	$ret = update_post_meta( $post->ID, 'gallery', $value );
-	if ( false === $ret ) {
-		return new WP_Error(
-		  'rest_gallery_field_update_failed',
-		  __( 'Failed to update gallery field.' ),
-		  array( 'status' => 500 )
-		);
-	}
-	return true;
+	// check the return-value here as this also falso if the value remains unchanged.
+	if ( $ret == false && ($old == $value) )
+		$ret = true;
+	if ( is_int( $ret) )
+		$ret = true;
+	return $ret;
 };
 
 //--------------------------------------------------------------------
@@ -241,9 +240,14 @@ function cb_get_gallery_sort($data)
  */
 function cb_upd_gallery_sort($value, $post)
 {
-	update_post_meta( $post->ID, 'gallery_sort', $value );
-	// do not check the return-value here as this causes problems with the LR plugin. 
-	return true;
+	$old = (string) get_post_meta( $post->ID, 'gallery_sort', true );
+	$ret = update_post_meta( $post->ID, 'gallery_sort', $value );
+	// check the return-value here as this causes problems with the LR plugin. 
+	if ( $ret == false && ($old == $value) )
+		$ret = true;
+	if ( is_int( $ret) )
+		$ret = true;
+	return $ret;
 };
 
 //--------------------------------------------------------------------
@@ -712,7 +716,7 @@ function get_add_image_to_folder( $data )
 	$folder = str_replace('\\', '/', $folder);
 	$folder = str_replace('\\\\', '/', $folder);
 	$folder = str_replace('//', '/', $folder);
-
+	// mind: no translation here to keep the testability
 	if (is_dir($folder)) {
 		$exists = 'OK';
 	} else {

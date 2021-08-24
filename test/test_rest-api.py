@@ -1,8 +1,8 @@
 import requests
 import json
 from distutils.version import StrictVersion
-import os, sys, magic, pathlib, string
-import datetime, pytest, base64, hashlib
+import os, sys, magic, pathlib, string, re
+import datetime, pytest, base64, hashlib, time
 
 # prepare the path for the import of the WP-class. VS Code doesn't detect the files therefore and shows a warning here
 SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
@@ -67,8 +67,8 @@ if os.path.isfile( cfpath ):
      
 print('Files collected')
 
-# --------------- tests --------------------------------------------
-
+# --------------- basic tests --------------------------------------------
+@pytest.mark.basic
 def test_rest_api_request_without_login():
      url = wp.url + wp.rest_route
 
@@ -79,6 +79,7 @@ def test_rest_api_request_without_login():
           expected = 401
      assert response.status_code == expected # 403 for site with https:// and 401 for site with http://
 
+@pytest.mark.basic
 def test_rest_api_request_with_login_and_header():
      url = wp.url + wp.rest_route
 
@@ -89,6 +90,7 @@ def test_rest_api_request_with_login_and_header():
      # Validate response content type header
      assert response.headers["Content-Type"] == "application/json; charset=UTF-8"
 
+@pytest.mark.basic
 def test_rest_api_request_with_login_base_url():
      url = wp.url + '/wp-json/'
 
@@ -101,6 +103,7 @@ def test_rest_api_request_with_login_base_url():
      assert resp_body['url'] == wp.url
      assert resp_body['home'] == wp.url
 
+@pytest.mark.basic
 def test_rest_api_request_https_status():
      url = wp.url + '/wp-json/wp-site-health/v1/tests/https-status'
 
@@ -114,6 +117,7 @@ def test_rest_api_request_https_status():
      print('--- https-status: ', resp_body['status'])
      assert resp_body['status'] == expected # 'good' for site with https:// and 'recommended' for site with http://
 
+@pytest.mark.basic
 def test_wp_site_basic_tests():
      assert wp.isgutbgactive == True
      assert wp.tested_plugin_activated == True
@@ -127,6 +131,7 @@ def test_wp_site_basic_tests():
      print('--- WP-Version: ', wp.wpversion )
      assert wp.wpversion == '5.8.0'
 
+@pytest.mark.basic
 def test_rest_api_request_plugin_status():
      url = wp.url + '/wp-json/wp/v2/plugins'
 
@@ -144,6 +149,7 @@ def test_rest_api_request_plugin_status():
              
      assert ( StrictVersion( wp.tested_plugin_version ) >= wp.tested_plugin_min_version ) == True     
 
+@pytest.mark.basic
 def test_rest_api_request_active_theme():
 
      url = wp.url + '/wp-json/wp/v2/themes'
@@ -168,11 +174,149 @@ def test_rest_api_request_active_theme():
      assert resp_body[pi_index]['status'] == 'active'
      assert ( StrictVersion( resp_body[pi_index]['version'] ) >= '0.0.1' ) == True
 
+
+# --------------- extbasic tests: ext rest api --------------------------------
+@pytest.mark.extbasic
+def test_rest_api_get_field_gallery_with_invalid_id():
+     # Now compare the new data
+     result = wp.get_rest_fields( 99999999999999, 'media' )
+     assert result['httpstatus'] == 404
+
+@pytest.mark.extbasic
+def test_rest_api_set_field_gallery_with_invalid_id():
+     # Now compare the new data
+     rest_fields = { 
+               'gallery' : 'wrong_gallery'
+               }
+     result = wp.set_rest_fields( 999999999999999, 'media', rest_fields ) 
+     assert result['httpstatus'] == 404
+
+@pytest.mark.extbasic
+def test_rest_api_set_field_gallery_sort_with_invalid_id():
+     # Now compare the new data
+     rest_fields = { 
+               'gallery_sort' : '999999'
+               }
+     result = wp.set_rest_fields( 999999999999999, 'media', rest_fields ) 
+     assert result['httpstatus'] == 404
+
+@pytest.mark.extbasic
+def test_rest_api_get_update_meta_with_invalid_id():
+     # Now compare the new data
+     result = wp.get_attachment_image_meta( 99999999999999 )
+     assert result['httpstatus'] == 404
+
+@pytest.mark.extbasic
+def test_rest_api_set_update_meta_with_invalid_id(): 
+     sid = '11'
+     ts = '00'
+     # set now the image_meta. Done here to have the same timestamp ts
+     fields =  {'image_meta' : {
+          "aperture": sid,
+          "credit": 'Martin' + '_' + ts,
+          "camera": "camera" + '_' + ts,
+          "caption": 'caption' + sid + '_' + ts,
+          "created_timestamp": ts,
+          "copyright": "copy" + '_' + ts,
+          "focal_length": sid,
+          "iso": sid,
+          "shutter_speed": "0." + sid,
+          "title": 'title' + sid + '_' + ts,
+          "orientation": "1",
+          "keywords": [ 'generated' + '_' + ts]
+     } }
+
+     result = wp.set_attachment_image_meta( 99999999999, 'media', fields )
+     assert result['httpstatus'] == 404
+
+@pytest.mark.extbasic
+def test_rest_api_addtofolder_with_invalid_folder():
+     folder = 'folder_that_does_not_exist'
+     result=wp.get_add_image_to_folder( folder )
+     msg = result['message']
+     s1 = 'You requested image addition to folder '
+     s2 = '/uploads/' + folder + ' with GET-Request. Please use POST Request.'
+     match = re.search(s1 + "/[a-zA-Z0-9-_/]+" +s2, msg)
+     assert result['httpstatus'] == 200
+     assert result['exists'] == 'Could not find directory'
+     assert match != None
+
+@pytest.mark.extbasic
+def test_rest_api_addtofolder_with_valid_folder():
+     folder = wp.tested_site['testfolder']
+     result=wp.get_add_image_to_folder( folder )
+     msg = result['message']
+     s1 = 'You requested image addition to folder '
+     s2 = '/uploads/' + folder + ' with GET-Request. Please use POST Request.'
+     match = re.search(s1 + "/[a-zA-Z0-9-_/]+" +s2, msg)
+     assert result['httpstatus'] == 200
+     assert result['exists'] == 'OK'
+     assert match != None
+
+@pytest.mark.extbasic
+def test_rest_api_addtofolder_with_standard_folder():
+     folder = datetime.datetime.now(datetime.timezone.utc).strftime("%Y/%m")
+     result=wp.post_add_image_to_folder( folder, newfiles[0][1])
+     msg = result['message']
+    
+     assert result['httpstatus'] == 400
+     assert msg == "Do not add image to WP standard media directory"
+
+@pytest.mark.extbasic
+def test_rest_api_addtofolder_with_valid_folder_file_exists():
+     folder = wp.tested_site['testfolder']
+     result=wp.post_add_image_to_folder( folder, newfiles[0][1])
+    
+     assert result['httpstatus'] == 400
+     assert result['code'] == 'error'
+
+@pytest.mark.extbasic
+def test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype():
+     folder = wp.tested_site['testfolder']
+
+     fname = newfiles[0][1]
+     # read the image file to a binary string
+     path = os.getcwd()
+     fname = os.path.join(path, 'testdata', fname)
+     fin = open(fname, "rb")
+     data = fin.read()
+     fin.close()
+
+     #get the base filename with extension
+     imagefile = os.path.basename( fname )
+
+     # check image mime
+     mime = magic.Magic(mime=True)
+     mimetype = mime.from_file(fname)
+     if mimetype == 'image/jpeg':
+          mimetype = 'image/webp'
+     else:
+          mimetype = 'image/jpeg'
+     
+     # upload new image
+     geturl = wp.url + '/wp-json/extmedialib/v1/addtofolder/' + folder
+     # set the header. 
+     header = wp.headers
+     header['Content-Disposition'] = 'attachment; filename=' + imagefile
+     header['Content-Type'] = mimetype
+
+     resp_body = {}
+     response = requests.post(geturl, headers=header, data=data )
+     resp_body.update( json.loads( response.text) )
+     result = resp_body
+   
+     assert result['data']['status'] == 400
+     assert result['code'] == 'error'
+
+
+# --------------- image tests with ext rest api --------------------------------
+@pytest.mark.testimage
 def test_get_number_of_posts_and_upload_dir():
      wp.get_number_of_posts() 
      print ('--- Counted ' +  str(wp.media['count']) + ' images in the media library.')
      assert wp.media['count'] > 0
 
+@pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
 def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      createdfiles = []
@@ -268,6 +412,7 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
 # Mind: the generated IDs are not known before the test, but the filenames are.
 # So, the generated IDs are loaded from an intermediate file to list 'newfiles', that should be deleted afterwards
 # or at least right before the next test
+@pytest.mark.testimage
 def test_created_json_file_list():
      global newfiles
 
@@ -280,6 +425,7 @@ def test_created_json_file_list():
           newfiles = json.load(f)
           f.close()
 
+@pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
 def test_ext_rest_api_get_md5_sum( image_file ):
      image_file = get_image( newfiles, image_file) 
@@ -302,6 +448,88 @@ def test_ext_rest_api_get_md5_sum( image_file ):
                if result['httpstatus'] == 200:
                     assert result["md5_original_file"]['MD5'] == md5sum
 
+@pytest.mark.testimage
+@pytest.mark.parametrize( "image_file", files)
+def test_rest_api_set_field_gallery_with_valid_id_new_value( image_file ):
+     image_file = get_image( newfiles, image_file) 
+
+     if type(image_file) == list:
+          id = image_file[0]
+          result = wp.get_rest_fields( id, 'media' )
+          old = result['gallery']
+          new = old[::-1]
+          # Now compare the new data
+          rest_fields = { 
+                    'gallery' : new
+                    }
+          result = wp.set_rest_fields( id, 'media', rest_fields ) 
+          assert result['httpstatus'] == 200
+          # recover the previous value
+          rest_fields = { 
+                    'gallery' : old
+                    }
+          result = wp.set_rest_fields( id, 'media', rest_fields )
+
+@pytest.mark.testimage
+@pytest.mark.parametrize( "image_file", files)
+def test_rest_api_set_field_gallery_with_valid_id_same_value( image_file ):
+     image_file = get_image( newfiles, image_file) 
+
+     if type(image_file) == list:
+          id = image_file[0]
+          result = wp.get_rest_fields( id, 'media' )
+          old = result['gallery']
+          # Now compare the new data
+          rest_fields = { 
+                    'gallery' : old
+                    }
+          result = wp.set_rest_fields( id, 'media', rest_fields ) 
+          assert result['httpstatus'] == 200
+
+@pytest.mark.testimage
+@pytest.mark.parametrize( "image_file", files)
+def test_rest_api_set_field_gallery_sort_with_valid_id_new_value( image_file ):
+     image_file = get_image( newfiles, image_file) 
+
+     if type(image_file) == list:
+          id = image_file[0]
+          #result = wp.get_rest_fields( id, 'media' )
+          #old = int(result['gallery_sort'])
+          new = id+1
+          # Now compare the new data
+          rest_fields = { 
+                    'gallery_sort' : str(id)
+                    }
+          result = wp.set_rest_fields( id, 'media', rest_fields ) 
+          assert result['httpstatus'] == 200
+
+@pytest.mark.testimage
+@pytest.mark.parametrize( "image_file", files)
+def test_rest_api_set_field_gallery_sort_with_valid_id_same_value( image_file ):
+     image_file = get_image( newfiles, image_file) 
+
+     if type(image_file) == list:
+          id = image_file[0]
+          result = wp.get_rest_fields( id, 'media' )
+          old = result['gallery_sort']
+          # Now compare the new data
+          rest_fields = { 
+                    'gallery_sort' : old
+                    }
+          result = wp.set_rest_fields( id, 'media', rest_fields ) 
+          assert result['httpstatus'] == 200
+
+@pytest.mark.testimage
+@pytest.mark.parametrize( "image_file", files)
+def test_rest_api_get_update_meta_with_valid_id( image_file ):
+     image_file = get_image( newfiles, image_file) 
+
+     if type(image_file) == list:
+          id = image_file[0]
+          result = wp.get_attachment_image_meta( id ) 
+          assert result['httpstatus'] == 405
+
+@pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)     
 def test_id_of_created_images( image_file ):
      image_file = get_image( newfiles, image_file)
@@ -321,6 +549,7 @@ def test_id_of_created_images( image_file ):
           for i in range(0, end): 
                assert isinstance( wp.created_images[i]['id'], int) == True 
       
+@pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_metadata( image_file ): 
      image_file = get_image( newfiles, image_file)
@@ -430,6 +659,7 @@ def test_update_image_metadata( image_file ):
                assert result['media_details']['image_meta']['title'] == fields['image_meta']['title']
                assert result['media_details']['image_meta']['keywords'] == fields['image_meta']['keywords']
 
+@pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
 def test_create_gtb_post_with_one_image( image_file ): 
      image_file = get_image( newfiles, image_file)
@@ -464,6 +694,7 @@ def test_create_gtb_post_with_one_image( image_file ):
                if result['httpstatus'] == 200:
                     wp.created_posts[n]['post'] =  result
 
+@pytest.mark.testgallery
 def test_create_gtb_gallery_with_all_images():
      ts = str( round(datetime.datetime.now().timestamp()) )
      allimgs = newfiles
@@ -485,6 +716,7 @@ def test_create_gtb_gallery_with_all_images():
      result = wp.add_post( data, 'post' )
      assert result['httpstatus'] == 201
 
+@pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_metadata_after_post_was_created( image_file ): 
      image_file = get_image( newfiles, image_file)
@@ -598,6 +830,7 @@ def test_update_image_metadata_after_post_was_created( image_file ):
                assert result['media_details']['image_meta']['title'] == fields['image_meta']['title']
                assert result['media_details']['image_meta']['keywords'] == fields['image_meta']['keywords']
 
+@pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
 def test_updated_posts( image_file ):
      image_file = get_image( newfiles, image_file)
@@ -624,16 +857,21 @@ def test_updated_posts( image_file ):
           content = result['content']['rendered']       
                   
           # compare now alt and caption. These two have to be changed in a gtb wp:image
-          found = content.find( imgalt )
+          found = content.find( 'alt="' + imgalt )
           print(content)
           print('--- ', imgalt)
           assert found > 10
 
-          found = content.find( imgcaption )
+          found = content.find( '>' + imgcaption + '</' )
           print('--- ', imgcaption)
           assert found > 10
 
-def xxxtest_clean_up():
+          time.sleep(1)
+
+
+# --------------- clean-up the WP installation
+@pytest.mark.cleanup
+def test_clean_up():
      # delete all created images, posts, pages
      end = len(wp.created_images)
      for i in range(0, end): 
@@ -659,5 +897,6 @@ def xxxtest_clean_up():
 # just here for debugging the tests 
 if __name__ == '__main__':
      ts = round(datetime.datetime.now().timestamp())
-     test_create_gtb_gallery_with_all_images()
+     test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype()
+     #test_create_gtb_gallery_with_all_images()
     

@@ -433,6 +433,23 @@ class WP_EXT_REST_API( WP_REST_API ):
         self.tested_site = args_in_array
         self.get_tested_plugin()
 
+    def get_attachment_image_meta( self, id: int ):
+        """ Call the GET-method of route 'update' of REST-API Extension"""
+        resp_body = {}
+        resp_body['httpstatus'] = 0
+        resp_body['message'] = ''
+
+        # upload new image
+        geturl = self.url + '/wp-json/extmedialib/v1/update_meta/' + str(id)
+        
+        response = requests.get(geturl, headers=self.headers )
+        resp_body.update( json.loads( response.text) )
+
+        # return id of the new image on success
+        resp_body['httpstatus'] = response.status_code
+        
+        return resp_body
+
     def set_attachment_image_meta( self, id: int, posttype= 'media', fields = {} ):
         """ Write the image_meta given in fields via REST-API Extension to WordPress. 
         Othe values than image_meta are silently ignored."""
@@ -491,8 +508,7 @@ class WP_EXT_REST_API( WP_REST_API ):
         resp_body.update( json.loads( response.text) )
 
         # return id of the new image on success
-        if response.status_code == 200:
-            resp_body['httpstatus'] = response.status_code
+        resp_body['httpstatus'] = response.status_code
         
         return resp_body
 
