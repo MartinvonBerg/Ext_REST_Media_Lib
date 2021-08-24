@@ -8,7 +8,6 @@ from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, va
 import os, sys
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
-#SCRIPT_DIR = os.path.join(SCRIPT_DIR, 'classes')
 sys.path.append(SCRIPT_DIR)
 
 # Class definitions for WordPress
@@ -559,10 +558,9 @@ class WP_EXT_REST_API( WP_REST_API ):
         resp_body.update( json.loads( response.text) )
 
         # return id of the new image on success
-        if response.status_code == 200:
-            resp_body['httpstatus'] = response.status_code
+        resp_body['httpstatus'] = response.status_code
         
-        else:
+        if response.status_code != 200:
             resp_body['message'] += 'Error. Could not update image.'
 
         return resp_body

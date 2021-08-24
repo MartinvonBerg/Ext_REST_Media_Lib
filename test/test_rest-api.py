@@ -3,6 +3,8 @@ import json
 from distutils.version import StrictVersion
 import os, sys, magic, pathlib, string, re
 import datetime, pytest, base64, hashlib, time
+from PIL import Image
+from PIL import ImageOps
 
 # prepare the path for the import of the WP-class. VS Code doesn't detect the files therefore and shows a warning here
 SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
@@ -310,12 +312,14 @@ def test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype():
 
 
 # --------------- image tests with ext rest api --------------------------------
+@pytest.mark.updateimage
 @pytest.mark.testimage
 def test_get_number_of_posts_and_upload_dir():
      wp.get_number_of_posts() 
      print ('--- Counted ' +  str(wp.media['count']) + ' images in the media library.')
      assert wp.media['count'] > 0
 
+@pytest.mark.uploadimage
 @pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
 def test_image_upload_to_folder_with_ext_rest_api( image_file ):
@@ -412,6 +416,7 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
 # Mind: the generated IDs are not known before the test, but the filenames are.
 # So, the generated IDs are loaded from an intermediate file to list 'newfiles', that should be deleted afterwards
 # or at least right before the next test
+@pytest.mark.updateimage
 @pytest.mark.testimage
 def test_created_json_file_list():
      global newfiles
@@ -772,7 +777,7 @@ def test_create_gtb_image_text( image_file ):
 
 @pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
-def test_update_image_metadata_after_post_was_created( image_file ): 
+def test_update_image_metadata_after_posts_were_created( image_file ): 
      image_file = get_image( newfiles, image_file)
      uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
      uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=5) 
@@ -886,6 +891,104 @@ def test_update_image_metadata_after_post_was_created( image_file ):
                assert result['media_details']['image_meta']['title'] == fields['image_meta']['title']
                assert result['media_details']['image_meta']['keywords'] == fields['image_meta']['keywords']
 
+@pytest.mark.updateimage
+@pytest.mark.parametrize( "image_file", files)
+def test_update_image_with_flipped_original_and_new_filename( image_file ): 
+     image_file = get_image( newfiles, image_file)
+     pre = 'flipped_'
+   
+     if type(image_file) == list:
+          id = image_file[0]
+          imgfile = image_file[1]
+          ts = str( round(datetime.datetime.now().timestamp()) )
+
+          path = os.path.join(SCRIPT_DIR, 'testdata', imgfile)
+          assert os.path.isfile( path ) == True
+
+          # Flip the image and save it with new name 'flipped_<old-name>'
+          im = Image.open( path )
+          im = ImageOps.flip( im )
+          newimg = pre + imgfile
+          path = os.path.join(SCRIPT_DIR, 'testdata', newimg)
+          im.save( path )
+
+          # upload the flipped image with the new name but the same id
+          # keep the mime-type as is (for the moment)
+          result = wp.post_update_image( id, path, False )
+          full_dir = result['new_fullpath']
+          assert result['httpstatus'] == 200
+                   
+          # Now compare the new data
+          result = wp.get_rest_fields( id, 'media' )
+          assert result['httpstatus'] == 200 
+
+          print ('Comparing: ', result['id'])  
+          assert result['id'] == id
+
+          # check the gallery
+          print('--- gallery: ', result['gallery'])
+          assert result['gallery'] == wp.tested_site['testfolder']
+
+          # check the attachment type
+          print('--- attachment type: ', result['media_type'])
+          assert result['media_type'] == 'image'
+
+          # check the guid
+          basename = os.path.splitext( newimg )[0]
+          ext = os.path.splitext( newimg)[1]
+          expguid = wp.wp_upload_dir + basename + ext
+          print('--- guid: ', result['guid']['rendered'])
+          # expguid = sourceurl : uploadurl + filename with extension. uploadurl is eventually shortened
+          assert result['guid']['rendered'] ==  expguid 
+
+          surl = result['source_url']
+          pos = surl.find('-scaled')
+          isscaled = False
+          if pos > 10:
+               surl = surl.replace('-scaled','')
+               isscaled = True
+          print('--- source_url: ', result['source_url'])
+          assert surl ==  expguid
+
+          # checking the title.rendered
+          exptitle = basename
+          print('--- title: ', result['title']['rendered'])
+          assert result['title']['rendered'] ==  exptitle
+
+          #"media_details" "file" : folder + filename
+          expmd_file = wp.tested_site['testfolder'] + '/' + basename
+          if isscaled:
+               expmd_file += '-scaled'
+          expmd_file += ext
+          print('--- media_details.file: ', result['media_details']['file'])
+          assert result['media_details']['file'] ==  expmd_file
+         
+          # slug, link : only lower letters and '_'
+          expslug = exptitle.lower()
+          print('--- slug: ', result['slug'])
+          assert result['slug'] ==  expslug
+
+          #explink = expslug.replace('-','_') # This is not done for the Links !!!
+          explink = wp.url + '/' + expslug + '/'
+          print('--- link: ', result['link'])
+          assert result['link'] == explink
+
+          # description.rendered : /folder/filename : 1x
+          descr = result['description']['rendered']
+          if isscaled:
+               descr = descr.replace('-scaled','')
+          expguidindescr = "href='" + expguid
+          print('--- guid in descr: ', expguidindescr)
+          match = re.search( expguidindescr, descr)
+          assert match != None
+
+          # description.rendered : /folder/basename [reqex] ext : Nx
+          s1 = wp.wp_upload_dir + basename
+          s2 = ext
+          match = len(re.findall(s1 + "-[0-9]+x[0-9]+" +s2, descr))
+          print('--- description.rendered: ', result['description']['rendered'])
+          assert match > 3        
+
 @pytest.mark.testimage
 @pytest.mark.parametrize( "image_file", files)
 def test_updated_posts_with_images( image_file ):
@@ -950,6 +1053,11 @@ def test_updated_post_with_gallery():
           imgcaption = remove_html_tags( result['caption']['rendered'] )
           imgalt = result['alt_text']
 
+          #regexsrc="https://www.bergreisefoto.de/wordpress/wp-content/uploads/test2/Skitour-Dbhorn-2020-02-8-1024x683.webp"
+          #link: data-link="https://www.bergreisefoto.de/wordpress/skitour-dbhorn-2020-02-8/
+          #full: data-full-url="https://www.bergreisefoto.de/wordpress/wp-content/uploads/test2/Skitour-Dbhorn-2020-02-8.webp"
+
+
           # compare now alt and caption. These two have to be changed in a gtb wp:image
           found = content.find( 'alt="' + imgalt )
           print(content)
@@ -959,7 +1067,10 @@ def test_updated_post_with_gallery():
           found = content.find( '>' + imgcaption + '</' )
           print('--- ', imgcaption)
           assert found > 10
-         
+
+          # compare the link
+          explink = 'data-link="' + result['link']
+          match = len(re.findall( explink, content) ) 
 
 # --------------- clean-up the WP installation
 @pytest.mark.cleanup
@@ -989,6 +1100,9 @@ def test_clean_up():
 # just here for debugging the tests 
 if __name__ == '__main__':
      ts = round(datetime.datetime.now().timestamp())
-     test_updated_post_with_gallery()
+     test_get_number_of_posts_and_upload_dir()
+     test_created_json_file_list()
+     test_update_image_with_flipped_original_and_new_filename( 'DSC_1722.webp' )
+     print('done')
      #test_create_gtb_gallery_with_all_images()
     
