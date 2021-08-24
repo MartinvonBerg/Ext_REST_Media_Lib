@@ -176,6 +176,8 @@ def test_rest_api_request_active_theme():
      assert resp_body[pi_index]['status'] == 'active'
      assert ( StrictVersion( resp_body[pi_index]['version'] ) >= '0.0.1' ) == True
 
+# TODO: upload one image to the standard folder. It is requiredd for the 
+# following tests to have at least on image in the WP media-library
 
 # --------------- extbasic tests: ext rest api --------------------------------
 @pytest.mark.extbasic
@@ -269,8 +271,8 @@ def test_rest_api_addtofolder_with_valid_folder_file_exists():
      folder = wp.tested_site['testfolder']
      result=wp.post_add_image_to_folder( folder, newfiles[0][1])
     
-     assert result['httpstatus'] == 400
-     assert result['code'] == 'error'
+     assert result['httpstatus'] == 400, "will fail if the fail didn't exist before. http-status is then 200."
+     assert result['code'] == 'error', "will fail if the fail didn't exist before. http-status is then 200."
 
 @pytest.mark.extbasic
 def test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype():
@@ -318,6 +320,8 @@ def test_get_number_of_posts_and_upload_dir():
      wp.get_number_of_posts() 
      print ('--- Counted ' +  str(wp.media['count']) + ' images in the media library.')
      assert wp.media['count'] > 0
+     wp.wp_upload_dir = wp.wp_upload_dir + wp.tested_site['testfolder'] + '/'
+     assert wp.wp_upload_dir == '/wp-content/uploads/pythontest/'
 
 @pytest.mark.uploadimage
 @pytest.mark.testimage
@@ -372,6 +376,8 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
 
      # check the number of media in the media library
      wp.get_number_of_posts()
+     wp.wp_upload_dir = wp.wp_upload_dir + wp.tested_site['testfolder'] + '/'
+     assert wp.wp_upload_dir == '/wp-content/uploads/pythontest/'
      print('--- new image count: ', wp.media['count'])
      assert wp.media['count'] == image_number_before + 1
 
@@ -389,16 +395,30 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      # check the guid
      expguid = wp.wp_upload_dir + image_file
      print('--- guid: ', result['guid']['rendered'])
-     assert result['guid']['rendered'] ==  expguid 
+     assert result['guid']['rendered'] ==  (wp.suburl + expguid) 
      
-     #assert result['source_url'] == expguid
+     # check the source url
+     assert result['source_url'] == (wp.suburl + expguid)
+
+     lexpguid = expguid.split('/')
+     lsrceurl = result['source_url'].split('/')
+     diff = list(set(lsrceurl) - set(lexpguid))
+     sdiff = '/'.join(diff)
+     pos = wp.url.find( sdiff )
+     if pos > -1:
+          reducedsrcurl = result['source_url'].replace(sdiff, '')
+     else:
+          reducedsrcurl = result['source_url']
+     reducedsrcurl = reducedsrcurl.replace('//', '/')
+     assert reducedsrcurl == expguid
+
      # check the link url
      basename = os.path.splitext( image_file)[0]
      explink = wp.url + '/' + basename + '/'
      explink = explink.lower()
      explink = explink.replace('_','-')
      print('--- link: ', result['link'])
-     #assert result['link'] == explink # wp.url + filename ohne extension, aber '/' am Ende
+     assert result['link'] == explink # wp.url + filename ohne extension, aber '/' am Ende
 
      # check the time
      imagetime = datetime.datetime.strptime( result['modified_gmt'], "%Y-%m-%dT%H:%M:%S")
@@ -629,10 +649,28 @@ def test_update_image_metadata( image_file ):
 
           # check the guid
           expguid = wp.wp_upload_dir + imgfile # wp_upload_dir is set with get_number_of_posts only!
-          print('--- guid: ', result['guid']['rendered'])
-          assert result['guid']['rendered'] ==  expguid 
+          print('--- guid is: ', result['guid']['rendered'])
+          print('--- guid exp: ', expguid)
 
-            # check the link url
+          lexpguid = expguid.split('/')
+          lguidis  = result['guid']['rendered'].split('/')
+          diff = list(set(lguidis) - set(lexpguid))
+          sdiff = '/'.join(diff)
+          pos = wp.url.find( sdiff )
+          if pos > -1:
+               reducedsrcurl = result['guid']['rendered'].replace(sdiff, '')
+          else:
+               reducedsrcurl = result['guid']['rendered']
+          reducedsrcurl = reducedsrcurl.replace('//', '/')
+
+          assert reducedsrcurl ==  expguid 
+
+          #AssertionError: assert '/wordpress/wp-content/uploads/pythontest/DSC_1722.webp' == '/wp-content/uploads/pythontest/DSC_1722.webp'
+          #     -           /wp-content/uploads/pythontest/DSC_1722.webp
+          #     + /wordpress/wp-content/uploads/pythontest/DSC_1722.webp
+          #     ? ++++++++++
+
+          # check the link url
           basename = os.path.splitext( imgfile)[0]
           explink = wp.url + '/' + basename + '/'
           explink = explink.lower()
@@ -856,8 +894,21 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
 
           # check the guid
           expguid = wp.wp_upload_dir + imgfile # wp_upload_dir is set with get_number_of_posts only!
-          print('--- guid: ', result['guid']['rendered'])
-          assert result['guid']['rendered'] ==  expguid 
+          print('--- guid is: ', result['guid']['rendered'])
+          print('--- guid exp: ', expguid)
+
+          lexpguid = expguid.split('/')
+          lguidis  = result['guid']['rendered'].split('/')
+          diff = list(set(lguidis) - set(lexpguid))
+          sdiff = '/'.join(diff)
+          pos = wp.url.find( sdiff )
+          if pos > -1:
+               reducedsrcurl = result['guid']['rendered'].replace(sdiff, '')
+          else:
+               reducedsrcurl = result['guid']['rendered']
+          reducedsrcurl = reducedsrcurl.replace('//', '/')
+
+          assert reducedsrcurl ==  expguid
 
           # check the link url
           basename = os.path.splitext( imgfile)[0]
@@ -895,7 +946,7 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_with_flipped_original_and_new_filename( image_file ): 
      image_file = get_image( newfiles, image_file)
-     pre = 'flipped_'
+     pre = 'flipped'
    
      if type(image_file) == list:
           id = image_file[0]
@@ -938,8 +989,11 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
           ext = os.path.splitext( newimg)[1]
           expguid = wp.wp_upload_dir + basename + ext
           print('--- guid: ', result['guid']['rendered'])
+          print('--- guid exp: ', expguid)
           # expguid = sourceurl : uploadurl + filename with extension. uploadurl is eventually shortened
-          assert result['guid']['rendered'] ==  expguid 
+          match = re.search( expguid + '$', result['guid']['rendered'])
+          assert match != None
+          #assert result['guid']['rendered'] ==  expguid 
 
           surl = result['source_url']
           pos = surl.find('-scaled')
@@ -948,7 +1002,9 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
                surl = surl.replace('-scaled','')
                isscaled = True
           print('--- source_url: ', result['source_url'])
-          assert surl ==  expguid
+          match = re.search( expguid + '$', surl)
+          assert match != None
+          #assert surl ==  expguid
 
           # checking the title.rendered
           exptitle = basename
@@ -977,7 +1033,7 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
           descr = result['description']['rendered']
           if isscaled:
                descr = descr.replace('-scaled','')
-          expguidindescr = "href='" + expguid
+          expguidindescr = "href='" + wp.suburl + expguid
           print('--- guid in descr: ', expguidindescr)
           match = re.search( expguidindescr, descr)
           assert match != None
@@ -997,6 +1053,7 @@ def test_updated_posts_with_images( image_file ):
 
      if type(image_file) == list:
           id = image_file[0]
+          img = image_file[1]
 
           # loop through all created posts 
           for i in range(0, end):
@@ -1028,6 +1085,23 @@ def test_updated_posts_with_images( image_file ):
                          found = content.find( '>' + imgcaption + '</' )
                          print('--- ', imgcaption)
                          assert found > 10
+
+                    # compare the data-link
+                    # bug TODO: the data-link in the wp:galery is not being updated!
+                    # bug TODO: the mediaLink in the wp:image and wp:media-text : same problem, is result['link'] also
+                    explink = result['link']
+                    match = len(re.findall( explink, content) ) 
+                    print('--- data-link:', explink)
+                    assert match == 1
+
+                    #compare the img src="...."
+                    basename = os.path.splitext( img )[0]
+                    ext = os.path.splitext( img )[1]
+                    s1 = 'src="' +wp.wp_upload_dir + basename
+                    s2 = ext
+                    match = len(re.findall(s1 + "-[0-9]+x[0-9]+" +s2, content))
+                    print('--- img src 1st part: ', s1)
+                    assert match == 1
                     
 @pytest.mark.testgallery
 def test_updated_post_with_gallery():
@@ -1046,17 +1120,13 @@ def test_updated_post_with_gallery():
      allimgs = newfiles
      for i in allimgs:
           id = str(i[0]) # this is the image id
+          img = i[1]
 
           # get the image data
           result = wp.get_post_content( id, 'media' )
           assert result['httpstatus'] == 200
           imgcaption = remove_html_tags( result['caption']['rendered'] )
           imgalt = result['alt_text']
-
-          #regexsrc="https://www.bergreisefoto.de/wordpress/wp-content/uploads/test2/Skitour-Dbhorn-2020-02-8-1024x683.webp"
-          #link: data-link="https://www.bergreisefoto.de/wordpress/skitour-dbhorn-2020-02-8/
-          #full: data-full-url="https://www.bergreisefoto.de/wordpress/wp-content/uploads/test2/Skitour-Dbhorn-2020-02-8.webp"
-
 
           # compare now alt and caption. These two have to be changed in a gtb wp:image
           found = content.find( 'alt="' + imgalt )
@@ -1068,9 +1138,31 @@ def test_updated_post_with_gallery():
           print('--- ', imgcaption)
           assert found > 10
 
-          # compare the link
+          # compare the data-link
+          # bug TODO: the data-link in the wp:galery is not being updated!
+          # bug TODO: the mediaLink in the wp:image and wp:media-text : same problem, is result['link'] also
           explink = 'data-link="' + result['link']
           match = len(re.findall( explink, content) ) 
+          print('--- data-link:', explink)
+          assert match == 1
+
+          #compare the data-full-url
+          explink = 'data-full-url="' + result['media_details']['file']
+          match = len(re.findall( explink, content) ) 
+          print('--- data-full-url:', explink)
+          assert match == 1
+
+          #compare the img src="...."
+          basename = os.path.splitext( img )[0]
+          ext = os.path.splitext( img )[1]
+          s1 = 'src="' + wp.wp_upload_dir + basename
+          s2 = ext
+          match = len(re.findall(s1 + "-[0-9]+x[0-9]+" +s2, content))
+          print('--- img src 1st part: ', s1)
+          assert match == 1
+
+# TODO: check visually or programmatically that images were really changed e.g. flipped
+# TODO: guid is wrong, data-link and media-link are not updated!
 
 # --------------- clean-up the WP installation
 @pytest.mark.cleanup
@@ -1105,4 +1197,4 @@ if __name__ == '__main__':
      test_update_image_with_flipped_original_and_new_filename( 'DSC_1722.webp' )
      print('done')
      #test_create_gtb_gallery_with_all_images()
-    
+     #'/wordpress/wp-content/uploads/pythontest/flipped_DSC_1722.webp' == '/var/www/web123/html/wordpress_test/wordpress/wp-content/uploads/pythontest/flipped_DSC_1722.webp'

@@ -14,6 +14,7 @@ sys.path.append(SCRIPT_DIR)
 class WP_REST_API():
     """Class with methods to access a WordPress site via the REST-API"""
     url = ''
+    suburl = ''
     rest_route = ''
     wpuser = ''
     wpauth = ''
@@ -99,8 +100,23 @@ class WP_REST_API():
             
             count = count + len(resp_body)
             self.media['count'] = count
-
             self.media['minid'] = minid
+            # get the upload dir
+            geturl = self.url + '/wp-json/wp/v2/media/' + str(minid)
+            response = requests.get(geturl, headers=self.headers )
+            resp_body = response.json()
+
+            if response.status_code == 200:
+                guid = resp_body['guid']['rendered']
+                guid = guid.replace(self.url, '')
+                base = os.path.basename(guid)
+                base = guid.replace(base, '')
+                for letter in base:
+                    if letter.isdigit():
+                        base = base.replace(letter, '')
+                base = base.replace('//', '')    
+
+                self.wp_upload_dir = base
 
         if posttype == 'pages':
             self.pages['count'] = 0
@@ -122,8 +138,15 @@ class WP_REST_API():
         self.get_wp_version()
         self.get_themes()
         self.get_plugins()
-        #self.get_number_of_posts( 'media')
-        #super().__init__() # use this to call the constructor of the parent class if any
+
+        subs = self.url.replace('//', '/')
+        subs = subs.split('/')
+        nparts = len(subs)
+        part = ''
+        if nparts > 2:
+            for i in range(2, nparts ):
+              part += '/' + subs[i]
+        self.suburl = part
    
     def get_rest_fields( self, id: int, posttype='media', fields = {}):
         

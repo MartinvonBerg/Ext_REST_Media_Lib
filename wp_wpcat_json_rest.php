@@ -743,6 +743,8 @@ function get_add_image_to_folder( $data )
  */
 function post_add_image_to_folder($data)
 {
+	global $wpdb;
+
 	include_once ABSPATH . 'wp-admin/includes/image.php';
 	$minsize   = MIN_IMAGE_SIZE;
 		
@@ -780,6 +782,10 @@ function post_add_image_to_folder($data)
 		$title = basename($cont, '.' . $ext);
 		$title = special_replace($title);
 		$newfile = $folder . '/' . $cont;
+		// update post doesn't update GUID on updates. guid has to be the full url to the file
+		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont;
+		
+		
 	}
 	$newexists = file_exists($newfile);
 	
@@ -791,7 +797,7 @@ function post_add_image_to_folder($data)
 		
 		if ($success_new_file_write && $mime_type_ok) {
 			$att_array = array(
-				'guid'           => $newfile, // works only this way -- use a relative path to ... /uploads/ - folder
+				'guid'           => $url_to_new_file, // works only this way -- use a relative path to ... /uploads/ - folder
 				'post_mime_type' => $new_file_mime, // 'image/jpg'
 				'post_title'     => $title, // this creates the title and the permalink, if post_name is empty
 				'post_content'   => '',
@@ -799,12 +805,15 @@ function post_add_image_to_folder($data)
 				'post_name' => '' , // this is used for Permalink :  https://example.com/title-88/, (if empty post_title is used)
 			);
 			
-			$upload_id = wp_insert_attachment($att_array, $newfile);
-			$success_subsizes = wp_create_image_subsizes($newfile, $upload_id);
+			$upload_id = wp_insert_attachment($att_array, $url_to_new_file); # TODO: check this
+			$success_subsizes = wp_create_image_subsizes($newfile, $upload_id);  # TODO: check this
 		
 			$attfile = $reqfolder . '/' . $cont;
 			update_post_meta($upload_id, 'gallery', $reqfolder);
 			update_post_meta($upload_id, '_wp_attached_file', $attfile);
+
+			// update post doesn't update GUID on updates. guid has to be the full url to the file
+			$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $upload_id) );
 			
 			$getResp = array(
 				'id' => $upload_id,
