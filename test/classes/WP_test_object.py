@@ -34,6 +34,9 @@ class WP_REST_API():
     headers = {}
 
     wp_upload_dir = ''
+    wp_upload_url = ''
+    usescompleteurls = False
+    real_wp_upload_dir = '' # confusing second definition for the dir needed
 
     def get_wp_version( self ): 
         self.wpversion = '5.8.0'
@@ -117,6 +120,11 @@ class WP_REST_API():
                 base = base.replace('//', '')    
 
                 self.wp_upload_dir = base
+                self.wp_upload_url = self.url + base
+
+                pos = resp_body['guid']['rendered'].find( self.url )
+                if pos>-1:
+                    self.usescompleteurls = True
 
         if posttype == 'pages':
             self.pages['count'] = 0
@@ -336,6 +344,7 @@ class WP_REST_API():
 
         alt = result['alt_text']
         src = result['media_details']['sizes']['full']['source_url']
+        # TODO: This won't work if size full is not available!
 
         if result['httpstatus'] == 200:
              content = f'\
@@ -355,6 +364,7 @@ class WP_REST_API():
         result = self.get_rest_fields(id, 'media', fields)
         
         alt = result['alt_text']
+        # TODO: This won't work if size full is not available!
         #src = result['media_details']['sizes']['full']['source_url']
         src = result['media_details']['sizes']['large']['source_url']
         link = result['link']
@@ -389,6 +399,7 @@ class WP_REST_API():
             result = self.get_rest_fields( int(id), 'media', fields)
 
             # check http status, skip if not 200 and remove id from idsstring
+            # TODO: This won't work if size full or large are not available!
             if result['httpstatus'] == 200:
                 alt = result['alt_text']
                 srcfull = result['media_details']['sizes']['full']['source_url']
@@ -583,8 +594,8 @@ class WP_EXT_REST_API( WP_REST_API ):
         # return id of the new image on success
         resp_body['httpstatus'] = response.status_code
         
-        if response.status_code != 200:
-            resp_body['message'] += 'Error. Could not update image.'
+        #if response.status_code != 200:
+        #    resp_body['message'] = resp_body['message'] + 'Error. Could not update image.'
 
         return resp_body
        

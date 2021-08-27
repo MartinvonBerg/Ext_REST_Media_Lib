@@ -410,9 +410,9 @@ function post_image_update( $data )
 		$file6 = str_replace($ext, '', $old_original_fileName); // Filename without extension for the deletion with Wildcard '*'
 
 		// data for the REST-response
-		$base_fileName_from_att_meta = basename($fileName_from_att_meta);
+		$base_fileName_from_att_meta = basename($fileName_from_att_meta); // filename with extension with '-scaled'
 		$original_filename_old_file = str_replace('-' . EXT_SCALED, '', $base_fileName_from_att_meta);
-		$old_upload_dir = str_replace( $base_fileName_from_att_meta, '', $old_attached_file ); // This is the upload dir that was used for the original file
+		$old_upload_dir = str_replace( $original_filename_old_file, '', $old_attached_file ); // This is the upload dir that was used for the original file $old_upload_dir = str_replace( $original_filename_old_file, '', $old_attached_file );
 		$gallerydir = str_replace($dir, '', $old_upload_dir);
 		$gallerydir = trim($gallerydir, '/\\');
 
@@ -429,7 +429,8 @@ function post_image_update( $data )
 			$path_to_new_file = $old_original_fileName;
 		} else {
 			// generate the complete path for the new uploaded file
-			$path_to_new_file = $old_upload_dir . $postRequestFileName;
+			$path_to_new_file = $old_upload_dir . $postRequestFileName; 
+			$path_to_new_file = $dir . '/' . $gallerydir . '/' . $postRequestFileName;
 		}
 		
 		// check if file exists alreay, don't overwrite
@@ -797,7 +798,7 @@ function post_add_image_to_folder($data)
 		
 		if ($success_new_file_write && $mime_type_ok) {
 			$att_array = array(
-				'guid'           => $url_to_new_file, // works only this way -- use a relative path to ... /uploads/ - folder
+				'guid'           => $url_to_new_file, // // alt: $url_to_new_file works only this way -- use a relative path to ... /uploads/ - folder
 				'post_mime_type' => $new_file_mime, // 'image/jpg'
 				'post_title'     => $title, // this creates the title and the permalink, if post_name is empty
 				'post_content'   => '',
@@ -805,8 +806,8 @@ function post_add_image_to_folder($data)
 				'post_name' => '' , // this is used for Permalink :  https://example.com/title-88/, (if empty post_title is used)
 			);
 			
-			$upload_id = wp_insert_attachment($att_array, $url_to_new_file); # TODO: check this
-			$success_subsizes = wp_create_image_subsizes($newfile, $upload_id);  # TODO: check this
+			$upload_id = wp_insert_attachment($att_array, $newfile); // alt: $url_to_new_file
+			$success_subsizes = wp_create_image_subsizes($newfile, $upload_id);
 		
 			$attfile = $reqfolder . '/' . $cont;
 			update_post_meta($upload_id, 'gallery', $reqfolder);
