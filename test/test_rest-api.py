@@ -39,7 +39,7 @@ wp_site3 = {
     'testfolder' : 'test'
 }
 
-wp_site = wp_site3
+wp_site = wp_site2
 wp_site['authentication'] = 'Basic ' + base64.b64encode( (wp_site['user'] + ':' + wp_site['password']).encode('ascii')).decode('ascii')
 
 # generate the WordPress-Class that will be tested
@@ -47,7 +47,6 @@ wp = WP_EXT_REST_API( wp_site )
 print('Class generated')
 
 # get all the image files from /testdata
-
 testdata = os.path.join(SCRIPT_DIR, 'testdata')
 files = os.listdir( testdata )
 jpgfiles = [x for x in files if x.endswith('.jpg') == True]
@@ -309,64 +308,74 @@ def test_rest_api_addtofolder_with_valid_folder():
 @pytest.mark.extbasic
 def test_rest_api_addtofolder_with_standard_folder():
      folder = datetime.datetime.now(datetime.timezone.utc).strftime("%Y/%m")
-     try:
-          result=wp.post_add_image_to_folder( folder, newfiles[0][1])
-          msg = result['message']
-     except:
-          msg = 'NO!'
-    
+     files = os.listdir( testdata )
+     jpgfiles = [x for x in files if x.endswith('.jpg') == True]
+     webpfiles = [x for x in files if x.endswith('.webp') == True]
+     newfiles = jpgfiles + webpfiles
+
+     result=wp.post_add_image_to_folder( folder, newfiles[0])
+     msg = result['message']
+        
      assert result['httpstatus'] == 400, 'Will fail if the upload was not possible.'
      assert msg == "Do not add image to WP standard media directory"
 
 @pytest.mark.extbasic
 def test_rest_api_addtofolder_with_valid_folder_file_exists():
      folder = wp.tested_site['testfolder']
-     try:
-          result=wp.post_add_image_to_folder( folder, newfiles[0][1])
-     except:
-          msg = 'NO!'
-    
+     files = os.listdir( testdata )
+     jpgfiles = [x for x in files if x.endswith('.jpg') == True]
+     webpfiles = [x for x in files if x.endswith('.webp') == True]
+     newfiles = jpgfiles + webpfiles
+
+     result= wp.post_add_image_to_folder( folder, newfiles[0])
+     id = result['id']
+
+     result=wp.post_add_image_to_folder( folder, newfiles[0])
+     
+     wp.delete_media( id , 'media' )
+          
      assert result['httpstatus'] == 400, "The assertion will fail if the file didn't exist before. Http-status is then 200 because the file was successfully uploaded."
      assert result['code'] == 'error'
 
 @pytest.mark.extbasic
 def test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype():
      folder = wp.tested_site['testfolder']
+     files = os.listdir( testdata )
+     jpgfiles = [x for x in files if x.endswith('.jpg') == True]
+     webpfiles = [x for x in files if x.endswith('.webp') == True]
+     newfiles = jpgfiles + webpfiles
 
-     try:
-          fname = newfiles[0][1]
-          # read the image file to a binary string
-          path = os.getcwd()
-          fname = os.path.join(path, 'testdata', fname)
-          fin = open(fname, "rb")
-          data = fin.read()
-          fin.close()
+     fname = newfiles[0]
+     # read the image file to a binary string
+     path = os.getcwd()
+     fname = os.path.join(path, 'testdata', fname)
+     fin = open(fname, "rb")
+     data = fin.read()
+     fin.close()
 
-          #get the base filename with extension
-          imagefile = os.path.basename( fname )
+     #get the base filename with extension
+     imagefile = os.path.basename( fname )
 
-          # check image mime
-          mime = magic.Magic(mime=True)
-          mimetype = mime.from_file(fname)
-          if mimetype == 'image/jpeg':
-               mimetype = 'image/webp'
-          else:
-               mimetype = 'image/jpeg'
-          
-          # upload new image
-          geturl = wp.url + '/wp-json/extmedialib/v1/addtofolder/' + folder
-          # set the header. 
-          header = wp.headers
-          header['Content-Disposition'] = 'attachment; filename=' + imagefile
-          header['Content-Type'] = mimetype
+     # check image mime
+     mime = magic.Magic(mime=True)
+     mimetype = mime.from_file(fname)
+     if mimetype == 'image/jpeg':
+          mimetype = 'image/webp'
+     else:
+          mimetype = 'image/jpeg'
+     
+     # upload new image
+     geturl = wp.url + '/wp-json/extmedialib/v1/addtofolder/' + folder
+     # set the header. 
+     header = wp.headers
+     header['Content-Disposition'] = 'attachment; filename=' + imagefile
+     header['Content-Type'] = mimetype
 
-          resp_body = {}
-          response = requests.post(geturl, headers=header, data=data )
-          resp_body.update( json.loads( response.text) )
-          result = resp_body
-     except:
-          msg = 'NO!'
-   
+     resp_body = {}
+     response = requests.post(geturl, headers=header, data=data )
+     resp_body.update( json.loads( response.text) )
+     result = resp_body
+    
      assert result['data']['status'] == 400, 'Will fail if the upload was not possible.'
      assert result['code'] == 'error'
 
@@ -386,6 +395,11 @@ def test_get_number_of_posts_and_upload_dir():
 def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      createdfiles = []
      image_number_before = wp.media['count']
+
+     # create the dictionaries required for checking
+     # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+     wp.generate_dictfb(image_file)
+     wp.generate_dictall()
 
      # get current time and
      # assume a maximumt offset of 5 secondes between server and local machine that runs the test
@@ -1280,6 +1294,7 @@ def test_clean_up():
 # just here for debugging the tests 
 if __name__ == '__main__':
      ts = round(datetime.datetime.now().timestamp())
+     test_image_upload_to_folder_with_ext_rest_api('DSC-1722.jpg')
      wp.get_number_of_posts()
      #test_info_about_test_site()
      #test_get_number_of_posts_and_upload_dir()

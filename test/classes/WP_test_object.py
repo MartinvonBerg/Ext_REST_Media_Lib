@@ -1,6 +1,6 @@
 
 import requests
-import json
+import json, re
 import os.path
 import magic
 from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, validateJSON
@@ -14,10 +14,12 @@ sys.path.append(SCRIPT_DIR)
 class WP_REST_API():
     """Class with methods to access a WordPress site via the REST-API"""
     url = ''
+    baseurl = ''
     suburl = ''
     rest_route = ''
-    wpuser = ''
-    wpauth = ''
+    headers = {}
+    #wpuser = ''
+    #wpauth = ''
     wpversion = '0.0.0'
     themes = {}
     active_theme = {}
@@ -31,12 +33,17 @@ class WP_REST_API():
     media_writeable_rest_fields = { 'title', 'gallery_sort', 'description', 'caption', 'alt_text', 'image_meta' }
     mimetypes = { 'image/webp', 'image/jpg'}
 
-    headers = {}
-
+    # properties for creating links, slug, title etc. all data in the rest-response containing url and file names
     wp_upload_dir = ''
     wp_upload_url = ''
-    usescompleteurls = False
+    updir = ''
+    subupdir = ''
     real_wp_upload_dir = '' # confusing second definition for the dir needed
+
+    usescompleteurls = False
+    hassuburl = False
+    dicturl = {}
+    
 
     def get_wp_version( self ): 
         self.wpversion = '5.8.0'
@@ -104,6 +111,7 @@ class WP_REST_API():
             count = count + len(resp_body)
             self.media['count'] = count
             self.media['minid'] = minid
+
             # get the upload dir
             geturl = self.url + '/wp-json/wp/v2/media/' + str(minid)
             response = requests.get(geturl, headers=self.headers )
@@ -121,10 +129,14 @@ class WP_REST_API():
 
                 self.wp_upload_dir = base
                 self.wp_upload_url = self.url + base
+                self.updir = self.ensure_slashes( base )
 
                 pos = resp_body['guid']['rendered'].find( self.url )
                 if pos>-1:
                     self.usescompleteurls = True
+
+                # UPDATE the dictionary with url parts used for creating all the links
+                self.dicturl = {'ud': self.updir} 
 
         if posttype == 'pages':
             self.pages['count'] = 0
@@ -132,6 +144,27 @@ class WP_REST_API():
         if posttype == 'posts':
             self.posts['count'] = 0 
     
+    def ensure_slashes(self, string):
+        """ Ensure standard format for url parts: no leading slash one trailing slash."""
+        string = string.replace('///', '/')
+        string = string + '/'
+        string = string.replace('//', '/')
+        string = string.lstrip('/')
+        return string
+
+    def ensure_http(self, url):
+        regex = r'https:/[^/].*'
+        matches = re.search(regex, url)
+        if matches != None:
+            url = url.replace('https:/', 'https://')
+
+        regex = r'http:/[^/].*'
+        matches = re.search(regex, url)
+        if matches != None:
+            url = url.replace('http:/', 'http://')    
+        
+        return url
+
     def __init__(self, args_in_array: dict):
         self.url = args_in_array['url']
         self.rest_route = args_in_array['rest_route']
@@ -147,15 +180,29 @@ class WP_REST_API():
         self.get_themes()
         self.get_plugins()
 
+        # get baseurl and suburl
         subs = self.url.replace('//', '/')
         subs = subs.split('/')
         nparts = len(subs)
         part = ''
         if nparts > 2:
+            self.hassuburl = True
             for i in range(2, nparts ):
               part += '/' + subs[i]
-        self.suburl = part
-   
+        self.suburl = self.ensure_slashes( part ) # verändert durch ensure_slashes
+        self.baseurl = self.ensure_slashes( self.url )
+        self.baseurl = self.ensure_http( self.baseurl )
+        self.baseurl = self.baseurl.replace( self.suburl, '')
+        self.subupdir = self.ensure_slashes( args_in_array['testfolder'] )
+
+        # the dictionary with url parts used for creating all the links
+        self.dicturl = {'bu': self.baseurl,
+                    'su' : self.suburl,
+                    'ud': '',
+                    'uf': self.subupdir,
+                    'fb' : '', # ist an sich nicht nötig
+                    'e': ''}
+        
     def get_rest_fields( self, id: int, posttype='media', fields = {}):
         
         resp_body = {}
@@ -453,6 +500,27 @@ class WP_EXT_REST_API( WP_REST_API ):
     last_media_id = 0
     last_index_in_created_images = 0
 
+    # dieses guid ist für jede variable anders
+    # Abweichung ist beim Kenner 'fb', der nicht boolsch ist, sondern ein multiplechoice
+    genguid = {'bu' : 0, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'l+u', 'e': 1}
+    gensurl = {'bu' : 1, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig', 'e': 0}
+
+    # das dictfb = dict für base-filename ist für alle einheitlich,
+    dictfb = {'orig': '', 'lower':'', 'under':'', 'l+u':''}
+
+    dictall = {'guid':'', # rendered guid only
+               'slug':'',
+               'title':'',
+               'link':'',
+               'sourceUrl':'', #source_url
+               'originalFile':'',
+               'mediaDetailsFile':'',
+               'mediaDetailsSizesFile':'',
+               'mediaDetailsSizesSrcUrl':''
+               }
+
+    dictfb = {'orig': '', 'lower':'', 'under':'', 'l+u':'', 'ext': ''}
+
     def get_tested_plugin ( self ):
         """ Get some information about the tested plugin."""
         self.tested_plugin_version = ''
@@ -460,6 +528,74 @@ class WP_EXT_REST_API( WP_REST_API ):
         self.tested_plugin_version = self.plugins[index]['version']
         if self.plugins[index]['status'] == 'active':
             self.tested_plugin_activated = True
+
+    def generate_dictfb( self, filename: str ):
+        """ generate the variations of the filename which must be base.extenstion withou the path!
+            The extension shall be stored with '.' as first chracter."""
+        base = os.path.splitext(filename)[0]
+        ext = os.path.splitext(filename)[1]
+
+        if base == '' or ext == '':
+            return 0
+
+        lower = base.lower()
+        under = base.replace('-','_')
+        lower_under = under.lower()
+
+        self.dictfb = {'orig': base, 
+                'lower': lower, 
+                'under': under, 
+                'l+u': lower_under,
+                'ext': ext
+                }
+    
+    def generate_dictall( self ):
+
+        def dothedict( x ):
+            value = ( "{bu}{su}{ud}{uf}{fb}{e}".format(\
+                bu=self.dicturl['bu'] if x['bu'] == 1 else '',\
+                su=self.dicturl['su'] if x['su'] == 1 else '',\
+                ud=self.dicturl['ud'] if x['ud'] == 1 else '',\
+                uf=self.dicturl['uf'] if x['uf'] == 1 else '',\
+                fb=self.dictfb[ x['fb']] if x['fb'] != 'no' else '',\
+                e=self.dicturl['e'] if x['e'] == 1 else ''))
+            return value
+
+        # dieses guid ist für jede variable anders
+        # Abweichung ist beim Kenner 'fb', der nicht boolsch ist, sondern ein multiplechoice
+        # TODO: fallunterscheidung für usescompleteurls und hassuburl
+        # fall: 
+        # usescompleteurls = False 
+        # hassuburl = True
+        genguid =     {'bu' : 0, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig' , 'e': 1} # no slash at the end. rendered
+        genslug =     {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'lower', 'e': 0} # no slash at the end
+        genlink =     {'bu' : 1, 'su' : 1, 'ud': 0, 'uf': 0, 'fb' : 'lower', 'e': 0} # slash at the end !!!
+        gentitle =    {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'orig' , 'e': 0} # no slash at the end. rendered
+        mdfile =      {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 1, 'fb' : 'orig' , 'e': 1} # fb is with -scaled if scaled !!!
+        mdsizesfile = {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'orig' , 'e': 1} # fb is with pattern "-[0-9]x[0-9]" for size at the end
+        mdsizessurl = {'bu' : 0, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig' , 'e': 1} # fb is with pattern "-[0-9]x[0-9]" for size at the end
+        mdorigimage = {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'orig' , 'e': 1} # only available if file is scaled
+        gensurl =     {'bu' : 0, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig' , 'e': 0} # fb is with -scaled if scaled !!!
+
+        x = genguid
+        self.dictall['guid'] = ( "{bu}{su}{ud}{uf}{fb}{e}".format(\
+            bu=self.dicturl['bu'] if x['bu'] == 1 else '',\
+            su=self.dicturl['su'] if x['su'] == 1 else '',\
+            ud=self.dicturl['ud'] if x['ud'] == 1 else '',\
+            uf=self.dicturl['uf'] if x['uf'] == 1 else '',\
+            fb=self.dictfb[ x['fb']] if x['fb'] != 'no' else '',\
+            e=self.dicturl['e'] if x['e'] == 1 else ''))
+
+        self.dictall['slug'] = dothedict(genslug)
+
+        x = gensurl
+        self.dictall['sourceUrl'] = ( "{bu}{su}{ud}{uf}{fb}{e}".format(\
+            bu=self.dicturl['bu'] if x['bu'] == 1 else '',\
+            su=self.dicturl['su'] if x['su'] == 1 else '',\
+            ud=self.dicturl['ud'] if x['ud'] == 1 else '',\
+            uf=self.dicturl['uf'] if x['uf'] == 1 else '',\
+            fb=self.dictfb[ x['fb']] if x['fb'] != 'no' else '',\
+            e=self.dicturl['e'] if x['e'] == 1 else ''))
 
     def __init__(self, args_in_array):
         super().__init__( args_in_array )
