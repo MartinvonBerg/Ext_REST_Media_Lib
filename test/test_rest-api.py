@@ -41,6 +41,7 @@ wp_site3 = {
 
 wp_site = wp_site2
 wp_site['authentication'] = 'Basic ' + base64.b64encode( (wp_site['user'] + ':' + wp_site['password']).encode('ascii')).decode('ascii')
+wp_big = 2560
 
 # generate the WordPress-Class that will be tested
 wp = WP_EXT_REST_API( wp_site )
@@ -225,7 +226,7 @@ def test_rest_api_request_active_theme():
      assert ( StrictVersion( resp_body[pi_index]['version'] ) >= '0.0.1' ) == True
 
 # TODO: upload one image to the standard folder. It is requiredd for the 
-# following tests to have at least on image in the WP media-library
+# following tests to have at least on image in the WP media-library. Could be necessary if the site was installed completely new for the test.
 
 # --------------- extbasic tests: ext rest api --------------------------------
 @pytest.mark.extbasic
@@ -288,7 +289,7 @@ def test_rest_api_addtofolder_with_invalid_folder():
      msg = result['message']
      s1 = 'You requested image addition to folder '
      s2 = '/uploads/' + folder + ' with GET-Request. Please use POST Request.'
-     match = re.search(s1 + "/[a-zA-Z0-9-_/]+" +s2, msg)
+     match = re.search(s1 + "[a-zA-Z0-9-_/.:]+" +s2, msg)
      assert result['httpstatus'] == 200
      assert result['exists'] == 'Could not find directory'
      assert match != None
@@ -298,9 +299,9 @@ def test_rest_api_addtofolder_with_valid_folder():
      folder = wp.tested_site['testfolder']
      result=wp.get_add_image_to_folder( folder )
      msg = result['message']
-     s1 = 'You requested image addition to folder '
-     s2 = '/uploads/' + folder + ' with GET-Request. Please use POST Request.'
-     match = re.search(s1 + "/[a-zA-Z0-9-_/]+" +s2, msg)
+     s1 = 'You requested image addition to folder ' #'You requested image addition to folder '
+     s2 = '/uploads/' + folder + ' with GET-Request. Please use POST Request.' # '/uploads/folder_that_does_not_exist with GET-Request. Please use POST Request.'
+     match = re.search(s1 + "[a-zA-Z0-9-_/.:]+" +s2, msg) # 'You requested image addition to folder C:/Bitnami/wordpress-5.2.2-0/apps/wordpress/htdocs/wp-content/uploads/folder_that_does_not_exist with GET-Request. Please use POST Request.'
      assert result['httpstatus'] == 200
      assert result['exists'] == 'OK'
      assert match != None
@@ -396,11 +397,6 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      createdfiles = []
      image_number_before = wp.media['count']
 
-     # create the dictionaries required for checking
-     # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
-     wp.generate_dictfb(image_file)
-     wp.generate_dictall()
-
      # get current time and
      # assume a maximumt offset of 5 secondes between server and local machine that runs the test
      uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
@@ -457,45 +453,48 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      # store the rest response to /media/id to wp.created_images
      if result['httpstatus'] == 200:
           wp.created_images[n]['post'] =  result
-         
+     
+     # check wordpress site uses complete url. check with the uploaded image, because older images could be different.
+     print('--- guid for decision: ', result['guid']['rendered'])
+     print('--- wp.baseurl for decision: ', wp.baseurl)
+     pos = result['guid']['rendered'].find( wp.baseurl )
+     if pos>-1:
+          wp.usescompleteurls = True
+          print('--- Site uses complete urls!')
+     else:
+          wp.usescompleteurls = False
+          print('--- Site does not use complete urls!')
+     
+     # create the dictionaries required for checking
+     # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+     path = os.path.join(SCRIPT_DIR, 'testdata', image_file)
+     assert os.path.isfile( path ) == True
+     im = Image.open( path )
+     (width, height) = im.size
+     im.close()
+
+     if width > wp_big or height > wp_big:
+          wp.img_isscaled = True
+          print('--- image is scaled: Yes')
+
+     wp.generate_dictfb(image_file)
+     wp.generate_dictall()
 
      # check the attachment type
      print('--- attachment type: ', result['media_type'])
      assert result['media_type'] == 'image'
 
      # check the guid
-     expguid = wp.wp_upload_dir + image_file
-     expguidasurl = wp.wp_upload_url + wp_site['testfolder'] + '/' + image_file
-
-     anyguid = [ expguid, expguidasurl ]
      print('--- guid: ', result['guid']['rendered'])
-
-     assert result['guid']['rendered'] in anyguid #assert result['guid']['rendered'] ==  (wp.suburl + expguid)
+     assert result['guid']['rendered'] == wp.dictall['guid']
     
      # check the source url
-     assert result['source_url'] in anyguid #assert result['source_url'] == (wp.suburl + expguid)
+     print('--- source-url: ', result['source_url'])
+     assert result['source_url'] == wp.dictall['sourceUrl']
      
-     lexpguid = expguid.split('/')
-     lsrceurl = result['source_url'].split('/')
-     diff = list(set(lsrceurl) - set(lexpguid))
-     sdiff = '/'.join(diff)
-     pos = wp.url.find( sdiff )
-     if pos > -1:
-          reducedsrcurl = result['source_url'].replace(sdiff, '')
-     else:
-          reducedsrcurl = result['source_url']
-     reducedsrcurl = reducedsrcurl.replace('//', '/')
-     reducedsrcurl = reducedsrcurl.replace('http:/', 'http://')
-     reducedsrcurl = reducedsrcurl.replace('https:/', 'https://')
-     assert reducedsrcurl in anyguid
-
      # check the link url
-     basename = os.path.splitext( image_file)[0]
-     explink = wp.url + '/' + basename + '/'
-     explink = explink.lower()
-     explink = explink.replace('_','-') # wp.url + filename ohne extension, aber '/' am Ende
      print('--- link: ', result['link'])
-     assert result['link'] == explink, 'Don\'t worry. This might fail if an image with the same name already exists in the WP media library.'
+     assert result['link'] == wp.dictall['link'], 'Don\'t worry. This might fail if an image with the same name already exists in the WP media library.'
 
      # check the time
      imagetime = datetime.datetime.strptime( result['modified_gmt'], "%Y-%m-%dT%H:%M:%S")
@@ -503,12 +502,31 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      assert imagetime >= uploadtime # format "2021-08-16T14:51:39" upload-time
      
      # check image mime
-     path = os.getcwd()
-     fullpath = os.path.join(path, 'testdata', image_file)
      mime = magic.Magic(mime=True)
-     mimetype = mime.from_file( fullpath )
+     mimetype = mime.from_file( path )
      print('--- mime-type: ', result['mime_type'])
      assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
+
+     # do all the rest
+     assert result['slug'] == wp.dictall['slug'] 
+     assert result['title']['rendered'] == wp.dictall['title'] 
+     assert result['source_url'] == wp.dictall['sourceUrl'] 
+     
+     pos = wp.baseurl.find('127.0.0.1')
+     if pos == -1:
+          assert result['media_details']['file'] == wp.dictall['mediaDetailsFile'] # This one can't be checked for my local site because it uses the local path
+          # for the remote site this check is OK
+     if wp.img_isscaled:
+          assert result['media_details']['original_image'] == wp.dictall['mediaDetailsoriginalFile'] 
+
+     # check the media-details   
+     for size in result['media_details']['sizes']:
+          m = len(re.findall( wp.dictall['mediaDetailsSizesFile'], result['media_details']['sizes'][size]['file']))
+          if size == 'full': assert m == 0 
+          else: assert m == 1
+          m = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], result['media_details']['sizes'][size]['source_url']))
+          if size == 'full': assert m == 0 
+          else: assert m == 1
 
 # Mind: the generated IDs are not known before the test, but the filenames are.
 # So, the generated IDs are loaded from an intermediate file to list 'newfiles', that should be deleted afterwards
@@ -651,12 +669,12 @@ def test_id_of_created_images( image_file ):
           for i in range(0, end): 
                assert isinstance( wp.created_images[i]['id'], int) == True 
       
-@pytest.mark.testimage #######################
+@pytest.mark.testimage ############
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_metadata( image_file ): 
      image_file = get_image( newfiles, image_file)
      uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=5) 
+     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=10) 
 
      if type(image_file) == list:
           id = image_file[0]
@@ -709,7 +727,6 @@ def test_update_image_metadata( image_file ):
 
           # result['description'] == rest_fields['description'] # can't check the description, as this contains the srcset, too
           cap = remove_html_tags( result['caption']['rendered'] )
-
           print('--- caption: ', cap )
           assert cap == rest_fields['caption']
 
@@ -725,35 +742,13 @@ def test_update_image_metadata( image_file ):
           assert result['gallery'] == wp.tested_site['testfolder']
 
           # check the guid
-          expguid = wp.wp_upload_dir + imgfile # wp_upload_dir is set with get_number_of_posts only!
-          expguidasurl = wp.wp_upload_url + wp_site['testfolder'] + '/' + imgfile
-          anyguid = [ expguid, expguidasurl ]
-          print('--- guid is: ', result['guid']['rendered'])
-          print('--- guid exp: ', expguid, ' : ', expguidasurl)
-
-          lexpguid = expguid.split('/')
-          lguidis  = result['guid']['rendered'].split('/')
-          diff = list(set(lguidis) - set(lexpguid))
-          sdiff = '/'.join(diff)
-          pos = wp.url.find( sdiff )
-          if pos > -1:
-               reducedsrcurl = result['guid']['rendered'].replace(sdiff, '')
-          else:
-               reducedsrcurl = result['guid']['rendered']
-          reducedsrcurl = reducedsrcurl.replace('//', '/')
-          reducedsrcurl = reducedsrcurl.replace('http:/', 'http://')
-          reducedsrcurl = reducedsrcurl.replace('https:/', 'https://')
-          assert reducedsrcurl in anyguid
-           
-
+          print('--- guid: ', result['guid']['rendered'])
+          assert result['guid']['rendered'] == wp.dictall['guid']
+         
           # check the link url
-          basename = os.path.splitext( imgfile)[0]
-          explink = wp.url + '/' + basename + '/'
-          explink = explink.lower()
-          explink = explink.replace('_','-')
           print('--- link: ', result['link'])
-          assert result['link'] == explink # wp.url + filename ohne extension, aber '/' am Ende
-
+          assert result['link'] == wp.dictall['link'], 'Don\'t worry. This might fail if an image with the same name already exists in the WP media library.'
+         
           # check the time
           imagetime = datetime.datetime.strptime( result['modified_gmt'], "%Y-%m-%dT%H:%M:%S")
           print('--- time: ', uploadtime, 'image-time: ', result['modified_gmt'])
@@ -889,12 +884,12 @@ def test_create_gtb_image_text( image_file ):
                if result['httpstatus'] == 200:
                     wp.created_posts[n]['post'] =  result
 
-@pytest.mark.testimage ##################
+@pytest.mark.testimage #############
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_metadata_after_posts_were_created( image_file ): 
      image_file = get_image( newfiles, image_file)
      uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=5) 
+     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=10) 
      pre = 'updated_'
 
      if type(image_file) == list:
@@ -969,34 +964,12 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
           assert result['gallery'] == wp.tested_site['testfolder']
 
           # check the guid
-          expguid = wp.wp_upload_dir + imgfile # wp_upload_dir is set with get_number_of_posts only!
-          print('--- guid is: ', result['guid']['rendered'])
-          print('--- guid exp: ', expguid)
-
-          lexpguid = expguid.split('/')
-          lguidis  = result['guid']['rendered'].split('/')
-          diff = list(set(lguidis) - set(lexpguid))
-          sdiff = '/'.join(diff)
-          pos = wp.url.find( sdiff )
-          if pos > -1:
-               reducedsrcurl = result['guid']['rendered'].replace(sdiff, '')
-          else:
-               reducedsrcurl = result['guid']['rendered']
-          reducedsrcurl = reducedsrcurl.replace('//', '/')
-          reducedsrcurl = reducedsrcurl.replace('http:/', 'http://')
-          reducedsrcurl = reducedsrcurl.replace('https:/', 'https://')
-          if wp.usescompleteurls:
-               expguid =  wp.wp_upload_url + wp_site['testfolder'] + '/' + imgfile
-
-          assert reducedsrcurl ==  expguid
-
+          print('--- guid: ', result['guid']['rendered'])
+          assert result['guid']['rendered'] == wp.dictall['guid']
+         
           # check the link url
-          basename = os.path.splitext( imgfile)[0]
-          explink = wp.url + '/' + basename + '/'
-          explink = explink.lower()
-          explink = explink.replace('_','-')
           print('--- link: ', result['link'])
-          assert result['link'] == explink # wp.url + filename ohne extension, aber '/' am Ende
+          assert result['link'] == wp.dictall['link'], 'Don\'t worry. This might fail if an image with the same name already exists in the WP media library.'
 
           # check the time
           imagetime = datetime.datetime.strptime( result['modified_gmt'], "%Y-%m-%dT%H:%M:%S")
@@ -1022,7 +995,7 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
                assert result['media_details']['image_meta']['title'] == fields['image_meta']['title']
                assert result['media_details']['image_meta']['keywords'] == fields['image_meta']['keywords']
 
-@pytest.mark.testimage #################
+@pytest.mark.testimage #############
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_with_flipped_original_and_new_filename( image_file ): 
      # this if-else is here for debugging
@@ -1046,6 +1019,20 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
           path = os.path.join(SCRIPT_DIR, 'createddata', newimg)
           im.save( path )
 
+          # update the new url and link dicts
+          # create the dictionaries required for checking
+          # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+          im = Image.open( path )
+          (width, height) = im.size
+          im.close()
+
+          if width > wp_big or height > wp_big:
+               wp.img_isscaled = True
+               print('--- image is scaled: Yes')
+
+          wp.generate_dictfb( newimg )
+          wp.generate_dictall()
+
           # upload the flipped image with the new name but the same id
           # keep the mime-type as is (for the moment)
           result = wp.post_update_image( id, path, False )
@@ -1068,78 +1055,53 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
           assert result['media_type'] == 'image'
 
           # check the guid
-          basename = os.path.splitext( newimg )[0]
-          ext = os.path.splitext( newimg)[1]
-          expguid = wp.suburl + wp.wp_upload_dir + basename + ext
           print('--- guid: ', result['guid']['rendered'])
-          print('--- guid exp: ', expguid)
-          # expguid = sourceurl : uploadurl + filename with extension. uploadurl is eventually shortened
-          match = re.search( expguid + '$', result['guid']['rendered'])
-          assert match != None
-          if wp.usescompleteurls:
-               expguid = wp.wp_upload_url + wp_site['testfolder'] + '/' + basename + ext
-          assert result['guid']['rendered'] ==  expguid # assert 'http://127.0.0.1/wordpress/wp-content/uploads/test/flip__Schlossinsel-Mirow-13_klein.webp' == '/wordpress/wp-content/uploads/test/flip__Schlossinsel-Mirow-13_klein.webp'
-
-          surl = result['source_url']
-          pos = surl.find('-scaled')
-          isscaled = False
-          if pos > 10:
-               surl = surl.replace('-scaled','')
-               isscaled = True
-          print('--- source_url: ', result['source_url'])
-          match = re.search( expguid + '$', surl)
-          assert match != None
-          assert surl ==  expguid
-
-          # checking the title.rendered
-          exptitle = basename
-          print('--- title: ', result['title']['rendered'])
-          assert result['title']['rendered'] ==  exptitle
-
-          #"media_details" "file" : folder + filename
-          expmd_file = wp.tested_site['testfolder'] + '/' + basename
-          if isscaled:
-               expmd_file += '-scaled'
-          expmd_file += ext
-          print('--- media_details.file: ', result['media_details']['file'])
-          assert result['media_details']['file'] ==  expmd_file
-         
-          # slug, link : only lower letters and '_'
-          expslug = exptitle.lower()
-          print('--- slug: ', result['slug'])
-          assert result['slug'] ==  expslug
-
-          #explink = expslug.replace('-','_') # This is not done for the Links !!!
-          explink = wp.url + '/' + expslug + '/'
+          assert result['guid']['rendered'] == wp.dictall['guid']
+     
+          # check the source url
+          print('--- source-url: ', result['source_url'])
+          assert result['source_url'] == wp.dictall['sourceUrl']
+          
+          # check the link url
           print('--- link: ', result['link'])
-          assert result['link'] == explink
+          assert result['link'] == wp.dictall['link'], 'Don\'t worry. This might fail if an image with the same name already exists in the WP media library.'
 
-          # description.rendered : /folder/filename : 1x
+          # check image mime
+          mime = magic.Magic(mime=True)
+          mimetype = mime.from_file( path )
+          print('--- mime-type: ', result['mime_type'])
+          assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
+
+          # do all the rest
+          assert result['slug'] == wp.dictall['slug'] 
+          assert result['title']['rendered'] == wp.dictall['title'] 
+          assert result['source_url'] == wp.dictall['sourceUrl'] 
+
+          # special cases for my localhost on windows
+          pos = wp.baseurl.find('127.0.0.1')
+          if pos == -1:
+               assert result['media_details']['file'] == wp.dictall['mediaDetailsFile'] # This one can't be checked for my local site because it uses the local path
+               # for the remote site this check is OK
+          if wp.img_isscaled:
+               assert result['media_details']['original_image'] == wp.dictall['mediaDetailsoriginalFile'] 
+
+          # check the media-details and the description.rendered  
           descr = result['description']['rendered']
-          if isscaled:
-               descr = descr.replace('-scaled','')
-          if wp.usescompleteurls:
-               expguidindescr = "href='" +  wp.wp_upload_url + wp_site['testfolder'] + '/' + basename + ext
-          else:
-               expguidindescr = "href='" + expguid
-
-          print('--- description.rendered: ', result['description']['rendered'])
-          print('--- guid in descr: ', expguidindescr)
-          match = re.findall( expguidindescr, descr)
-          count = len(match)
-          assert count == 1
-
-          # description.rendered : /folder/basename [reqex] ext : Nx
-          sizes = len(result['media_details']['sizes']) - 1
-          ls = [sizes, sizes-1]
-          s1 = wp.wp_upload_dir + basename
-          s2 = ext
-          match = len(re.findall(s1 + "-[0-9]+x[0-9]+" +s2, descr))
-          assert match in ls, 'This might fail if there are special subsizes used that are not used for the srcset.'     
+          for size in result['media_details']['sizes']:
+               m = len(re.findall( wp.dictall['mediaDetailsSizesFile'], result['media_details']['sizes'][size]['file']))
+               if size == 'full': assert m == 0 
+               else: assert m == 1
+               m = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], result['media_details']['sizes'][size]['source_url']))
+               if size == 'full': assert m == 0 
+               else: assert m == 1
+               m = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], descr))
+               if size == 'full': assert m == 0 
+               else: assert m == 1, 'This might fail if there are special subsizes used that are not used for the srcset.'
+    
 
 @pytest.mark.testpost
 @pytest.mark.parametrize( "image_file", files)
-def test_updated_posts_with_images( image_file ):
+def xtest_updated_posts_with_images( image_file ):
      image_file = get_image( newfiles, image_file)
      end = len(wp.created_posts)
 
@@ -1200,7 +1162,7 @@ def test_updated_posts_with_images( image_file ):
                     #assert match == 1
                     
 @pytest.mark.testpost
-def test_updated_post_with_gallery():
+def xtest_updated_post_with_gallery():
      end = len(wp.created_posts)
 
      for i in range(0, end):
@@ -1264,7 +1226,6 @@ def test_updated_post_with_gallery():
           assert match == 1
 
 # TODO: check visually or programmatically that images were really changed e.g. flipped
-# TODO: print file created files
 
 # --------------- clean-up the WP installation
 @pytest.mark.cleanup
@@ -1294,7 +1255,7 @@ def test_clean_up():
 # just here for debugging the tests 
 if __name__ == '__main__':
      ts = round(datetime.datetime.now().timestamp())
-     test_image_upload_to_folder_with_ext_rest_api('DSC-1722.jpg')
+     test_image_upload_to_folder_with_ext_rest_api('DSC_1722.webp')
      wp.get_number_of_posts()
      #test_info_about_test_site()
      #test_get_number_of_posts_and_upload_dir()

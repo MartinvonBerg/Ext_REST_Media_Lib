@@ -136,7 +136,7 @@ class WP_REST_API():
                     self.usescompleteurls = True
 
                 # UPDATE the dictionary with url parts used for creating all the links
-                self.dicturl = {'ud': self.updir} 
+                self.dicturl['ud'] = self.updir
 
         if posttype == 'pages':
             self.pages['count'] = 0
@@ -499,6 +499,7 @@ class WP_EXT_REST_API( WP_REST_API ):
     tested_site = {}
     last_media_id = 0
     last_index_in_created_images = 0
+    img_isscaled = False # this should go to a "tested_image_class"
 
     # dieses guid ist für jede variable anders
     # Abweichung ist beim Kenner 'fb', der nicht boolsch ist, sondern ein multiplechoice
@@ -506,20 +507,20 @@ class WP_EXT_REST_API( WP_REST_API ):
     gensurl = {'bu' : 1, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig', 'e': 0}
 
     # das dictfb = dict für base-filename ist für alle einheitlich,
-    dictfb = {'orig': '', 'lower':'', 'under':'', 'l+u':''}
+    dictfb = {'orig': '', 'lower':'', 'under':'', 'l+u':'', 'ext': '', 'scaled' : '', 'pattern' : ''}
 
     dictall = {'guid':'', # rendered guid only
                'slug':'',
-               'title':'',
                'link':'',
-               'sourceUrl':'', #source_url
-               'originalFile':'',
+               'title':'',
                'mediaDetailsFile':'',
                'mediaDetailsSizesFile':'',
-               'mediaDetailsSizesSrcUrl':''
+               'mediaDetailsSizesSrcUrl':'',
+               'mediaDetailsoriginalFile':'',
+               'sourceUrl':'', #source_url
                }
 
-    dictfb = {'orig': '', 'lower':'', 'under':'', 'l+u':'', 'ext': ''}
+    
 
     def get_tested_plugin ( self ):
         """ Get some information about the tested plugin."""
@@ -540,13 +541,20 @@ class WP_EXT_REST_API( WP_REST_API ):
 
         lower = base.lower()
         under = base.replace('-','_')
+        minus = base.replace('_','-')
         lower_under = under.lower()
+        minus_under = minus.lower()
 
-        self.dictfb = {'orig': base, 
+        self.dictfb = {
+                'orig': base, 
+                'orig-m' : minus,
                 'lower': lower, 
                 'under': under, 
                 'l+u': lower_under,
-                'ext': ext
+                'l-m': minus_under,
+                'ext': ext,
+                'scaled' : base + '-scaled',
+                'patr' : base + "-[0-9]+x[0-9]+"
                 }
     
     def generate_dictall( self ):
@@ -558,44 +566,54 @@ class WP_EXT_REST_API( WP_REST_API ):
                 ud=self.dicturl['ud'] if x['ud'] == 1 else '',\
                 uf=self.dicturl['uf'] if x['uf'] == 1 else '',\
                 fb=self.dictfb[ x['fb']] if x['fb'] != 'no' else '',\
-                e=self.dicturl['e'] if x['e'] == 1 else ''))
+                e=self.dictfb['ext'] if x['e'] == 1 else ''))
             return value
 
-        # dieses guid ist für jede variable anders
-        # Abweichung ist beim Kenner 'fb', der nicht boolsch ist, sondern ein multiplechoice
-        # TODO: fallunterscheidung für usescompleteurls und hassuburl
-        # fall: 
-        # usescompleteurls = False 
-        # hassuburl = True
-        genguid =     {'bu' : 0, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig' , 'e': 1} # no slash at the end. rendered
-        genslug =     {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'lower', 'e': 0} # no slash at the end
-        genlink =     {'bu' : 1, 'su' : 1, 'ud': 0, 'uf': 0, 'fb' : 'lower', 'e': 0} # slash at the end !!!
-        gentitle =    {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'orig' , 'e': 0} # no slash at the end. rendered
-        mdfile =      {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 1, 'fb' : 'orig' , 'e': 1} # fb is with -scaled if scaled !!!
-        mdsizesfile = {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'orig' , 'e': 1} # fb is with pattern "-[0-9]x[0-9]" for size at the end
-        mdsizessurl = {'bu' : 0, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig' , 'e': 1} # fb is with pattern "-[0-9]x[0-9]" for size at the end
+        # usescompleteurls = False
+        y = 0
+        if self.usescompleteurls == True:
+            y = 1 
+        # hassuburl = True : Doesn't matter because suburl is empty if not used
+        # case : isscaled = False. Generate the dict for the string generator 
+        # 
+        genguid =     {'bu' : y, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig' , 'e': 1} # no slash at the end. rendered. leading slash!
+        #                     1   usescompleteurls = True
+        genslug =     {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'l-m', 'e': 0} # no slash at the end
+        genlink =     {'bu' : 1, 'su' : 1, 'ud': 0, 'uf': 0, 'fb' : 'l-m', 'e': 0} # slash at the end !!! # localhost with windows: 'l-m' but: remote linux: 'lower'
+        gentitle =    {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'orig-m' , 'e': 0} # no slash at the end. rendered
+        mdfile =      {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 1, 'fb' : 'orig' , 'e': 1} # fb is orig with -scaled if scaled 
+        mdsizesfile = {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'patr' , 'e': 1} # fb is orig with pattern "-[0-9]+x[0-9]+" for size at the end
+        mdsizessurl = {'bu' : y, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'patr' , 'e': 1} # fb is orig with pattern "-[0-9]+x[0-9]+" for size at the end
+        #                     1   usescompleteurls = True
         mdorigimage = {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'orig' , 'e': 1} # only available if file is scaled
-        gensurl =     {'bu' : 0, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig' , 'e': 0} # fb is with -scaled if scaled !!!
+        gensurl =     {'bu' : y, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig' , 'e': 1} # fb is orig with -scaled if scaled. leading slash!
+        #                     1   usescompleteurls = True
 
-        x = genguid
-        self.dictall['guid'] = ( "{bu}{su}{ud}{uf}{fb}{e}".format(\
-            bu=self.dicturl['bu'] if x['bu'] == 1 else '',\
-            su=self.dicturl['su'] if x['su'] == 1 else '',\
-            ud=self.dicturl['ud'] if x['ud'] == 1 else '',\
-            uf=self.dicturl['uf'] if x['uf'] == 1 else '',\
-            fb=self.dictfb[ x['fb']] if x['fb'] != 'no' else '',\
-            e=self.dicturl['e'] if x['e'] == 1 else ''))
-
+        # case that image is scaled 
+        if self.img_isscaled:
+            mdfile['fb'] =  'scaled' # fb is orig with -scaled if scaled !!!
+            gensurl['fb'] = 'scaled' # fb is orig with -scaled if scaled !!!
+        
+        # special cases for my localhost on windows
+        pos = self.baseurl.find('127.0.0.1')
+        if pos>-1: 
+            genlink['fb'] = 'l-m'
+       
+        self.dictall['guid'] = dothedict(genguid)
         self.dictall['slug'] = dothedict(genslug)
+        self.dictall['link'] = dothedict(genlink)
+        self.dictall['title'] = dothedict(gentitle)
+        self.dictall['mediaDetailsFile'] = dothedict(mdfile)
+        self.dictall['mediaDetailsSizesFile'] = dothedict(mdsizesfile)
+        self.dictall['mediaDetailsSizesSrcUrl'] = dothedict(mdsizessurl)
+        self.dictall['mediaDetailsoriginalFile'] = dothedict(mdorigimage)
+        self.dictall['sourceUrl'] = dothedict(gensurl)
 
-        x = gensurl
-        self.dictall['sourceUrl'] = ( "{bu}{su}{ud}{uf}{fb}{e}".format(\
-            bu=self.dicturl['bu'] if x['bu'] == 1 else '',\
-            su=self.dicturl['su'] if x['su'] == 1 else '',\
-            ud=self.dicturl['ud'] if x['ud'] == 1 else '',\
-            uf=self.dicturl['uf'] if x['uf'] == 1 else '',\
-            fb=self.dictfb[ x['fb']] if x['fb'] != 'no' else '',\
-            e=self.dicturl['e'] if x['e'] == 1 else ''))
+        # special cases
+        self.dictall['link'] = self.dictall['link'] + '/' # slash at the end !!!
+        if self.usescompleteurls == False:
+            self.dictall['guid'] = '/' + self.dictall['guid'] 
+            self.dictall['sourceUrl'] = '/' + self.dictall['sourceUrl']
 
     def __init__(self, args_in_array):
         super().__init__( args_in_array )
