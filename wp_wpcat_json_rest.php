@@ -401,6 +401,7 @@ function post_image_update( $data )
 	if ( ($att) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) ) {
 		// get current metadata from WP-Database
 		$meta = wp_get_attachment_metadata($post_id);
+		$oldlink = get_attachment_link( $post_id );
 		
 		// Define filenames in different ways for the different functions
 		$fileName_from_att_meta = $meta['file'];
@@ -488,14 +489,19 @@ function post_image_update( $data )
 
 			// update post doesn't update GUID on updates. guid has to be the full url to the file
 			$url_to_new_file = get_upload_url() . '/' . $gallerydir . '/' . $new_File_Name . $new_File_Extension;
-			$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $post_id) );
+			$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $post_id) ); 
 
 			//update the posts that use the image with class from plugin enable_media_replace
 			// This updates only the image url that are used in the post. The metadata e.g. caption is NOT updated.
-			$replacer->new_location_dir = $gallerydir;
-			$replacer->target_url = $url_to_new_file;
-			$replacer->target_metadata = $success_subsizes;
-			$result = $replacer->API_doSearchReplace();
+			$replacer->new_location_dir = $gallerydir; 
+			$replacer->set_oldlink( $oldlink );
+			//$replacer->source_metadata["sizes"]["medium"]["mime-type"] = $old_mime_from_att; 
+			$newlink = get_attachment_link( $post_id ); // get_attachment_link( $post_id) ist hier bereits aktualisiert
+			$replacer->set_newlink( $newlink );
+			//$replacer->target_metadata["sizes"]["medium"]["mime-type"] = $newfile_mime;
+			$replacer->target_url = $url_to_new_file; 
+			$replacer->target_metadata = $success_subsizes; 
+			$replacer->API_doSearchReplace();
 			$replacer = null;
 
 		} else {
@@ -784,9 +790,7 @@ function post_add_image_to_folder($data)
 		$title = special_replace($title);
 		$newfile = $folder . '/' . $cont;
 		// update post doesn't update GUID on updates. guid has to be the full url to the file
-		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont;
-		
-		
+		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont;	
 	}
 	$newexists = file_exists($newfile);
 	
@@ -806,15 +810,15 @@ function post_add_image_to_folder($data)
 				'post_name' => '' , // this is used for Permalink :  https://example.com/title-88/, (if empty post_title is used)
 			);
 			
-			$upload_id = wp_insert_attachment($att_array, $newfile); // alt: $url_to_new_file
-			$success_subsizes = wp_create_image_subsizes($newfile, $upload_id);
+			$upload_id = wp_insert_attachment( $att_array, $newfile, 0, true, true ); // alt: $url_to_new_file
+			$success_subsizes = wp_create_image_subsizes( $newfile, $upload_id) ;
 		
 			$attfile = $reqfolder . '/' . $cont;
 			update_post_meta($upload_id, 'gallery', $reqfolder);
 			update_post_meta($upload_id, '_wp_attached_file', $attfile);
 
 			// update post doesn't update GUID on updates. guid has to be the full url to the file
-			$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $upload_id) );
+			#$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $upload_id) );
 			
 			$getResp = array(
 				'id' => $upload_id,

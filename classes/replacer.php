@@ -39,6 +39,8 @@ class Replacer
 	protected $do_new_location;
 	public    $new_location_dir;
 	protected $docaption;
+	protected $oldlink;
+	protected $newlink;
 
 	protected $replaceMode = 1; // replace if nothing is set
 	protected $timeMode = 1;
@@ -92,6 +94,14 @@ class Replacer
 		else
 			$this->source_url = wp_get_attachment_url($post_id);
   	}
+
+	public function set_oldlink ( $link) {
+		$this->oldlink = $link;
+	}
+
+	public function set_newlink ( $link) {
+		$this->newlink = $link;
+	}
 
 	public function API_doSearchReplace () {
 		// settings from upload.php 
@@ -200,6 +210,9 @@ class Replacer
 
 		$search_urls  = $urls['source']; // old image urls
 		$replace_urls = $urls['target']; // new image urls
+		// add the link at the and of the arrays
+		$search_urls['link'] = $this->oldlink;
+		$replace_urls['link'] = $this->newlink;
 
 		/* If the replacement is much larger than the source, there can be more thumbnails. This leads to disbalance in the search/replace arrays.
 		Remove those from the equation. If the size doesn't exist in the source, it shouldn't be in use either */

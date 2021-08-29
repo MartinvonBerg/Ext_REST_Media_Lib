@@ -578,9 +578,9 @@ class WP_EXT_REST_API( WP_REST_API ):
         # 
         genguid =     {'bu' : y, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'orig' , 'e': 1} # no slash at the end. rendered. leading slash!
         #                     1   usescompleteurls = True
-        genslug =     {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'l-m', 'e': 0} # no slash at the end
-        genlink =     {'bu' : 1, 'su' : 1, 'ud': 0, 'uf': 0, 'fb' : 'l-m', 'e': 0} # slash at the end !!! # localhost with windows: 'l-m' but: remote linux: 'lower'
-        gentitle =    {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'orig-m' , 'e': 0} # no slash at the end. rendered
+        genslug =     {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'lower', 'e': 0} # no slash at the end
+        genlink =     {'bu' : 1, 'su' : 1, 'ud': 0, 'uf': 0, 'fb' : 'lower', 'e': 0} # slash at the end !!! # localhost with windows: 'l-m' but: remote linux: 'lower'
+        gentitle =    {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'orig' , 'e': 0} # no slash at the end. rendered
         mdfile =      {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 1, 'fb' : 'orig' , 'e': 1} # fb is orig with -scaled if scaled 
         mdsizesfile = {'bu' : 0, 'su' : 0, 'ud': 0, 'uf': 0, 'fb' : 'patr' , 'e': 1} # fb is orig with pattern "-[0-9]+x[0-9]+" for size at the end
         mdsizessurl = {'bu' : y, 'su' : 1, 'ud': 1, 'uf': 1, 'fb' : 'patr' , 'e': 1} # fb is orig with pattern "-[0-9]+x[0-9]+" for size at the end
@@ -591,14 +591,17 @@ class WP_EXT_REST_API( WP_REST_API ):
 
         # case that image is scaled 
         if self.img_isscaled:
-            mdfile['fb'] =  'scaled' # fb is orig with -scaled if scaled !!!
-            gensurl['fb'] = 'scaled' # fb is orig with -scaled if scaled !!!
+            mdfile['fb'] =  'scaled' # fb is orig filename with -scaled if scaled !!!
+            gensurl['fb'] = 'scaled' # fb is orig filename with -scaled if scaled !!!
+            # media_details.sizes.full.(file / source_url) : -scaled !!!
         
         # special cases for my localhost on windows
-        pos = self.baseurl.find('127.0.0.1')
-        if pos>-1: 
-            genlink['fb'] = 'l-m'
-       
+        #pos = self.baseurl.find('127.0.0.1')
+        #if pos>-1: 
+        #    genlink['fb'] = 'l-m'
+        #    genslug['fb'] = 'l-m'
+        #    gentitle['fb'] = 'orig-m
+        #        
         self.dictall['guid'] = dothedict(genguid)
         self.dictall['slug'] = dothedict(genslug)
         self.dictall['link'] = dothedict(genlink)

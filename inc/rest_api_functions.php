@@ -109,11 +109,11 @@ function get_added_files_from_folder($folder)
 	*/
 function special_replace($string)
 {
-	$result = str_replace('_', '-', $string);
-	$result = str_replace('.', '-', $result);
-	$result = str_replace('?', '-', $result);
-	$result = str_replace('*', '-', $result);
-	$result = str_replace('\\', '-', $result);
+	#$result = str_replace('_', '-', $string);
+	#$result = str_replace('.', '-', $result);
+	#$result = str_replace('?', '-', $result);
+	#$result = str_replace('*', '-', $result);
+	$result = str_replace('\\', '-', $string);
 	$result = str_replace('/', '-', $result);
 	$result = str_replace('\s', '-', $result);
 	return $result;

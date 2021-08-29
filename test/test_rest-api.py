@@ -39,7 +39,7 @@ wp_site3 = {
     'testfolder' : 'test'
 }
 
-wp_site = wp_site2
+wp_site = wp_site3
 wp_site['authentication'] = 'Basic ' + base64.b64encode( (wp_site['user'] + ':' + wp_site['password']).encode('ascii')).decode('ascii')
 wp_big = 2560
 
@@ -391,7 +391,7 @@ def test_get_number_of_posts_and_upload_dir():
      wp.real_wp_upload_dir = wp.wp_upload_dir
      wp.wp_upload_dir = wp.wp_upload_dir + wp.tested_site['testfolder'] + '/'
      
-@pytest.mark.testimage #################
+@pytest.mark.testimage ############
 @pytest.mark.parametrize( "image_file", files)
 def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      createdfiles = []
@@ -400,7 +400,7 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      # get current time and
      # assume a maximumt offset of 5 secondes between server and local machine that runs the test
      uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=5) 
+     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=10) 
 
      print('--- Uploading file: ', image_file)
      result=wp.post_add_image_to_folder( wp.tested_site['testfolder'], image_file)
@@ -931,7 +931,7 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
           assert result['httpstatus'] == 200
           
           # wait a second for the wp database
-          time.sleep(1)
+          time.sleep(2)
           # Now compare the new data
           result = wp.get_rest_fields( id, 'media' )
           assert result['httpstatus'] == 200 
@@ -1087,6 +1087,7 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
 
           # check the media-details and the description.rendered  
           descr = result['description']['rendered']
+          nsizes = len(result['media_details']['sizes'])
           for size in result['media_details']['sizes']:
                m = len(re.findall( wp.dictall['mediaDetailsSizesFile'], result['media_details']['sizes'][size]['file']))
                if size == 'full': assert m == 0 
@@ -1095,13 +1096,12 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
                if size == 'full': assert m == 0 
                else: assert m == 1
                m = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], descr))
-               if size == 'full': assert m == 0 
-               else: assert m == 1, 'This might fail if there are special subsizes used that are not used for the srcset.'
+               assert abs(m-nsizes) < 2.1, 'This might fail if there are special subsizes used that are not used for the srcset.'
     
 
 @pytest.mark.testpost
 @pytest.mark.parametrize( "image_file", files)
-def xtest_updated_posts_with_images( image_file ):
+def test_updated_posts_with_images( image_file ):
      image_file = get_image( newfiles, image_file)
      end = len(wp.created_posts)
 
@@ -1123,6 +1123,7 @@ def xtest_updated_posts_with_images( image_file ):
                     assert result['httpstatus'] == 200
                     imgcaption = remove_html_tags( result['caption']['rendered'] )
                     imgalt = result['alt_text']
+                    nsizes = len(result['media_details']['sizes'])
                
                     # get the post data
                     result = wp.get_post_content( postid, 'posts' )
@@ -1141,28 +1142,19 @@ def xtest_updated_posts_with_images( image_file ):
                          assert found > 10
 
                     #compare the img src="...."
-                    basename = os.path.splitext( img )[0]
-                    ext = os.path.splitext( img )[1]
-                    s1 = 'src="' + wp.suburl + wp.wp_upload_dir + prefix + basename # s1 = src="/wp-content/uploads/pythontest2/DSC_1722 
-                    if  wp.usescompleteurls:
-                         s1 = 'src="' + wp.wp_upload_url + wp_site['testfolder'] + '/' + prefix + basename
-                    s2 = ext
-                    match = len(re.findall( s1 + "-[0-9]+x[0-9]+" + s2, content)) # content src="/wordpress/wp-content/uploads/pythontest2/flippedDSC_1722.webp"
-                    if match == 0:
-                         match = len(re.findall( s1 + s2, content))
-                    print('--- img src 1st part: ', s1)
-                    assert match == 1
+                    match = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], content))
+                    print('--- img src: ', wp.dictall['mediaDetailsSizesSrcUrl'])
+                    assert abs(match-nsizes) < 3.1, 'Not all sizes might be used for the srcset in the image'
 
-                    # compare the data-link
-                    # bug TODO: the data-link in the wp:galery is not being updated! 
-                    # bug TODO: the mediaLink in the wp:image and wp:media-text : same problem, is result['link'] also
-                    # explink = result['link']
-                    # match = len(re.findall( explink, content) ) 
-                    # print('--- data-link:', explink)
-                    #assert match == 1
+                    # compare the data-link. The link is not in wp-image and only in the un-rendered code of wp-media-text
+                    if post['type'] == 'wp-image-text':
+                         explink = wp.dictall['link']
+                         match = len(re.findall( explink, content) ) 
+                         print('--- data-link:', explink, ' is NOT checked.')
+                         #assert match == 1, "This might because the rendered html does not include the link. It is only in the medialink in the 'raw'-code"
                     
 @pytest.mark.testpost
-def xtest_updated_post_with_gallery():
+def test_updated_post_with_gallery():
      end = len(wp.created_posts)
 
      for i in range(0, end):
@@ -1185,42 +1177,31 @@ def xtest_updated_post_with_gallery():
           assert result['httpstatus'] == 200
           imgcaption = remove_html_tags( result['caption']['rendered'] )
           imgalt = result['alt_text']
+          nsizes = len(result['media_details']['sizes'])
 
           # compare now alt and caption. These two have to be changed in a gtb wp:image
           found = content.find( 'alt="' + imgalt )
           print(content)
-          print('--- ', imgalt)
+          print('--- alt: ', imgalt)
           assert found > 10
 
           found = content.find( '>' + imgcaption + '</' )
-          print('--- ', imgcaption)
+          print('--- caption: ', imgcaption)
           assert found > 10
 
           #compare the data-full-url
-          explink = 'data-full-url="' + wp.suburl + wp.real_wp_upload_dir + result['media_details']['file']
-          if wp.usescompleteurls:
-               explink = 'data-full-url="' + wp.wp_upload_url + result['media_details']['file']
-          match = len(re.findall( explink, content) ) # content : data-full-url="/wordpress/wp-content/uploads/pythontest2/flippedDSC_1722.webp"
-          print('--- data-full-url:', explink) #                  data-full-url="                              pythontest2/flippedDSC_1722.webp
-          assert match == 1
+          explink = 'data-full-url="' + wp.dictall['sourceUrl']
+          match = len(re.findall( explink, content) ) 
+          print('--- data-full-url:', explink)                 
+          assert match == 1, "This might be different for scaled images."
 
           #compare the img src="...."
-          basename = os.path.splitext( img )[0]
-          ext = os.path.splitext( img )[1]
-          s1 = 'src="' + wp.suburl + wp.wp_upload_dir + prefix + basename
-          if wp.usescompleteurls:
-               s1 = 'src="' +  wp.wp_upload_url + wp_site['testfolder'] + '/' + prefix + basename
-          s2 = ext
-          match = len(re.findall(s1 + "-[0-9]+x[0-9]+" + s2, content)) # content: src="/wordpress/wp-content/uploads/pythontest2/flippedDSC_1722-1024x624.webp"
-          print('--- img src 1st part: ', s1)                         # s1:      src="          /wp-content/uploads/pythontest2/DSC_1722
-          assert match == 1
+          match = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], content))
+          print('--- img src: ', wp.dictall['mediaDetailsSizesSrcUrl'])
+          assert abs(match-nsizes) < 3.1, 'Not all sizes might be used for the srcset in the image'
 
           # compare the data-link
-          # bug TODO: the data-link in the wp:galery is not being updated!
-          # bug TODO: the mediaLink in the wp:image and wp:media-text : same problem, is result['link'] also
-          # content: data-link="https://www.bergreisefoto.de/wordpress/dsc-1722/"
-          # data-link: data-link="https://www.bergreisefoto.de/wordpress/flippeddsc_1722/
-          explink = 'data-link="' + result['link']
+          explink = wp.dictall['link']
           match = len(re.findall( explink, content) ) 
           print('--- data-link:', explink)
           assert match == 1
