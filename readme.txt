@@ -67,6 +67,14 @@ Writing the fields is only possible with authorization. So, check the 'authoriza
 Example https-request with POST-method:
 https://www.your-domain.whatever/wp-json/wp/v2/media/666?gallery=test-gallery
 
+New functionality behind this request
+A POST-request with 'alt_text' and / or 'caption' will change the content of ALL posts using that image. The 'alt-text' and the 'caption' are updated if they are used in 
+gutenberg blocks 'image', 'gallery' and 'media-with-text'. Note: There are many, many other blocks, images, galleries around. For these I couldn't realize the update of 'alt-text' and 'caption'.
+
+New Parameter for the above POST-request
+Add ?docaption=true to the http request and update ALL captions in the content, too. The 'alt_text' is always changed in the content, because IMO there could be only one alt_text for an image. 
+But, the caption may depend on the context, so it is up to the user, to change it automatically for all posts or not.
+
 Mind: It is NOT required to use quotes around the value (here: test-gallery). If you use quotes, they will be used as part of the string in the field gallery.
 
 1.6 Note on REST-API output
@@ -154,6 +162,9 @@ To define the content-type the following fields have to be added to the header:
 Body for POST-method
 The new Webp- or JPG-file has to be provided in the body as binary string. Checks in mime-type and size are done to prevent the user from uploading wrong data.
 
+New Parameter for the POST-request
+Add '?changemime=true to the http request and update the file with one that does have another mime-type.
+
 
 2.2 extmedialib/v1/update_meta/(?P<id>[\d]+)
 Function to update metadata of images. Only integer values will be accepted for the id.
@@ -227,7 +238,45 @@ This method gives information about the folder content. If existing and not empt
 
 2.4.2 POST-method to extmedialib/v1/addfromfolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)
 With the POST-method all images from the given 'folder' will be added to the media-library. Image-Files that were already added before from THAT dedicated folder will be skipped. The response contains an JSON-array with IDs to be stored in the application (e.g. Lightroom) for later access. Mind that this might be a long running process. If it runs too long it will be stopped by the server and the addition is NOT complete. So, the recommendation is to do this step by step, e.g. 10 images maximum per step.
-    
+
+3. Tests
+
+3.1. Unit-Tests
+No unit test at all. I know that is necessary, but for the moment I concentrated on system tests.
+
+3.2. Integration Test
+Well, IMO this is mainly the (de-)installation procedure for the plugins. Tested manually. Works
+
+3.3 System Test
+GOOD NEWS: The plugin is now 'completely' tested with a new python test suite (PTS). The PTS uses pytest and a bunch of other modules that have to be available.
+I tried to reach a 'branch coverage' of 100% concerning the functional branches. It's almost impossible to test the paths that were implemented for very special
+errprs on the server. The testdata contains *.webp and *.jpg filess with different sizes. The use cases are 'upload image file', 'change metadata', 'change mime type',
+'update image file', 'create posts (Gutenberg: image, gallery, image-with-text )' and 'delete'. Tests were conducted on local and remote site. All fine. I could not 
+claim a code coverage of 100% or even a test coverage of 100%. That is almost impossible. I concentrated on the main uses cases, as stated above 
+and that is much, much better than manual testing like before.
+
+3.3.1 How to repeat the system test
+- Install an empty, new WP site
+- Install this plugin
+- Clone the complete code from github to your local site
+- change the directory to the  ..../test directory in the cloned repository
+- provide a wp_site.json as described in ./test/test_rest-api.py
+- run the basic tests with: pytest -k 'basic'
+- The first run wil fail for one test if the required 'testfolder' did not exist on the server.
+- Once more: run the basic tests with: pytest -k 'basic'. should be 100% PASSED now.
+- Check your WP-testsite and delete the generated image(s)
+- run the full test with: pytest -k 'testimage or testfield or testpost or cleanup'
+- check the testreport.html after the test
+- OR
+- run the full test and stop it after the post generation with
+-   pytest -k 'testimage or testfield or testpost or cleanup or testwait' -s
+- check visually that all posts with image, gallery, image-with-text have flipped images (except one with changed mime-type)
+- continue the test with Enter to delete all generated images, posts etc. from WordPress
+- OR run
+-   pytest -k 'testimage or testfield or testpost' --> here you have to delete all generated images, posts etc. from WordPress manually
+-   NOTE: Sometimes the test_clean_up() function does not delete all files in the ./testfolder on the server. Don't know why. 
+-   So it is better to check that folder ./testfolder is really empty if the test fails.
+- Finally, all tests should be PASSED and GREEN.
 
 == Screenshots ==
 
@@ -238,8 +287,8 @@ There are no screenshots yet.
 
 1. Visit the plugins page on your Admin-page and click  ‘Add New’
 2. Search for 'wp_wpcat_json_rest', or 'JSON' and 'REST'
-1. Once found, click on 'Install'
-1. Go to the plugins page and activate the plugin
+3. Once found, click on 'Install'
+4. Go to the plugins page and activate the plugin
 
 
 == Frequently Asked Questions ==
@@ -287,11 +336,19 @@ There are no FAQs just yet.
 
 = 0.0.14 =
 *   Readme and docblocks updated. 
-*   Added functionality to treat webp images as well. Tested with WP 5.8-RC4 test version.
+*   Added functionality to handle webp images as well. Tested with WP 5.8-RC4 test version.
+
+= 0.0.15 =
+*   Update function updated! The update includes now also ALL posts that are using the updated image. All links are changed to the new links.
+*   The plugin is partly re-using the great work of 'Enable Media Replacer' that solved the task already for manual updates via the frontend.
+*   Aditionally the 'alt-text' and the 'caption' are updated if the are used in gutenberg blocks 'image', 'gallery' and 'media-with-text'. 
+*   Important: There are many, many other blocks, images, galleries around. For these I couldn't realize the update of 'alt-text' and 'caption'.
+*   BUT: The links are updated!
 
 == Upgrade Notice ==
 
 Upgrade if you want to use webp images in WP and upload it via the REST-API. 
+And upgrade if you want to have the posts using that images updated as well.
 
 
 == Credits ==
@@ -299,3 +356,4 @@ This plugin uses the great work from:
 
 - wordpress for coding hints: https://de.wordpress.org/
 - authorization hints: https://developer.wordpress.org/rest-api/frequently-asked-questions/
+- Enable Media Replacer: https://de.wordpress.org/plugins/enable-media-replace/ I'm using to classes of this great plugin to handle the link updates.
