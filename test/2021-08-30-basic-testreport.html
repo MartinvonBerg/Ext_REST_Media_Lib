@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>testreport.html</h1>
+    <p>Report generated on 30-Aug-2021 at 15:20:09 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "0.13.1", "py": "1.9.0", "pytest": "6.2.4"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.19041-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "1.11.0"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.8.6</td></tr></table>
+    <h2>Summary</h2>
+    <p>18 tests ran in 10.29 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">18 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_info_about_test_site</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Python sys.version:  3.8.6 (tags/v3.8.6:db45529, Sep 23 2020, 15:37:30) [MSC v.1927 32 bit (Intel)]
+--- imported python modules: 
+[   &#x27;@py_builtins&#x27;, &#x27;@pytest_ar&#x27;, &#x27;Image&#x27;, &#x27;ImageOps&#x27;, &#x27;SCRIPT_DIR&#x27;,
+    &#x27;SCRIPT_DIR2&#x27;, &#x27;StrictVersion&#x27;, &#x27;WP_EXT_REST_API&#x27;, &#x27;WP_REST_API&#x27;,
+    &#x27;__builtins__&#x27;, &#x27;__cached__&#x27;, &#x27;__doc__&#x27;, &#x27;__file__&#x27;, &#x27;__loader__&#x27;,
+    &#x27;__name__&#x27;, &#x27;__package__&#x27;, &#x27;__spec__&#x27;, &#x27;base64&#x27;, &#x27;copyfile&#x27;, &#x27;datetime&#x27;,
+    &#x27;f&#x27;, &#x27;files&#x27;, &#x27;find_plugin_in_json_resp_body&#x27;, &#x27;get_image&#x27;, &#x27;hashlib&#x27;,
+    &#x27;jpgfiles&#x27;, &#x27;json&#x27;, &#x27;magic&#x27;, &#x27;newfiles&#x27;, &#x27;os&#x27;, &#x27;path&#x27;, &#x27;pathlib&#x27;, &#x27;pprint&#x27;,
+    &#x27;pytest&#x27;, &#x27;re&#x27;, &#x27;remove_html_tags&#x27;, &#x27;requests&#x27;, &#x27;string&#x27;, &#x27;sys&#x27;, &#x27;testdata&#x27;,
+    &#x27;time&#x27;, &#x27;webpfiles&#x27;, &#x27;wp&#x27;, &#x27;wp_big&#x27;, &#x27;wp_site&#x27;]
+--- SCRIPT_DIR:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test
+--- SCRIPT_DIR2:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\classes
+--- found image files in ../testdata/*.&lt;types&gt;:  [&#x27;DSC_jgp-1972.jpg&#x27;, &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;, &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;, &#x27;DSC_1722.webp&#x27;, &#x27;DSC_1749-Wald.webp&#x27;, &#x27;DSC_WEBP_1972.webp&#x27;, &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_request_without_login</td>
+          <td class="col-duration">0.11</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Get URL  https://www.bergreisefoto.de/wordpress/wp-json/wp/v2  with status code: 403
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_request_with_login_and_header</td>
+          <td class="col-duration">0.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Get URL  https://www.bergreisefoto.de/wordpress/wp-json/wp/v2  with status code: 200
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_request_with_login_base_url</td>
+          <td class="col-duration">0.25</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>site-info:name :  Reisefotografie und Travelblog
+site-info:descr:  von Martin von Berg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_request_https_status</td>
+          <td class="col-duration">0.20</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- https-status:  good
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_wp_site_basic_tests</td>
+          <td class="col-duration">0.17</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- tested Plugin Name:  Ext_REST_Media_Lib
+--- WP-Version:  5.8.0
+--- wp.media_writeable_rest_fields:  {&#x27;alt_text&#x27;, &#x27;title&#x27;, &#x27;gallery_sort&#x27;, &#x27;caption&#x27;, &#x27;description&#x27;, &#x27;image_meta&#x27;}
+--- wp.mimetypes:  {&#x27;image/jpeg&#x27;, &#x27;image/webp&#x27;}
+--- wp.wpversion:  5.8.0
+--- wp.url:  https://www.bergreisefoto.de/wordpress
+--- wp.rest_route:  /wp-json/wp/v2
+--- wp.suburl:  wordpress/
+--- wp.tested_plugin_dir:  wp-wpcat-json-rest/wp_wpcat_json_rest
+--- wp.tested_plugin_name:  Ext_REST_Media_Lib
+--- wp.tested_plugin_min_version:  0.0.14
+--- files in createdfiles.json loaded to `newfiles`:  []
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+content of https://www.bergreisefoto.de/wordpress/wp-admin/site-health.php?tab=debug:
+
+### wp-core ###
+
+version: 5.8
+site_language: de_DE
+user_language: de_DE
+timezone: Europe/Berlin
+permalink: /%postname%/
+https_status: true
+multisite: false
+user_registration: 0
+blog_public: 1
+default_comment_status: open
+environment_type: production
+user_count: 1
+dotorg_communication: true
+
+### wp-paths-sizes ###
+
+wordpress_path: /var/www/web123/html/wordpress_test/wordpress
+wordpress_size: 49,54 MB (51948667 bytes)
+uploads_path: /var/www/web123/html/wordpress_test/wordpress/wp-content/uploads
+uploads_size: 65,46 MB (68640422 bytes)
+themes_path: /var/www/web123/html/wordpress_test/wordpress/wp-content/themes
+themes_size: 17,35 MB (18190325 bytes)
+plugins_path: /var/www/web123/html/wordpress_test/wordpress/wp-content/plugins
+plugins_size: 22,44 MB (23531398 bytes)
+database_size: 5,75 MB (6031976 bytes)
+total_size: 160,54 MB (168342788 bytes)
+
+### wp-active-theme ###
+
+name: Neve (neve)
+version: 3.0.2
+author: ThemeIsle
+author_website: https://themeisle.com
+parent_theme: none
+theme_features: core-block-patterns, widgets-block-editor
+theme_path: /var/www/web123/html/wordpress_test/wordpress/wp-content/themes/neve
+auto_update: Deaktiviert
+
+### wp-themes-inactive (1) ###
+
+Twenty Twenty-One: version: 1.4, author: WordPress-Team, Automatische Aktualisierungen deaktiviert
+
+### wp-plugins-active (9) ###
+
+Admin Columns: version: 4.3.2, author: AdminColumns.com, Automatische Aktualisierungen deaktiviert
+Enable Media Replace: version: 3.5.0, author: ShortPixel, Automatische Aktualisierungen deaktiviert
+Ext_REST_Media_Lib: version: 0.0.15, author: Martin von Berg, Automatische Aktualisierungen deaktiviert
+Fotorama_Multi: version: 0.3.5, author: Martin von Berg, Automatische Aktualisierungen deaktiviert
+Gutenberg: version: 11.3.0, author: Gutenberg Team, Automatische Aktualisierungen deaktiviert
+Starter Templates: version: 2.6.21, author: Brainstorm Force, Automatische Aktualisierungen deaktiviert
+Ultimate Addons for Gutenberg: version: 1.24.2, author: Brainstorm Force, Automatische Aktualisierungen deaktiviert
+wp-special-functions: version: 0.0.14, author: Martin von Berg, Automatische Aktualisierungen deaktiviert
+WP Fastest Cache: version: 0.9.3, author: Emre Vona, Automatische Aktualisierungen deaktiviert
+
+### wp-media ###
+
+image_editor: WP_Image_Editor_GD
+imagick_module_version: Nicht verfügbar
+imagemagick_version: Nicht verfügbar
+imagick_version: Nicht verfügbar
+file_uploads: File uploads is turned off
+post_max_size: 96M
+upload_max_filesize: 64M
+max_effective_size: 64 MB
+max_file_uploads: 20
+gd_version: bundled (2.1.0 compatible)
+gd_formats: GIF, JPEG, PNG, WebP, BMP, XPM
+ghostscript_version: 9.26
+
+### wp-server ###
+
+server_architecture: Linux 4.15.18-13-pve x86_64
+httpd_software: Apache
+php_version: 8.0.1 64bit
+php_sapi: cgi-fcgi
+max_input_variables: 1000
+time_limit: 90
+memory_limit: 384M
+max_input_time: 60
+upload_max_filesize: 64M
+php_post_max_size: 96M
+curl_version: 7.38.0 OpenSSL/1.0.1t
+suhosin: false
+imagick_availability: false
+pretty_permalinks: true
+htaccess_extra_rules: true
+
+### wp-database ###
+
+extension: mysqli
+server_version: 5.7.25
+client_version: mysqlnd 8.0.1
+
+### wp-constants ###
+
+WP_HOME: https://www.bergreisefoto.de/wordpress
+WP_SITEURL: https://www.bergreisefoto.de/wordpress
+WP_CONTENT_DIR: /var/www/web123/html/wordpress_test/wordpress/wp-content
+WP_PLUGIN_DIR: /var/www/web123/html/wordpress_test/wordpress/wp-content/plugins
+WP_MEMORY_LIMIT: 40M
+WP_MAX_MEMORY_LIMIT: 384M
+WP_DEBUG: false
+WP_DEBUG_DISPLAY: false
+WP_DEBUG_LOG: false
+SCRIPT_DEBUG: false
+WP_CACHE: true
+CONCATENATE_SCRIPTS: true
+COMPRESS_SCRIPTS: true
+COMPRESS_CSS: true
+WP_LOCAL_DEV: undefined
+DB_CHARSET: utf8mb4
+DB_COLLATE: undefined
+
+### wp-filesystem ###
+
+wordpress: writable
+wp-content: writable
+uploads: writable
+plugins: writable
+themes: writable
+mu-plugins: writable
+-----------------------------------------------------------------------------
+--- Directory sizes: 
+{   &#x27;database_size&#x27;: {   &#x27;debug&#x27;: &#x27;5,75 MB (6031976 bytes)&#x27;,
+                         &#x27;raw&#x27;: 6031976,
+                         &#x27;size&#x27;: &#x27;5,75 MB&#x27;},
+    &#x27;plugins_size&#x27;: {   &#x27;debug&#x27;: &#x27;22,44 MB (23531398 bytes)&#x27;,
+                        &#x27;raw&#x27;: 23531398,
+                        &#x27;size&#x27;: &#x27;22,44 MB&#x27;},
+    &#x27;raw&#x27;: 0,
+    &#x27;themes_size&#x27;: {   &#x27;debug&#x27;: &#x27;17,35 MB (18190325 bytes)&#x27;,
+                       &#x27;raw&#x27;: 18190325,
+                       &#x27;size&#x27;: &#x27;17,35 MB&#x27;},
+    &#x27;total_size&#x27;: {   &#x27;debug&#x27;: &#x27;160,54 MB (168342788 bytes)&#x27;,
+                      &#x27;raw&#x27;: 168342788,
+                      &#x27;size&#x27;: &#x27;160,54 MB&#x27;},
+    &#x27;uploads_size&#x27;: {   &#x27;debug&#x27;: &#x27;65,46 MB (68640422 bytes)&#x27;,
+                        &#x27;raw&#x27;: 68640422,
+                        &#x27;size&#x27;: &#x27;65,46 MB&#x27;},
+    &#x27;wordpress_size&#x27;: {   &#x27;debug&#x27;: &#x27;49,54 MB (51948667 bytes)&#x27;,
+                          &#x27;raw&#x27;: 51948667,
+                          &#x27;size&#x27;: &#x27;49,54 MB&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_request_plugin_status</td>
+          <td class="col-duration">0.21</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- PI-Name is: Ext_REST_Media_Lib
+--- PI-Version: 0.0.15
+---------------------------------------------
+--- Installed Plugins:
+------  Admin Columns
+             Version  4.3.2  is  active
+------  Enable Media Replace
+             Version  3.5.0  is  active
+------  Ext_REST_Media_Lib
+             Version  0.0.15  is  active
+------  Fotorama_Multi
+             Version  0.3.5  is  active
+------  Gutenberg
+             Version  11.3.0  is  active
+------  Starter Templates
+             Version  2.6.21  is  active
+------  Ultimate Add-Ons für Gutenberg
+             Version  1.24.2  is  active
+------  wp-special-functions
+             Version  0.0.14  is  active
+------  WP Fastest Cache
+             Version  0.9.3  is  active
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_request_active_theme</td>
+          <td class="col-duration">0.17</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Theme-Name is: neve
+---  Theme-Status: active
+--- Theme-Version: 3.0.2
+---------------------------------------------
+--- Installed Themes:
+------  Neve
+             Version  3.0.2  is  active
+------  Twenty Twenty-One
+             Version  1.4  is  inactive
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_field_gallery_with_invalid_id</td>
+          <td class="col-duration">0.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_invalid_id</td>
+          <td class="col-duration">0.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_invalid_id</td>
+          <td class="col-duration">0.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_invalid_id</td>
+          <td class="col-duration">0.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_update_meta_with_invalid_id</td>
+          <td class="col-duration">0.17</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_invalid_folder</td>
+          <td class="col-duration">0.17</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_valid_folder</td>
+          <td class="col-duration">0.17</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_standard_folder</td>
+          <td class="col-duration">1.18</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_jgp-1972.jpg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_valid_folder_file_exists</td>
+          <td class="col-duration">4.83</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_jgp-1972.jpg
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_jgp-1972.jpg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype</td>
+          <td class="col-duration">1.19</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody></table></body></html>
