@@ -1,3 +1,25 @@
+##################
+# 
+# Testing the extendend REST-API with python and pytest
+# 08 / 2021 by Martin von Berg, mail@mvb1.de
+#
+# short manual
+# cd to ./test
+# provide a wp_site.json as described below in ./test/
+# run the basic tests with
+#   pytest -k 'basic'
+# check your WP-testsite and delete the generated image(s)
+# run the full test with
+#   pytest -k 'testimage or testfield or testpost or cleanup'
+# check the testreport.html after the test
+# run the full test and stop it after the post generation 
+# check visually that all posts with image, gallery, image-with-text have flipped images
+# continue the test with Enter to delete all generated images, posts etc. from WordPress
+#   pytest -k 'testimage or testfield or testpost or cleanup' -s
+#   or
+#   pytest -k 'testimage or testfield or testpost' --> here you have to delete all generated images, posts etc. from WordPress manually
+
+##############################
 import requests
 import json
 from distutils.version import StrictVersion
@@ -13,33 +35,20 @@ sys.path.append(SCRIPT_DIR2)
 from WP_test_object import WP_EXT_REST_API, WP_REST_API
 from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, get_image
 
-# define the tested site(s) which shall undergo the test.
-# TODO: provide the login data by key input
-wp_site1 = {
-    'url' : 'https://www.mvb1.de',
-    'rest_route' : '/wp-json/wp/v2',
-    'user' : 'user',
-    'password' : 'pwd',
-    'testfolder' : 'pythontest'
-}
+# load and define the tested site(s) which shall undergo the test.
+# json schema for wp_siteX.json is:
+# {
+#    "url" : "https://www.example.com/wordpress", # no trailing slash!
+#    "rest_route" : "/wp-json/wp/v2", # don't change this!
+#    "user" : "username", # the username for which you created the application password
+#    "password" : "passwort", # the application password you created for the test
+#    "testfolder" : "test" # no leading and trailing slash, use whatever you like
+# }
+path = os.path.join(SCRIPT_DIR, 'wp_site2.json')
+f = open( path )
+wp_site = json.load(f)
+f.close()
 
-wp_site2 = {
-    'url' : 'https://www.bergreisefoto.de/wordpress',
-    'rest_route' : '/wp-json/wp/v2',
-    'user' : 'Martin',
-    'password' : 'n2sjKvQ9gVsiCPG2t8fcyAB0',
-    'testfolder' : 'test'
-}
-
-wp_site3 = {
-    'url' : 'http://127.0.0.1/wordpress',
-    'rest_route' : '/wp-json/wp/v2',
-    'user' : 'martin',
-    'password' : 'uzDvXkWgOpz3eQlkArP39yzf',
-    'testfolder' : 'test'
-}
-
-wp_site = wp_site3
 wp_site['authentication'] = 'Basic ' + base64.b64encode( (wp_site['user'] + ':' + wp_site['password']).encode('ascii')).decode('ascii')
 wp_big = 2560
 
@@ -475,7 +484,9 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
 
      if width > wp_big or height > wp_big:
           wp.img_isscaled = True
-          print('--- image is scaled: Yes')
+          print('--- image is scaled: Yes. Width: ', width, ' and Height: ', height)
+     else:
+          wp.img_isscaled = False
 
      wp.generate_dictfb(image_file)
      wp.generate_dictall()
@@ -713,6 +724,7 @@ def test_update_image_metadata( image_file ):
           assert result['httpstatus'] == 200
 
           # Now compare the new data
+          time.sleep(2)
           result = wp.get_rest_fields( id, 'media' )
           assert result['httpstatus'] == 200 
 
@@ -740,6 +752,24 @@ def test_update_image_metadata( image_file ):
           # check the gallery
           print('--- gallery: ', result['gallery'])
           assert result['gallery'] == wp.tested_site['testfolder']
+
+          # update the new url and link dicts
+          # create the dictionaries required for checking
+          # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+          path = os.path.join(SCRIPT_DIR, 'testdata', imgfile)
+          assert os.path.isfile( path ) == True
+          im = Image.open( path )
+          (width, height) = im.size
+          im.close()
+
+          if width > wp_big or height > wp_big:
+               wp.img_isscaled = True
+               print('--- image is scaled: Yes')
+          else:
+               wp.img_isscaled = False
+
+          wp.generate_dictfb( imgfile )
+          wp.generate_dictall()
 
           # check the guid
           print('--- guid: ', result['guid']['rendered'])
@@ -886,117 +916,6 @@ def test_create_gtb_image_text( image_file ):
 
 @pytest.mark.testimage #############
 @pytest.mark.parametrize( "image_file", files)
-def test_update_image_metadata_after_posts_were_created( image_file ): 
-     image_file = get_image( newfiles, image_file)
-     uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=10) 
-     pre = 'updated_'
-
-     if type(image_file) == list:
-          id = image_file[0]
-          sid = str(id)
-          imgfile = image_file[1]
-          ts = str( round(datetime.datetime.now().timestamp()) )
-          rest_fields = { 
-               'title' :        pre + 'title' + sid + '_' + ts, 
-               'gallery_sort' : sid, 
-               'description' : pre + 'descr' + sid + '_' + ts, 
-               'caption' :     pre + 'caption' + sid + '_' + ts, 
-               'alt_text' :    pre + 'alt' + sid + '_' + ts,
-               'docaption': 'true' 
-               }
-
-          result = wp.set_rest_fields( id, 'media', rest_fields )
-          print('--- timestamp: ', ts)
-          assert result['httpstatus'] == 200 
-
-          # set now the image_meta. Done here to have the same timestamp ts
-          fields =  {'image_meta' : {
-            "aperture": sid,
-            "credit": 'Martin' + '_' + ts,
-            "camera": "camera" + '_' + ts,
-            "caption": pre + 'caption' + sid + '_' + ts,
-            "created_timestamp": ts,
-            "copyright": "copy" + '_' + ts,
-            "focal_length": sid,
-            "iso": sid,
-            "shutter_speed": "0." + sid,
-            "title": pre + 'title' + sid + '_' + ts,
-            "orientation": "1",
-            "keywords": [ pre + 'generated' + '_' + ts]
-            #'alt_text' :    pre + 'alt' + sid + '_' + ts 
-          } }
-
-          result = wp.set_attachment_image_meta( id, 'media', fields )
-          assert result['httpstatus'] == 200
-          
-          # wait a second for the wp database
-          time.sleep(2)
-          # Now compare the new data
-          result = wp.get_rest_fields( id, 'media' )
-          assert result['httpstatus'] == 200 
-
-          print ('Comparing: ', result['id'])  
-          assert result['id'] == id
-
-          print('--- title: ', result['title']['rendered'] )
-          assert result['title']['rendered'] == rest_fields['title']
-
-          print('--- gallery_sort: ', result['gallery_sort'] )
-          assert result['gallery_sort'] == rest_fields['gallery_sort']
-
-          # result['description'] == rest_fields['description'] # can't check the description, as this contains the srcset, too
-          cap = remove_html_tags( result['caption']['rendered'] )
-
-          print('--- caption: ', cap )
-          assert cap == rest_fields['caption']
-
-          if 'alt_text' in rest_fields:
-               print('--- alt_text: ', rest_fields['alt_text'] )
-               assert result['alt_text'] == rest_fields['alt_text']
-
-          # check the attachment type
-          print('--- attachment type: ', result['media_type'])
-          assert result['media_type'] == 'image'
-
-          # check the gallery
-          print('--- gallery: ', result['gallery'])
-          assert result['gallery'] == wp.tested_site['testfolder']
-
-          # check the guid
-          print('--- guid: ', result['guid']['rendered'])
-          assert result['guid']['rendered'] == wp.dictall['guid']
-         
-          # check the link url
-          print('--- link: ', result['link'])
-          assert result['link'] == wp.dictall['link'], 'Don\'t worry. This might fail if an image with the same name already exists in the WP media library.'
-
-          # check the time
-          imagetime = datetime.datetime.strptime( result['modified_gmt'], "%Y-%m-%dT%H:%M:%S")
-          print('--- time: ', uploadtime, 'image-time: ', result['modified_gmt'])
-          assert imagetime >= uploadtime # format "2021-08-16T14:51:39" upload-time
-
-          # check image mime
-          path = os.getcwd()
-          fullpath = os.path.join(path, 'testdata', imgfile)
-          mime = magic.Magic(mime=True)
-          mimetype = mime.from_file( fullpath )
-          print('--- mime-type: ', result['mime_type'])
-          assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
-
-          # check the image_meta: complete for webg
-          if mimetype == 'image/webp':
-               assert result['media_details']['image_meta'] == fields['image_meta']
-          # for jpg only Common items: 'caption', 'copyright', 'credit', 'keywords', 'title'
-          if mimetype == 'image/jepg':
-               assert result['media_details']['image_meta']['caption'] == fields['image_meta']['caption']
-               assert result['media_details']['image_meta']['copyright'] == fields['image_meta']['copyright']
-               assert result['media_details']['image_meta']['credit'] == fields['image_meta']['credit']
-               assert result['media_details']['image_meta']['title'] == fields['image_meta']['title']
-               assert result['media_details']['image_meta']['keywords'] == fields['image_meta']['keywords']
-
-@pytest.mark.testimage #############
-@pytest.mark.parametrize( "image_file", files)
 def test_update_image_with_flipped_original_and_new_filename( image_file ): 
      # this if-else is here for debugging
      #if __name__ == '__main__':
@@ -1008,6 +927,9 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
           id = image_file[0]
           imgfile = image_file[1]
           ts = str( round(datetime.datetime.now().timestamp()) )
+
+          # get the image date before the update
+          before = wp.get_rest_fields( id, 'media' )
 
           path = os.path.join(SCRIPT_DIR, 'testdata', imgfile)
           assert os.path.isfile( path ) == True
@@ -1029,17 +951,20 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
           if width > wp_big or height > wp_big:
                wp.img_isscaled = True
                print('--- image is scaled: Yes')
+          else:
+               wp.img_isscaled = False
 
           wp.generate_dictfb( newimg )
           wp.generate_dictall()
 
           # upload the flipped image with the new name but the same id
           # keep the mime-type as is (for the moment)
-          result = wp.post_update_image( id, path, False )
+          result = wp.post_update_image( id, path, True )
           print('--- local path updated file: ', path)
           assert result['httpstatus'] == 200
-                   
+
           # Now compare the new data
+          time.sleep(2)
           result = wp.get_rest_fields( id, 'media' )
           assert result['httpstatus'] == 200 
 
@@ -1097,7 +1022,167 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
                else: assert m == 1
                m = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], descr))
                assert abs(m-nsizes) < 2.1, 'This might fail if there are special subsizes used that are not used for the srcset.'
-    
+
+          #assert remove_html_tags(before['caption']['rendered']) ==  remove_html_tags(result['caption']['rendered']), 'This is only successful if the metadata is updated within this test function, otherwise not.'
+
+@pytest.mark.testimage #############
+@pytest.mark.parametrize( "image_file", files)
+def test_update_image_metadata_after_posts_were_created( image_file ): 
+     image_file = get_image( newfiles, image_file)
+     uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+     uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=10) 
+     pre = 'updated_'
+
+     if type(image_file) == list:
+          id = image_file[0]
+          sid = str(id)
+          imgfile = image_file[1]
+          ts = str( round(datetime.datetime.now().timestamp()) )
+          rest_fields = { 
+               'title' :        pre + 'title' + sid + '_' + ts, 
+               'gallery_sort' : sid, 
+               'description' : pre + 'descr' + sid + '_' + ts, 
+               'caption' :     pre + 'caption' + sid + '_' + ts, 
+               'alt_text' :    pre + 'alt' + sid + '_' + ts,
+               'docaption': 'true' 
+               }
+
+          result = wp.set_rest_fields( id, 'media', rest_fields )
+          print('--- timestamp: ', ts)
+          assert result['httpstatus'] == 200 
+
+          # set now the image_meta. Done here to have the same timestamp ts
+          fields =  {'image_meta' : {
+            "aperture": sid,
+            "credit": 'Martin' + '_' + ts,
+            "camera": "camera" + '_' + ts,
+            "caption": pre + 'caption' + sid + '_' + ts,
+            "created_timestamp": ts,
+            "copyright": "copy" + '_' + ts,
+            "focal_length": sid,
+            "iso": sid,
+            "shutter_speed": "0." + sid,
+            "title": pre + 'title' + sid + '_' + ts,
+            "orientation": "1",
+            "keywords": [ pre + 'generated' + '_' + ts],
+            #'alt_text' :    pre + 'alt' + sid + '_' + ts 
+          } }
+
+          result = wp.set_attachment_image_meta( id, 'media', fields )
+          assert result['httpstatus'] == 200
+          
+          # wait a second for the wp database
+          time.sleep(2)
+          # Now compare the new data
+          result = wp.get_rest_fields( id, 'media' )
+          assert result['httpstatus'] == 200 
+
+          # update the new url and link dicts
+          # create the dictionaries required for checking
+          # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+          path = os.path.join(SCRIPT_DIR, 'testdata', imgfile)
+          assert os.path.isfile( path ) == True
+          im = Image.open( path )
+          (width, height) = im.size
+          im.close()
+
+          if width > wp_big or height > wp_big:
+               wp.img_isscaled = True
+               print('--- image is scaled: Yes')
+          else:
+               wp.img_isscaled = False
+
+          newimg = prefix + imgfile
+          wp.generate_dictfb( newimg )
+          wp.generate_dictall()
+
+          print ('Comparing: ', result['id'])  
+          assert result['id'] == id
+
+          print('--- title: ', result['title']['rendered'] )
+          assert result['title']['rendered'] == rest_fields['title']
+
+          print('--- gallery_sort: ', result['gallery_sort'] )
+          assert result['gallery_sort'] == rest_fields['gallery_sort']
+
+          # result['description'] == rest_fields['description'] # can't check the description, as this contains the srcset, too
+          cap = remove_html_tags( result['caption']['rendered'] )
+
+          print('--- caption: ', cap )
+          assert cap == rest_fields['caption']
+
+          if 'alt_text' in rest_fields:
+               print('--- alt_text: ', rest_fields['alt_text'] )
+               assert result['alt_text'] == rest_fields['alt_text']
+
+          # check the attachment type
+          print('--- attachment type: ', result['media_type'])
+          assert result['media_type'] == 'image'
+
+          # check the gallery
+          print('--- gallery: ', result['gallery'])
+          assert result['gallery'] == wp.tested_site['testfolder']
+
+          # check the guid
+          print('--- guid: ', result['guid']['rendered'])
+          assert result['guid']['rendered'] == wp.dictall['guid']
+
+          # check the source url
+          print('--- source-url: ', result['source_url'])
+          assert result['source_url'] == wp.dictall['sourceUrl']
+                   
+          # check the link url
+          print('--- link: ', result['link'])
+          assert result['link'] == wp.dictall['link'], 'Don\'t worry. This might fail if an image with the same name already exists in the WP media library.'
+
+          # check the time
+          imagetime = datetime.datetime.strptime( result['modified_gmt'], "%Y-%m-%dT%H:%M:%S")
+          print('--- time: ', uploadtime, 'image-time: ', result['modified_gmt'])
+          assert imagetime >= uploadtime # format "2021-08-16T14:51:39" upload-time
+
+          # check image mime
+          path = os.getcwd()
+          fullpath = os.path.join(path, 'testdata', imgfile)
+          mime = magic.Magic(mime=True)
+          mimetype = mime.from_file( fullpath )
+          print('--- mime-type: ', result['mime_type'])
+          assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
+
+          # do all the rest
+          assert result['slug'] == wp.dictall['slug'] 
+          assert result['source_url'] == wp.dictall['sourceUrl'] 
+
+          # special cases for my localhost on windows
+          pos = wp.baseurl.find('127.0.0.1')
+          if pos == -1:
+               assert result['media_details']['file'] == wp.dictall['mediaDetailsFile'] # This one can't be checked for my local site because it uses the local path
+               # for the remote site this check is OK
+          if wp.img_isscaled:
+               assert result['media_details']['original_image'] == wp.dictall['mediaDetailsoriginalFile'] 
+
+          # check the media-details and the description.rendered  
+          descr = result['description']['rendered']
+          nsizes = len(result['media_details']['sizes'])
+          for size in result['media_details']['sizes']:
+               m = len(re.findall( wp.dictall['mediaDetailsSizesFile'], result['media_details']['sizes'][size]['file']))
+               if size == 'full': assert m == 0 
+               else: assert m == 1
+               m = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], result['media_details']['sizes'][size]['source_url']))
+               if size == 'full': assert m == 0 
+               else: assert m == 1
+               m = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], descr))
+               assert abs(m-nsizes) < 2.1, 'This might fail if there are special subsizes used that are not used for the srcset.'
+
+          # check the image_meta: complete for webp
+          if mimetype == 'image/webp':
+               assert result['media_details']['image_meta'] == fields['image_meta']
+          # for jpg only Common items: 'caption', 'copyright', 'credit', 'keywords', 'title'
+          if mimetype == 'image/jepg':
+               assert result['media_details']['image_meta']['caption'] == fields['image_meta']['caption']
+               assert result['media_details']['image_meta']['copyright'] == fields['image_meta']['copyright']
+               assert result['media_details']['image_meta']['credit'] == fields['image_meta']['credit']
+               assert result['media_details']['image_meta']['title'] == fields['image_meta']['title']
+               assert result['media_details']['image_meta']['keywords'] == fields['image_meta']['keywords']
 
 @pytest.mark.testpost
 @pytest.mark.parametrize( "image_file", files)
@@ -1108,6 +1193,25 @@ def test_updated_posts_with_images( image_file ):
      if type(image_file) == list:
           id = image_file[0]
           img = image_file[1]
+
+          # update the new url and link dicts
+          # create the dictionaries required for checking
+          # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+          path = os.path.join(SCRIPT_DIR, 'testdata', img )
+          assert os.path.isfile( path ) == True
+          im = Image.open( path )
+          (width, height) = im.size
+          im.close()
+
+          if width > wp_big or height > wp_big:
+               wp.img_isscaled = True
+               print('--- image is scaled: Yes')
+          else:
+               wp.img_isscaled = False
+
+          img = prefix + img
+          wp.generate_dictfb( img )
+          wp.generate_dictall()
 
           # loop through all created posts 
           for i in range(0, end):
@@ -1122,6 +1226,7 @@ def test_updated_posts_with_images( image_file ):
                     result = wp.get_post_content( id, 'media' )
                     assert result['httpstatus'] == 200
                     imgcaption = remove_html_tags( result['caption']['rendered'] )
+                    assert imgcaption != ''
                     imgalt = result['alt_text']
                     nsizes = len(result['media_details']['sizes'])
                
@@ -1137,8 +1242,8 @@ def test_updated_posts_with_images( image_file ):
                     assert found > 10
 
                     if isimage:
-                         found = content.find( '>' + imgcaption + '</' )
-                         print('--- ', imgcaption)
+                         found = content.find( imgcaption )
+                         print('--- it is an image. search imgcaption ', imgcaption)
                          assert found > 10
 
                     #compare the img src="...."
@@ -1151,7 +1256,7 @@ def test_updated_posts_with_images( image_file ):
                          explink = wp.dictall['link']
                          match = len(re.findall( explink, content) ) 
                          print('--- data-link:', explink, ' is NOT checked.')
-                         #assert match == 1, "This might because the rendered html does not include the link. It is only in the medialink in the 'raw'-code"
+                         #assert match == 1, "This might fail because the rendered html does not include the link. It is only in the medialink in the 'raw'-code"
                     
 @pytest.mark.testpost
 def test_updated_post_with_gallery():
@@ -1206,7 +1311,10 @@ def test_updated_post_with_gallery():
           print('--- data-link:', explink)
           assert match == 1
 
-# TODO: check visually or programmatically that images were really changed e.g. flipped
+# check visually or programmatically (TODO) that images were really changed e.g. flipped
+@pytest.mark.testpost
+def test_wait():
+     input('Wait until keypressed.....')
 
 # --------------- clean-up the WP installation
 @pytest.mark.cleanup
@@ -1236,8 +1344,9 @@ def test_clean_up():
 # just here for debugging the tests 
 if __name__ == '__main__':
      ts = round(datetime.datetime.now().timestamp())
-     test_image_upload_to_folder_with_ext_rest_api('DSC_1722.webp')
-     wp.get_number_of_posts()
+     #test_update_image_metadata_after_posts_were_created('Wanderung-Acquacheta-94_Web.jpg')
+     #test_image_upload_to_folder_with_ext_rest_api('DSC_1722.webp')
+     #wp.get_number_of_posts()
      #test_info_about_test_site()
      #test_get_number_of_posts_and_upload_dir()
      #test_created_json_file_list()

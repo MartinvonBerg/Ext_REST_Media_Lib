@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>testreport.html</h1>
+    <p>Report generated on 30-Aug-2021 at 08:46:05 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "0.13.1", "py": "1.9.0", "pytest": "6.2.4"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.19041-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "1.11.0"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.8.6</td></tr></table>
+    <h2>Summary</h2>
+    <p>90 tests ran in 29.82 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">9 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">81 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">1.90</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_image_upload_to_folder_with_ext_rest_api( image_file ):<br/>         createdfiles = []<br/>         image_number_before = wp.media[&#x27;count&#x27;]<br/>    <br/>         # get current time and<br/>         # assume a maximumt offset of 5 secondes between server and local machine that runs the test<br/>         uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime(&quot;%Y-%m-%dT%H:%M:%S&quot;)<br/>         uploadtime = datetime.datetime.strptime( uploadtime, &quot;%Y-%m-%dT%H:%M:%S&quot;) - datetime.timedelta(seconds=10)<br/>    <br/>         print(&#x27;--- Uploading file: &#x27;, image_file)<br/>         result=wp.post_add_image_to_folder( wp.tested_site[&#x27;testfolder&#x27;], image_file)<br/>    <br/>         print(&#x27;--- &#x27;, result[&#x27;message&#x27;])<br/>         # check the upload status.<br/>&gt;        assert result[&#x27;httpstatus&#x27;] == 200<br/><span class="error">E        assert 400 == 200</span><br/><span class="error">E          +400</span><br/><span class="error">E          -200</span><br/><br/>test_rest-api.py:419: AssertionError<br/> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  DSC_1749-Rügen.webp
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_1749-Rügen.webp
+---  Other Error 
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_created_json_file_list</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">@pytest.mark.updateimage ##############<br/>    @pytest.mark.testimage<br/>    def test_created_json_file_list():<br/>         global newfiles<br/>    <br/>         cfpath = os.path.join(SCRIPT_DIR, &#x27;createdfiles.json&#x27;)<br/>         print(&#x27;--- Read created files from: &#x27;, cfpath)<br/>&gt;        assert os.path.isfile( cfpath ) == True<br/><span class="error">E        assert False == True</span><br/><span class="error">E          +False</span><br/><span class="error">E          -True</span><br/><br/>test_rest-api.py:552: AssertionError<br/> ------------------------------Captured stdout call------------------------------ <br/>--- Read created files from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createdfiles.json
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_ext_rest_api_get_md5_sum( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:562: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_ext_rest_api_get_md5_sum( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:562: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_ext_rest_api_get_md5_sum( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:562: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_ext_rest_api_get_md5_sum( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:562: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_ext_rest_api_get_md5_sum( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:562: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_ext_rest_api_get_md5_sum( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:562: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:585: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:585: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:585: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:585: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:585: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:585: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:607: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:607: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:607: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:607: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:607: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:607: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:623: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:623: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:623: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:623: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:623: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_new_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:623: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:640: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:640: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:640: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:640: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:640: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testfield # -----------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_set_field_gallery_sort_with_valid_id_same_value( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:640: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_get_update_meta_with_valid_id( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:656: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_get_update_meta_with_valid_id( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:656: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_get_update_meta_with_valid_id( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:656: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_get_update_meta_with_valid_id( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:656: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_get_update_meta_with_valid_id( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:656: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_rest_api_get_update_meta_with_valid_id( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:656: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_id_of_created_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:666: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_id_of_created_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:666: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_id_of_created_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:666: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_id_of_created_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:666: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_id_of_created_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:666: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_id_of_created_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:666: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:686: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:686: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:686: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:686: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:686: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:686: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_with_one_image( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:809: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_with_one_image( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:809: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_with_one_image( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:809: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_with_one_image( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:809: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_with_one_image( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:809: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_with_one_image( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:809: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_text( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:884: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_text( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:884: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_text( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:884: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_text( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:884: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_text( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:884: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testpost # --------------<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_create_gtb_image_text( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:884: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_with_flipped_original_and_new_filename( image_file ):<br/>         # this if-else is here for debugging<br/>         #if __name__ == &#x27;__main__&#x27;:<br/>         #     image_file = [1950, &#x27;Schlossinsel-Mirow-13_klein.webp&#x27;]<br/>         #else:<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:924: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_with_flipped_original_and_new_filename( image_file ):<br/>         # this if-else is here for debugging<br/>         #if __name__ == &#x27;__main__&#x27;:<br/>         #     image_file = [1950, &#x27;Schlossinsel-Mirow-13_klein.webp&#x27;]<br/>         #else:<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:924: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_with_flipped_original_and_new_filename( image_file ):<br/>         # this if-else is here for debugging<br/>         #if __name__ == &#x27;__main__&#x27;:<br/>         #     image_file = [1950, &#x27;Schlossinsel-Mirow-13_klein.webp&#x27;]<br/>         #else:<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:924: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_with_flipped_original_and_new_filename( image_file ):<br/>         # this if-else is here for debugging<br/>         #if __name__ == &#x27;__main__&#x27;:<br/>         #     image_file = [1950, &#x27;Schlossinsel-Mirow-13_klein.webp&#x27;]<br/>         #else:<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:924: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_with_flipped_original_and_new_filename( image_file ):<br/>         # this if-else is here for debugging<br/>         #if __name__ == &#x27;__main__&#x27;:<br/>         #     image_file = [1950, &#x27;Schlossinsel-Mirow-13_klein.webp&#x27;]<br/>         #else:<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:924: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_with_flipped_original_and_new_filename( image_file ):<br/>         # this if-else is here for debugging<br/>         #if __name__ == &#x27;__main__&#x27;:<br/>         #     image_file = [1950, &#x27;Schlossinsel-Mirow-13_klein.webp&#x27;]<br/>         #else:<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:924: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata_after_posts_were_created( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1031: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata_after_posts_were_created( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1031: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata_after_posts_were_created( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1031: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata_after_posts_were_created( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1031: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata_after_posts_were_created( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1031: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testimage #############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_update_image_metadata_after_posts_were_created( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1031: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[DSC_1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    @pytest.mark.testpost<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_updated_posts_with_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1190: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1972.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    @pytest.mark.testpost<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_updated_posts_with_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1190: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    @pytest.mark.testpost<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_updated_posts_with_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1190: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    @pytest.mark.testpost<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_updated_posts_with_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1190: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1722.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[DSC_1749-Rügen.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    @pytest.mark.testpost<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_updated_posts_with_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1190: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;DSC_1749-Rügen.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    @pytest.mark.testpost<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_updated_posts_with_images( image_file ):<br/>&gt;        image_file = get_image( newfiles, image_file)<br/><br/>test_rest-api.py:1190: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>files = [], image_file = &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;<br/><br/>    def get_image( files, image_file):<br/>        print(files)<br/>&gt;       found = [x for x in files if image_file in x[1] ][0]<br/><span class="error">E       IndexError: list index out of range</span><br/><br/>classes\helper_functions.py:98: IndexError<br/> ------------------------------Captured stdout call------------------------------ <br/>[]
+<br/></div></td></tr></tbody>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_wait</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">@pytest.mark.testpost<br/>    def test_wait():<br/>&gt;        input(&#x27;Wait until keypressed.....&#x27;)<br/><br/>test_rest-api.py:1317: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ <br/><br/>self = &lt;_pytest.capture.DontReadFromInput object at 0x03779100&gt;, args = ()<br/><br/>    def read(self, *args):<br/>&gt;       raise OSError(<br/>            &quot;pytest: reading from stdin while output is captured!  Consider using `-s`.&quot;<br/>        )<br/><span class="error">E       OSError: pytest: reading from stdin while output is captured!  Consider using `-s`.</span><br/><br/>c:\users\martin von berg\appdata\local\programs\python\python38-32\lib\site-packages\_pytest\capture.py:217: OSError<br/> ------------------------------Captured stdout call------------------------------ <br/>Wait until keypressed.....<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_get_number_of_posts_and_upload_dir</td>
+          <td class="col-duration">0.97</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Counted 85 images in the media library.
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[DSC_1972.jpg]</td>
+          <td class="col-duration">4.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  DSC_1972.jpg
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_1972.jpg
+---  You requested image addition to folder /var/www/web123/html/wordpress_test/wordpress/wp-content/uploads/test with POST-Request. Done.
+--- last media id:  241
+--- new media id:  2039
+--- gallery:  test
+--- new image count:  86
+--- guid for decision:  /wordpress/wp-content/uploads/test/DSC_1972.jpg
+--- wp.baseurl for decision:  https://www.bergreisefoto.de/
+--- Site does not use complete urls!
+--- image is scaled: Yes. Width:  3000  and Height:  2000
+--- attachment type:  image
+--- guid:  /wordpress/wp-content/uploads/test/DSC_1972.jpg
+--- source-url:  /wordpress/wp-content/uploads/test/DSC_1972-scaled.jpg
+--- link:  https://www.bergreisefoto.de/wordpress/dsc_1972/
+--- time:  2021-08-30 06:45:27 image-time:  2021-08-30T06:45:28
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[NZ_Ausw_1L_61_sw-1.jpg]</td>
+          <td class="col-duration">5.21</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  NZ_Ausw_1L_61_sw-1.jpg
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\NZ_Ausw_1L_61_sw-1.jpg
+---  You requested image addition to folder /var/www/web123/html/wordpress_test/wordpress/wp-content/uploads/test with POST-Request. Done.
+--- last media id:  2039
+--- new media id:  2040
+--- gallery:  test
+--- new image count:  87
+--- guid for decision:  /wordpress/wp-content/uploads/test/NZ_Ausw_1L_61_sw-1.jpg
+--- wp.baseurl for decision:  https://www.bergreisefoto.de/
+--- Site does not use complete urls!
+--- attachment type:  image
+--- guid:  /wordpress/wp-content/uploads/test/NZ_Ausw_1L_61_sw-1.jpg
+--- source-url:  /wordpress/wp-content/uploads/test/NZ_Ausw_1L_61_sw-1.jpg
+--- link:  https://www.bergreisefoto.de/wordpress/nz_ausw_1l_61_sw-1/
+--- time:  2021-08-30 06:45:31 image-time:  2021-08-30T06:45:34
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[Wanderung-Acquacheta-94_Web.jpg]</td>
+          <td class="col-duration">4.09</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  Wanderung-Acquacheta-94_Web.jpg
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\Wanderung-Acquacheta-94_Web.jpg
+---  You requested image addition to folder /var/www/web123/html/wordpress_test/wordpress/wp-content/uploads/test with POST-Request. Done.
+--- last media id:  2040
+--- new media id:  2041
+--- gallery:  test
+--- new image count:  88
+--- guid for decision:  /wordpress/wp-content/uploads/test/Wanderung-Acquacheta-94_Web.jpg
+--- wp.baseurl for decision:  https://www.bergreisefoto.de/
+--- Site does not use complete urls!
+--- attachment type:  image
+--- guid:  /wordpress/wp-content/uploads/test/Wanderung-Acquacheta-94_Web.jpg
+--- source-url:  /wordpress/wp-content/uploads/test/Wanderung-Acquacheta-94_Web.jpg
+--- link:  https://www.bergreisefoto.de/wordpress/wanderung-acquacheta-94_web/
+--- time:  2021-08-30 06:45:36 image-time:  2021-08-30T06:45:39
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[DSC_1722.webp]</td>
+          <td class="col-duration">4.60</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  DSC_1722.webp
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_1722.webp
+---  You requested image addition to folder /var/www/web123/html/wordpress_test/wordpress/wp-content/uploads/test with POST-Request. Done.
+--- last media id:  2041
+--- new media id:  2042
+--- gallery:  test
+--- new image count:  89
+--- guid for decision:  /wordpress/wp-content/uploads/test/DSC_1722.webp
+--- wp.baseurl for decision:  https://www.bergreisefoto.de/
+--- Site does not use complete urls!
+--- attachment type:  image
+--- guid:  /wordpress/wp-content/uploads/test/DSC_1722.webp
+--- source-url:  /wordpress/wp-content/uploads/test/DSC_1722.webp
+--- link:  https://www.bergreisefoto.de/wordpress/dsc_1722/
+--- time:  2021-08-30 06:45:40 image-time:  2021-08-30T06:45:42
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[Paddeln-Alte-Fahrt_1.webp]</td>
+          <td class="col-duration">3.78</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  Paddeln-Alte-Fahrt_1.webp
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\Paddeln-Alte-Fahrt_1.webp
+---  You requested image addition to folder /var/www/web123/html/wordpress_test/wordpress/wp-content/uploads/test with POST-Request. Done.
+--- last media id:  2042
+--- new media id:  2043
+--- gallery:  test
+--- new image count:  90
+--- guid for decision:  /wordpress/wp-content/uploads/test/Paddeln-Alte-Fahrt_1.webp
+--- wp.baseurl for decision:  https://www.bergreisefoto.de/
+--- Site does not use complete urls!
+--- attachment type:  image
+--- guid:  /wordpress/wp-content/uploads/test/Paddeln-Alte-Fahrt_1.webp
+--- source-url:  /wordpress/wp-content/uploads/test/Paddeln-Alte-Fahrt_1.webp
+--- link:  https://www.bergreisefoto.de/wordpress/paddeln-alte-fahrt_1/
+--- time:  2021-08-30 06:45:47 image-time:  2021-08-30T06:45:49
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_gallery_with_all_images</td>
+          <td class="col-duration">0.92</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_updated_post_with_gallery</td>
+          <td class="col-duration">0.16</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Found gallery  2044  Now comparing with content.
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_clean_up</td>
+          <td class="col-duration">1.03</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Deleted media-id:  2039
+--- Deleted media-id:  2040
+--- Deleted media-id:  2041
+--- Deleted media-id:  2042
+--- Deleted media-id:  2043
+--- Deleted post-id:  2044
+Done.
+<br/></div></td></tr></tbody></table></body></html>

@@ -617,6 +617,7 @@ class WP_EXT_REST_API( WP_REST_API ):
         if self.usescompleteurls == False:
             self.dictall['guid'] = '/' + self.dictall['guid'] 
             self.dictall['sourceUrl'] = '/' + self.dictall['sourceUrl']
+            self.dictall['mediaDetailsSizesSrcUrl'] = '/' + self.dictall['mediaDetailsSizesSrcUrl']
 
     def __init__(self, args_in_array):
         super().__init__( args_in_array )
@@ -738,7 +739,7 @@ class WP_EXT_REST_API( WP_REST_API ):
         # upload new image
         geturl = self.url + '/wp-json/extmedialib/v1/update/' + str(id)
         if changemime:
-            geturl += '?changemime=true'
+            geturl = geturl + '?changemime=true'
        
         # set the header. 
         header = self.headers
