@@ -1293,13 +1293,31 @@ def test_updated_post_with_gallery():
      result = wp.get_post_content( postid, 'posts' )
      assert result['httpstatus'] == 200
      content = result['content']['rendered']
+     print(content)
 
      allimgs = newfiles
      for i in allimgs:
           id = str(i[0]) # this is the image id
           img = i[1]
 
-          # TODO: update dictall!
+          # update the new url and link dicts
+          # create the dictionaries required for checking
+          # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+          path = os.path.join(SCRIPT_DIR, 'testdata', img )
+          assert os.path.isfile( path ) == True
+          im = Image.open( path )
+          (width, height) = im.size
+          im.close()
+
+          if width > wp_big or height > wp_big:
+               wp.img_isscaled = True
+               print('--- image is scaled: Yes')
+          else:
+               wp.img_isscaled = False
+
+          img = prefix + img
+          wp.generate_dictfb( img )
+          wp.generate_dictall()
 
           # get the image data
           result = wp.get_post_content( id, 'media' )
@@ -1310,7 +1328,6 @@ def test_updated_post_with_gallery():
 
           # compare now alt and caption. These two have to be changed in a gtb wp:image
           found = content.find( 'alt="' + imgalt )
-          print(content)
           print('--- alt: ', imgalt)
           assert found > 10
 
@@ -1415,13 +1432,34 @@ def test_updated_post_with_gallery_after_change_of_mime_type():
      result = wp.get_post_content( postid, 'posts' )
      assert result['httpstatus'] == 200
      content = result['content']['rendered']
+     print(content)
 
      allimgs = newfiles
      for i in allimgs:
           id = str(i[0]) # this is the image id
           img = i[1]
 
-          # TODO: update dictall
+          # update the new url and link dicts
+          # create the dictionaries required for checking
+          # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+          path = os.path.join(SCRIPT_DIR, 'testdata', img )
+          if  not os.path.isfile( path ):
+               path = os.path.join(SCRIPT_DIR, 'testdata', 'originals', img )
+          else:
+               img = prefix + img
+
+          im = Image.open( path )
+          (width, height) = im.size
+          im.close()
+
+          if width > wp_big or height > wp_big:
+               wp.img_isscaled = True
+               print('--- image is scaled: Yes')
+          else:
+               wp.img_isscaled = False
+
+          wp.generate_dictfb( img )
+          wp.generate_dictall()
 
           # get the image data
           result = wp.get_post_content( id, 'media' )
@@ -1432,7 +1470,6 @@ def test_updated_post_with_gallery_after_change_of_mime_type():
 
           # compare now alt and caption. These two have to be changed in a gtb wp:image
           found = content.find( 'alt="' + imgalt )
-          print(content)
           print('--- alt: ', imgalt)
           assert found > 10
 
