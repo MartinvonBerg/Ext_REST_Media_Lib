@@ -18,12 +18,15 @@
 #   pytest -k 'testimage or testfield or testpost or cleanup' -s
 #   or
 #   pytest -k 'testimage or testfield or testpost' --> here you have to delete all generated images, posts etc. from WordPress manually
-
+#   NOTE: Sometimes the test_clean_up() function does not delete all files in the ./testfolder on the server. Don't know why.
+#         So it is better to check that folder ./testfolrder is really empty if the test fails.
+#
 ##############################
 import requests
 import json
 from distutils.version import StrictVersion
 import os, sys, magic, pathlib, string, re, pprint
+from shutil import copyfile 
 import datetime, pytest, base64, hashlib, time
 from PIL import Image, ImageOps
 
@@ -234,8 +237,6 @@ def test_rest_api_request_active_theme():
      assert resp_body[pi_index]['status'] == 'active'
      assert ( StrictVersion( resp_body[pi_index]['version'] ) >= '0.0.1' ) == True
 
-# TODO: upload one image to the standard folder. It is requiredd for the 
-# following tests to have at least on image in the WP media-library. Could be necessary if the site was installed completely new for the test.
 
 # --------------- extbasic tests: ext rest api --------------------------------
 @pytest.mark.extbasic
@@ -391,21 +392,38 @@ def test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype():
 
 
 # --------------- image tests with ext rest api --------------------------------
-@pytest.mark.updateimage ###########
 @pytest.mark.testimage
-def test_get_number_of_posts_and_upload_dir():
+def test_upload_one_image_to_standard_folder():
+     """ upload one image to the standard folder. It is requiredd for the following tests
+         to have at least on image in the WP media-library. Could be necessary if the site was 
+         installed completely new for the test."""
      dir = os.getcwd()
      last = os.path.split(dir)[1]
      print('--- Starting Test in directory: ', last)
      if last != 'test': 
-          msg = 'Test started in wrong directory: ' + last 
+          msg = 'Test started in wrong directory: ' + last + '. Please start in ../test/'
           pytest.exit(msg, 4)
+          
+     image_file = files[0]
+     print('--- Uploading file: ', image_file, ' to standard folder.')
+     result=wp.add_media( image_file )
 
+     print('--- ', result['message'])
+     # check the upload status. 
+     assert result['httpstatus'] == 201
+     id = result['id']
+
+     result = wp.delete_media( id , 'media' )
+     assert result['httpstatus'] == 200
+
+@pytest.mark.updateimage ###########
+@pytest.mark.testimage
+def test_get_number_of_posts_and_upload_dir():
      wp.get_number_of_posts() 
      print ('--- Counted ' +  str(wp.media['count']) + ' images in the media library.')
      assert wp.media['count'] > 0
      wp.real_wp_upload_dir = wp.wp_upload_dir
-     wp.wp_upload_dir = wp.wp_upload_dir + wp.tested_site['testfolder'] + '/'
+     #wp.wp_upload_dir = wp.wp_upload_dir + wp.tested_site['testfolder'] + '/'
      
 @pytest.mark.testimage ############
 @pytest.mark.parametrize( "image_file", files)
@@ -456,13 +474,6 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      # check the gallery
      print('--- gallery: ', result['gallery'])
      assert result['gallery'] == wp.tested_site['testfolder']
-
-     # check the number of media in the media library
-     wp.get_number_of_posts()
-     wp.real_wp_upload_dir = wp.wp_upload_dir
-     wp.wp_upload_dir = wp.wp_upload_dir + wp.tested_site['testfolder'] + '/'
-     print('--- new image count: ', wp.media['count'])
-     assert wp.media['count'] == image_number_before + 1
 
      # retrieve the rest-response for the new created image
      result = wp.get_post_content( wp.media['maxid'], 'media' )
@@ -1083,7 +1094,7 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
           assert result['httpstatus'] == 200
           
           # wait a second for the wp database
-          time.sleep(2)
+          time.sleep(3)
           # Now compare the new data
           result = wp.get_rest_fields( id, 'media' )
           assert result['httpstatus'] == 200 
@@ -1288,6 +1299,8 @@ def test_updated_post_with_gallery():
           id = str(i[0]) # this is the image id
           img = i[1]
 
+          # TODO: update dictall!
+
           # get the image data
           result = wp.get_post_content( id, 'media' )
           assert result['httpstatus'] == 200
@@ -1322,15 +1335,128 @@ def test_updated_post_with_gallery():
           print('--- data-link:', explink)
           assert match == 1
 
+@pytest.mark.testpost
 def test_change_mime_type_of_one_image():
      id = newfiles[0][0]
-     imgfile = newfiles[0][0]
+     imgfile = newfiles[0][1]
      ext = imgfile.split('.')[1]
+     ts = str( round(datetime.datetime.now().timestamp()) )
+
      if ext == 'jpg':
-          newfile = webpfiles[0]
+          newimg = webpfiles[0]
+          ext = '.webp'
      else:
-          newfile = jpgfiles[0]
+          newimg = jpgfiles[0]
+          ext = '.jpg'
+
+     # Rename the file to avoid conflicts with same name
+     newname = ts + ext
+     path = os.path.join(SCRIPT_DIR, 'testdata', newimg )
+     newpath = os.path.join(SCRIPT_DIR, 'testdata', 'originals', newname )
+     copyfile( path, newpath)
+     msg = '--- Changing image of ' + imgfile + ' with ' + str(id) + ' to: ' + newimg
+     print( msg )
+     assert os.path.isfile( newpath ) == True
+
+     if os.path.isfile( newpath ):
+          # upload the new image with the new name but the same id
+          result = wp.post_update_image( id, newpath, True )
+          print('--- local path updated file: ', newpath)
+          assert result['httpstatus'] == 200
+
+          # update the new url and link dicts
+          # create the dictionaries required for checking
+          # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+          im = Image.open( newpath )
+          (width, height) = im.size
+          im.close()
+
+          if width > wp_big or height > wp_big:
+               wp.img_isscaled = True
+               print('--- image is scaled: Yes')
+          else:
+               wp.img_isscaled = False
+
+          wp.generate_dictfb( newname )
+          wp.generate_dictall()
+
+          newfiles[0][1] = newname
+          print('--- New list with files: ')
+          pp.pprint(newfiles)
+
+          # TODO: update the metadata!
+          pre = 'mime-change_'
+          sid = str(id)
           
+          rest_fields = { 
+               'title' :        pre + 'title' + sid + '_' + ts, 
+               'gallery_sort' : sid, 
+               'description' : pre + 'descr' + sid + '_' + ts, 
+               'caption' :     pre + 'caption' + sid + '_' + ts, 
+               'alt_text' :    pre + 'alt' + sid + '_' + ts,
+               'docaption': 'true' 
+               }
+
+          result = wp.set_rest_fields( id, 'media', rest_fields )
+          print('--- timestamp: ', ts)
+          assert result['httpstatus'] == 200 
+
+@pytest.mark.testpost
+def test_updated_post_with_gallery_after_change_of_mime_type():
+     end = len(wp.created_posts)
+
+     for i in range(0, end):
+          if wp.created_posts[i]['type'] == 'wp-gallery':
+               postid = wp.created_posts[i]['id']
+               print('--- Found gallery ', postid, ' Now comparing with content.')
+
+     # get the post data
+     time.sleep(3)
+     result = wp.get_post_content( postid, 'posts' )
+     assert result['httpstatus'] == 200
+     content = result['content']['rendered']
+
+     allimgs = newfiles
+     for i in allimgs:
+          id = str(i[0]) # this is the image id
+          img = i[1]
+
+          # TODO: update dictall
+
+          # get the image data
+          result = wp.get_post_content( id, 'media' )
+          assert result['httpstatus'] == 200
+          imgcaption = remove_html_tags( result['caption']['rendered'] )
+          imgalt = result['alt_text']
+          nsizes = len(result['media_details']['sizes'])
+
+          # compare now alt and caption. These two have to be changed in a gtb wp:image
+          found = content.find( 'alt="' + imgalt )
+          print(content)
+          print('--- alt: ', imgalt)
+          assert found > 10
+
+          found = content.find( '>' + imgcaption + '</' )
+          print('--- caption: ', imgcaption)
+          assert found > 10
+
+          #compare the data-full-url
+          explink = 'data-full-url="' + wp.dictall['sourceUrl']
+          match = len(re.findall( explink, content) ) 
+          print('--- data-full-url:', explink)                 
+          assert match == 1, "This might be different for scaled images."
+
+          #compare the img src="...."
+          match = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], content))
+          print('--- img src: ', wp.dictall['mediaDetailsSizesSrcUrl'])
+          assert abs(match-nsizes) < 3.1, 'Not all sizes might be used for the srcset in the image'
+
+          # compare the data-link
+          explink = wp.dictall['link']
+          match = len(re.findall( explink, content) ) 
+          print('--- data-link:', explink)
+          assert match == 1
+
 # check visually or programmatically (TODO) that images were really changed e.g. flipped
 @pytest.mark.testwait
 def test_wait():
@@ -1364,6 +1490,9 @@ def test_clean_up():
 # just here for debugging the tests 
 if __name__ == '__main__':
      ts = round(datetime.datetime.now().timestamp())
+     test_upload_one_image_to_standard_folder()
+     test_get_number_of_posts_and_upload_dir()
+     test_image_upload_to_folder_with_ext_rest_api('Paddeln-Alte-Fahrt_1.webp')
      #test_update_image_metadata_after_posts_were_created('Wanderung-Acquacheta-94_Web.jpg')
      #test_image_upload_to_folder_with_ext_rest_api('DSC_1722.webp')
      #wp.get_number_of_posts()

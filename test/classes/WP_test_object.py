@@ -31,7 +31,7 @@ class WP_REST_API():
     isgutbgactive = False
 
     media_writeable_rest_fields = { 'title', 'gallery_sort', 'description', 'caption', 'alt_text', 'image_meta' }
-    mimetypes = { 'image/webp', 'image/jpg'}
+    mimetypes = { 'image/webp', 'image/jpeg'}
 
     # properties for creating links, slug, title etc. all data in the rest-response containing url and file names
     wp_upload_dir = ''
@@ -113,19 +113,22 @@ class WP_REST_API():
             self.media['minid'] = minid
 
             # get the upload dir
-            geturl = self.url + '/wp-json/wp/v2/media/' + str(minid)
+            geturl = self.url + '/wp-json/wp/v2/media/' + str(maxid)
             response = requests.get(geturl, headers=self.headers )
             resp_body = response.json()
 
             if response.status_code == 200:
                 guid = resp_body['guid']['rendered']
                 guid = guid.replace(self.url, '')
-                base = os.path.basename(guid)
+                base = os.path.basename(guid) # base ist hier der Dateiname der upload-datei
                 base = guid.replace(base, '')
                 for letter in base:
                     if letter.isdigit():
                         base = base.replace(letter, '')
-                base = base.replace('//', '')    
+                base = base.replace('//', '')   
+
+                if self.hassuburl:
+                    base = base.replace(self.suburl, '') 
 
                 self.wp_upload_dir = base
                 self.wp_upload_url = self.url + base
