@@ -54,7 +54,7 @@ wp_big = 2560
 
 # generate the WordPress-Class that will be tested
 wp = WP_EXT_REST_API( wp_site )
-print('Class generated')
+print('- Class generated')
 
 # get all the image files from /testdata
 testdata = os.path.join(SCRIPT_DIR, 'testdata')
@@ -80,7 +80,7 @@ cfpath = os.path.join(SCRIPT_DIR, 'report.html')
 if os.path.isfile( cfpath ):
      os.remove(cfpath)
      
-print('Files collected')
+print('- Files collected')
 
 # ------- pytest ficture to run before and after each test
 @pytest.fixture(autouse=True)
@@ -394,6 +394,13 @@ def test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype():
 @pytest.mark.updateimage ###########
 @pytest.mark.testimage
 def test_get_number_of_posts_and_upload_dir():
+     dir = os.getcwd()
+     last = os.path.split(dir)[1]
+     print('--- Starting Test in directory: ', last)
+     if last != 'test': 
+          msg = 'Test started in wrong directory: ' + last 
+          pytest.exit(msg, 4)
+
      wp.get_number_of_posts() 
      print ('--- Counted ' +  str(wp.media['count']) + ' images in the media library.')
      assert wp.media['count'] > 0
@@ -554,7 +561,11 @@ def test_created_json_file_list():
      if os.path.isfile( cfpath ):
           f = open( cfpath )
           newfiles = json.load(f)
+          pp.pprint( newfiles )
           f.close()
+     else:
+          msg = 'Could not load file from path: ' + cfpath
+          pytest.exit(msg, 4)
 
 @pytest.mark.testfield # -----------------
 @pytest.mark.parametrize( "image_file", files)
@@ -1311,8 +1322,17 @@ def test_updated_post_with_gallery():
           print('--- data-link:', explink)
           assert match == 1
 
+def test_change_mime_type_of_one_image():
+     id = newfiles[0][0]
+     imgfile = newfiles[0][0]
+     ext = imgfile.split('.')[1]
+     if ext == 'jpg':
+          newfile = webpfiles[0]
+     else:
+          newfile = jpgfiles[0]
+          
 # check visually or programmatically (TODO) that images were really changed e.g. flipped
-@pytest.mark.testpost
+@pytest.mark.testwait
 def test_wait():
      input('Wait until keypressed.....')
 
