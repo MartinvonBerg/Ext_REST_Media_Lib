@@ -22,12 +22,14 @@
 #         So it is better to check that folder ./testfolrder is really empty if the test fails.
 #
 ##############################
+# TODO: test get_update_image
+
 import requests
 import json
 from distutils.version import StrictVersion
 import os, sys, magic, pathlib, string, re, pprint
 from shutil import copyfile 
-import datetime, pytest, base64, hashlib, time
+import datetime, pytest, base64, hashlib, time, warnings
 from PIL import Image, ImageOps
 
 
@@ -57,6 +59,7 @@ wp_big = 2560
 
 # generate the WordPress-Class that will be tested
 wp = WP_EXT_REST_API( wp_site )
+wp.showallPHPerrors = False # Mind: increase maxfail in pytest.ini to show all errors, warnings, notices..
 print('- Class generated')
 
 # get all the image files from /testdata
@@ -74,9 +77,9 @@ prefix = 'flip__'
 
 cfpath = os.path.join(SCRIPT_DIR, 'createdfiles.json')
 if os.path.isfile( cfpath ):
-     f = open( cfpath )
-     newfiles = json.load(f)
-     f.close()
+     #f = open( cfpath )
+     #newfiles = json.load(f)
+     #f.close()
      os.remove(cfpath)
 
 cfpath = os.path.join(SCRIPT_DIR, 'report.html')
@@ -98,6 +101,23 @@ def run_around_tests():
      # Teardown: assertion after the test
      assert True
      
+def get_qm_errors(header):
+     myerrors = 0
+     
+     if 'x-qm-php_errors-error-count' not in header:
+          return 0
+
+     count = int(header['x-qm-php_errors-error-count'][1])
+     if count > 0:
+          for i in range(1,count+1):
+               add = str(i)
+               error = json.loads(header['x-qm-php_errors-error-' + add][1])
+               if (error['component'] == 'Plugin: wp-wpcat-json-rest') or (wp.showallPHPerrors == True):
+                    mywarn = '--- !!! ' + error['component'] +' PHP ' + error['type'] + ' in File  ' + error['file'] + '  in line ' + str(error['line']) +'\n'
+                    mywarn = mywarn + '--- Message: ', error['message']
+                    print( mywarn )
+                    myerrors += 1
+                    warnings.warn( mywarn  )
 
 # --------------- basic tests --------------------------------------------
 @pytest.mark.basic
@@ -210,7 +230,10 @@ def test_rest_api_request_plugin_status():
           print('             Version ', pi['version'], ' is ', pi['status'])
           #print('------------- Description:', pi['description']['rendered'] )
              
-     assert ( StrictVersion( wp.tested_plugin_version ) >= wp.tested_plugin_min_version ) == True     
+     assert ( StrictVersion( wp.tested_plugin_version ) >= wp.tested_plugin_min_version ) == True
+
+     if wp.isqmactive == True:
+          print('--- Query Monitor is installed and active.')    
 
 @pytest.mark.basic
 def test_rest_api_request_active_theme():
@@ -242,16 +265,18 @@ def test_rest_api_request_active_theme():
 @pytest.mark.extbasic
 def test_rest_api_get_field_gallery_with_invalid_id():
      # Now compare the new data
-     result = wp.get_rest_fields( 99999999999999, 'media' )
+     (result, header) = wp.get_rest_fields( 99999999999999, 'media' )
+     get_qm_errors(header)
      assert result['httpstatus'] == 404
-
+     
 @pytest.mark.extbasic
 def test_rest_api_set_field_gallery_with_invalid_id():
      # Now compare the new data
      rest_fields = { 
                'gallery' : 'wrong_gallery'
                }
-     result = wp.set_rest_fields( 999999999999999, 'media', rest_fields ) 
+     (result, header) = wp.set_rest_fields( 999999999999999, 'media', rest_fields ) 
+     get_qm_errors(header)
      assert result['httpstatus'] == 404
 
 @pytest.mark.extbasic
@@ -260,13 +285,15 @@ def test_rest_api_set_field_gallery_sort_with_invalid_id():
      rest_fields = { 
                'gallery_sort' : '999999'
                }
-     result = wp.set_rest_fields( 999999999999999, 'media', rest_fields ) 
+     (result, header) = wp.set_rest_fields( 999999999999999, 'media', rest_fields ) 
+     get_qm_errors(header)
      assert result['httpstatus'] == 404
 
 @pytest.mark.extbasic
 def test_rest_api_get_update_meta_with_invalid_id():
      # Now compare the new data
-     result = wp.get_attachment_image_meta( 99999999999999 )
+     (result, header) = wp.get_attachment_image_meta( 99999999999999 )
+     get_qm_errors(header)
      assert result['httpstatus'] == 404
 
 @pytest.mark.extbasic
@@ -289,13 +316,15 @@ def test_rest_api_set_update_meta_with_invalid_id():
           "keywords": [ 'generated' + '_' + ts]
      } }
 
-     result = wp.set_attachment_image_meta( 99999999999, 'media', fields )
+     (result, header) = wp.set_attachment_image_meta( 99999999999, 'media', fields )
+     get_qm_errors(header)
      assert result['httpstatus'] == 404
 
 @pytest.mark.extbasic
 def test_rest_api_addtofolder_with_invalid_folder():
      folder = 'folder_that_does_not_exist'
-     result=wp.get_add_image_to_folder( folder )
+     (result, header) = wp.get_add_image_to_folder( folder )
+     get_qm_errors(header)
      msg = result['message']
      s1 = 'You requested image addition to folder '
      s2 = '/uploads/' + folder + ' with GET-Request. Please use POST Request.'
@@ -307,7 +336,8 @@ def test_rest_api_addtofolder_with_invalid_folder():
 @pytest.mark.extbasic
 def test_rest_api_addtofolder_with_valid_folder():
      folder = wp.tested_site['testfolder']
-     result=wp.get_add_image_to_folder( folder )
+     (result, header) = wp.get_add_image_to_folder( folder )
+     get_qm_errors(header)
      msg = result['message']
      s1 = 'You requested image addition to folder ' #'You requested image addition to folder '
      s2 = '/uploads/' + folder + ' with GET-Request. Please use POST Request.' # '/uploads/folder_that_does_not_exist with GET-Request. Please use POST Request.'
@@ -324,7 +354,8 @@ def test_rest_api_addtofolder_with_standard_folder():
      webpfiles = [x for x in files if x.endswith('.webp') == True]
      newfiles = jpgfiles + webpfiles
 
-     result=wp.post_add_image_to_folder( folder, newfiles[0])
+     (result, header) = wp.post_add_image_to_folder( folder, newfiles[0])
+     get_qm_errors(header)
      msg = result['message']
         
      assert result['httpstatus'] == 400, 'Will fail if the upload was not possible.'
@@ -338,11 +369,13 @@ def test_rest_api_addtofolder_with_valid_folder_file_exists():
      webpfiles = [x for x in files if x.endswith('.webp') == True]
      newfiles = jpgfiles + webpfiles
 
-     result= wp.post_add_image_to_folder( folder, newfiles[0])
+     (result, header) = wp.post_add_image_to_folder( folder, newfiles[0])
+     get_qm_errors(header)
      id = result['id']
 
-     result=wp.post_add_image_to_folder( folder, newfiles[0])
-     
+     (result, header) = wp.post_add_image_to_folder( folder, newfiles[0])
+     get_qm_errors(header)
+
      wp.delete_media( id , 'media' )
           
      assert result['httpstatus'] == 400, "The assertion will fail if the file didn't exist before. Http-status is then 200 because the file was successfully uploaded."
@@ -386,7 +419,9 @@ def test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype():
      response = requests.post(geturl, headers=header, data=data )
      resp_body.update( json.loads( response.text) )
      result = resp_body
-    
+     header = response.headers._store
+     get_qm_errors(header)
+
      assert result['data']['status'] == 400, 'Will fail if the upload was not possible.'
      assert result['code'] == 'error'
 
@@ -437,7 +472,8 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      uploadtime = datetime.datetime.strptime( uploadtime, "%Y-%m-%dT%H:%M:%S") - datetime.timedelta(seconds=10) 
 
      print('--- Uploading file: ', image_file)
-     result=wp.post_add_image_to_folder( wp.tested_site['testfolder'], image_file)
+     (result, header) = wp.post_add_image_to_folder( wp.tested_site['testfolder'], image_file)
+     get_qm_errors(header)
 
      print('--- ', result['message'])
      # check the upload status. 
@@ -595,7 +631,8 @@ def test_ext_rest_api_get_md5_sum( image_file ):
                print('--- MD5 of local file: ', md5sum)
           
                # Now compare the new data
-               result = wp.get_rest_fields( id, 'media' )
+               (result, header) = wp.get_rest_fields( id, 'media' )
+               get_qm_errors(header)
                assert result['httpstatus'] == 200 
 
                if result['httpstatus'] == 200:
@@ -608,20 +645,23 @@ def test_rest_api_set_field_gallery_with_valid_id_new_value( image_file ):
 
      if type(image_file) == list:
           id = image_file[0]
-          result = wp.get_rest_fields( id, 'media' )
+          (result, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
           old = result['gallery']
           new = old[::-1]
           # Now compare the new data
           rest_fields = { 
                     'gallery' : new
                     }
-          result = wp.set_rest_fields( id, 'media', rest_fields ) 
+          (result, header) = wp.set_rest_fields( id, 'media', rest_fields )
+          get_qm_errors(header) 
           assert result['httpstatus'] == 200
           # recover the previous value
           rest_fields = { 
                     'gallery' : old
                     }
-          result = wp.set_rest_fields( id, 'media', rest_fields )
+          (result, header) = wp.set_rest_fields( id, 'media', rest_fields )
+          get_qm_errors(header)
 
 @pytest.mark.testfield # -----------------
 @pytest.mark.parametrize( "image_file", files)
@@ -630,13 +670,16 @@ def test_rest_api_set_field_gallery_with_valid_id_same_value( image_file ):
 
      if type(image_file) == list:
           id = image_file[0]
-          result = wp.get_rest_fields( id, 'media' )
+          (result, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
+
           old = result['gallery']
           # Now compare the new data
           rest_fields = { 
                     'gallery' : old
                     }
-          result = wp.set_rest_fields( id, 'media', rest_fields ) 
+          (result, header) = wp.set_rest_fields( id, 'media', rest_fields ) 
+          get_qm_errors(header)
           assert result['httpstatus'] == 200
 
 @pytest.mark.testfield # -----------------
@@ -646,14 +689,15 @@ def test_rest_api_set_field_gallery_sort_with_valid_id_new_value( image_file ):
 
      if type(image_file) == list:
           id = image_file[0]
-          #result = wp.get_rest_fields( id, 'media' )
+          #(result, header) = wp.get_rest_fields( id, 'media' )
           #old = int(result['gallery_sort'])
           new = id+1
           # Now compare the new data
           rest_fields = { 
                     'gallery_sort' : str(id)
                     }
-          result = wp.set_rest_fields( id, 'media', rest_fields ) 
+          (result, header) = wp.set_rest_fields( id, 'media', rest_fields ) 
+          get_qm_errors(header)
           assert result['httpstatus'] == 200
 
 @pytest.mark.testfield # -----------------
@@ -663,13 +707,15 @@ def test_rest_api_set_field_gallery_sort_with_valid_id_same_value( image_file ):
 
      if type(image_file) == list:
           id = image_file[0]
-          result = wp.get_rest_fields( id, 'media' )
+          (result, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
           old = result['gallery_sort']
           # Now compare the new data
           rest_fields = { 
                     'gallery_sort' : old
                     }
-          result = wp.set_rest_fields( id, 'media', rest_fields ) 
+          (result, header) = wp.set_rest_fields( id, 'media', rest_fields ) 
+          get_qm_errors(header)
           assert result['httpstatus'] == 200
 
 @pytest.mark.testimage ############
@@ -679,7 +725,8 @@ def test_rest_api_get_update_meta_with_valid_id( image_file ):
 
      if type(image_file) == list:
           id = image_file[0]
-          result = wp.get_attachment_image_meta( id ) 
+          (result, header) = wp.get_attachment_image_meta( id ) 
+          get_qm_errors(header)
           assert result['httpstatus'] == 405
 
 @pytest.mark.testimage ############
@@ -723,7 +770,8 @@ def test_update_image_metadata( image_file ):
                'docaption' : 'true' 
                }
 
-          result = wp.set_rest_fields( id, 'media', rest_fields )
+          (result, header) = wp.set_rest_fields( id, 'media', rest_fields )
+          get_qm_errors(header)
           assert result['httpstatus'] == 200 
 
           # set now the image_meta. Done here to have the same timestamp ts
@@ -742,12 +790,14 @@ def test_update_image_metadata( image_file ):
             "keywords": [ 'generated' + '_' + ts]
           } }
 
-          result = wp.set_attachment_image_meta( id, 'media', fields )
+          (result, header) = wp.set_attachment_image_meta( id, 'media', fields )
+          get_qm_errors(header)
           assert result['httpstatus'] == 200
 
           # Now compare the new data
-          time.sleep(2)
-          result = wp.get_rest_fields( id, 'media' )
+          time.sleep(3)
+          (result, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
           assert result['httpstatus'] == 200 
 
           print ('Comparing: ', result['id'])  
@@ -951,7 +1001,8 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
           ts = str( round(datetime.datetime.now().timestamp()) )
 
           # get the image date before the update
-          before = wp.get_rest_fields( id, 'media' )
+          (before, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
 
           path = os.path.join(SCRIPT_DIR, 'testdata', imgfile)
           assert os.path.isfile( path ) == True
@@ -981,13 +1032,15 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
 
           # upload the flipped image with the new name but the same id
           # keep the mime-type as is (for the moment)
-          result = wp.post_update_image( id, path, True )
+          (result, header) = wp.post_update_image( id, path, True )
+          get_qm_errors(header)
           print('--- local path updated file: ', path)
           assert result['httpstatus'] == 200
 
           # Now compare the new data
-          time.sleep(2)
-          result = wp.get_rest_fields( id, 'media' )
+          time.sleep(3)
+          (result, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
           assert result['httpstatus'] == 200 
 
           print ('Comparing: ', result['id'])  
@@ -1069,7 +1122,8 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
                'docaption': 'true' 
                }
 
-          result = wp.set_rest_fields( id, 'media', rest_fields )
+          (result, header) = wp.set_rest_fields( id, 'media', rest_fields )
+          get_qm_errors(header)
           print('--- timestamp: ', ts)
           assert result['httpstatus'] == 200 
 
@@ -1090,13 +1144,15 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
             #'alt_text' :    pre + 'alt' + sid + '_' + ts 
           } }
 
-          result = wp.set_attachment_image_meta( id, 'media', fields )
+          (result, header) = wp.set_attachment_image_meta( id, 'media', fields )
+          get_qm_errors(header)
           assert result['httpstatus'] == 200
           
           # wait a second for the wp database
           time.sleep(3)
           # Now compare the new data
-          result = wp.get_rest_fields( id, 'media' )
+          (result, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
           assert result['httpstatus'] == 200 
 
           # update the new url and link dicts
@@ -1377,7 +1433,8 @@ def test_change_mime_type_of_one_image():
 
      if os.path.isfile( newpath ):
           # upload the new image with the new name but the same id
-          result = wp.post_update_image( id, newpath, True )
+          (result, header) = wp.post_update_image( id, newpath, True )
+          get_qm_errors(header)
           print('--- local path updated file: ', newpath)
           assert result['httpstatus'] == 200
 
@@ -1401,7 +1458,7 @@ def test_change_mime_type_of_one_image():
           print('--- New list with files: ')
           pp.pprint(newfiles)
 
-          # TODO: update the metadata!
+          # update the metadata!
           pre = 'mime-change_'
           sid = str(id)
           
@@ -1414,7 +1471,8 @@ def test_change_mime_type_of_one_image():
                'docaption': 'true' 
                }
 
-          result = wp.set_rest_fields( id, 'media', rest_fields )
+          (result, header) = wp.set_rest_fields( id, 'media', rest_fields )
+          get_qm_errors(header)
           print('--- timestamp: ', ts)
           assert result['httpstatus'] == 200 
 
@@ -1527,9 +1585,13 @@ def test_clean_up():
 # just here for debugging the tests 
 if __name__ == '__main__':
      ts = round(datetime.datetime.now().timestamp())
-     test_upload_one_image_to_standard_folder()
-     test_get_number_of_posts_and_upload_dir()
-     test_image_upload_to_folder_with_ext_rest_api('Paddeln-Alte-Fahrt_1.webp')
+     #test_rest_api_addtofolder_with_valid_folder_file_exists()
+     test_rest_api_get_field_gallery_with_invalid_id()
+     #test_rest_api_request_without_login()
+     #test_rest_api_request_with_login_and_header()
+     #test_upload_one_image_to_standard_folder()
+     #test_get_number_of_posts_and_upload_dir()
+     #test_image_upload_to_folder_with_ext_rest_api('Paddeln-Alte-Fahrt_1.webp')
      #test_update_image_metadata_after_posts_were_created('Wanderung-Acquacheta-94_Web.jpg')
      #test_image_upload_to_folder_with_ext_rest_api('DSC_1722.webp')
      #wp.get_number_of_posts()
@@ -1539,4 +1601,11 @@ if __name__ == '__main__':
      #test_update_image_with_flipped_original_and_new_filename( 'DSC_1972.webp' )
      print('done')
      #test_create_gtb_gallery_with_all_images()
-    
+
+     erg = {"key":"05f62f13bf62323280b5832b75692208",
+     "type":"notice",
+     "message":"Undefined variable: data",
+     "file":"wp-content\/plugins\/wp-wpcat-json-rest\/wp_wpcat_json_rest.php",
+     "line":179,
+     "stack":["mvbplugins\\e\\cb_get_gallery()","WP_REST_Controller->add_additional_fields_to_object()","WP_REST_Posts_Controller->prepare_item_for_response()","WP_REST_Attachments_Controller->prepare_item_for_response()","WP_REST_Posts_Controller->get_item()","WP_REST_Server->respond_to_request()","WP_REST_Server->dispatch()","WP_REST_Server->serve_request()","rest_api_loaded()","do_action_ref_array('parse_request')","WP->parse_request()","WP->main()","wp()"],
+     "component":"Plugin: wp-wpcat-json-rest"}

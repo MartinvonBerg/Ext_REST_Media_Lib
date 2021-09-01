@@ -29,6 +29,7 @@ class WP_REST_API():
     pages = { 'count' : 0 }
     posts = { 'count' : 0 }
     isgutbgactive = False
+    isqmactive = False
 
     media_writeable_rest_fields = { 'title', 'gallery_sort', 'description', 'caption', 'alt_text', 'image_meta' }
     mimetypes = { 'image/webp', 'image/jpeg'}
@@ -66,11 +67,13 @@ class WP_REST_API():
         key = 'status'
         index = 0
         for pi in resp_body:
-          if pi[key] == 'active':
-              self.active_plugins[index] = pi
-              if 'utenberg' in pi['name']:
-                  self.isgutbgactive = True
-              index += 1
+            if pi[key] == 'active':
+                self.active_plugins[index] = pi
+                if 'utenberg' in pi['name']:
+                    self.isgutbgactive = True
+                if 'Query Monitor' in pi['name']:
+                    self.isqmactive = True
+            index += 1
 
     def get_number_of_posts( self, posttype='media'):
         if posttype == 'media':
@@ -221,14 +224,15 @@ class WP_REST_API():
             append = append[:-1] # remove the last ","
             geturl = self.url + '/wp-json/wp/v2/' + posttype + '/' + str(id) + '/?_fields=' + append
             response = requests.get(geturl, headers=self.headers )
+            header = response.headers._store
             
             resp_body = response.json()
-            #resp_body['_links'] = ''
             resp_body['httpstatus'] = response.status_code
+            
             if response.status_code == 200:
                 resp_body['message'] = response.reason
         
-        return resp_body 
+        return resp_body, header 
 
     def set_rest_fields( self, id: int, posttype='media', fields = {} ):
 
@@ -259,6 +263,7 @@ class WP_REST_API():
             append = append[:-1] # remove the last "&"
             geturl = self.url + '/wp-json/wp/v2/' + posttype + '/' + str(id) + '/?' + append
             response = requests.post(geturl, headers=self.headers )
+            header = response.headers._store
             #idpos = response.text.find('"id"')
             #st = response.text[idpos-1:]
             #response.text = st
@@ -269,7 +274,7 @@ class WP_REST_API():
         else:
             resp_body['message'] += 'Wrong id for media: not an integer above zero.'
         
-        return resp_body
+        return resp_body, header
 
     def add_media( self, imagefile: str ):
 
@@ -383,7 +388,7 @@ class WP_REST_API():
     def create_wp_image_gtb (self, id: int):
         
         fields = {}
-        result = self.get_rest_fields(id, 'media', fields)
+        (result, header) = self.get_rest_fields(id, 'media', fields)
         
         altcaption = result['media_details']['image_meta']['caption']
         altcaption_from_title = result['media_details']['image_meta']['title']
@@ -411,7 +416,7 @@ class WP_REST_API():
     def create_wp_media_text_gtb (self, id:int, text: str, imagewidth=50, imageFill ='false'):
         # wp:media-text does not have a caption
         fields = {}
-        result = self.get_rest_fields(id, 'media', fields)
+        (result, header) = self.get_rest_fields(id, 'media', fields)
         
         alt = result['alt_text']
         # TODO: This won't work if size full is not available!
@@ -446,7 +451,7 @@ class WP_REST_API():
         
 
         for id in ids.values():
-            result = self.get_rest_fields( int(id), 'media', fields)
+            (result, header) = self.get_rest_fields( int(id), 'media', fields)
 
             # check http status, skip if not 200 and remove id from idsstring
             # TODO: This won't work if size full or large are not available!
@@ -503,6 +508,7 @@ class WP_EXT_REST_API( WP_REST_API ):
     last_media_id = 0
     last_index_in_created_images = 0
     img_isscaled = False # this should go to a "tested_image_class"
+    showallPHPerrors = False
 
     # dieses guid ist für jede variable anders
     # Abweichung ist beim Kenner 'fb', der nicht boolsch ist, sondern ein multiplechoice
@@ -638,11 +644,12 @@ class WP_EXT_REST_API( WP_REST_API ):
         
         response = requests.get(geturl, headers=self.headers )
         resp_body.update( json.loads( response.text) )
+        header = response.headers._store
 
         # return id of the new image on success
         resp_body['httpstatus'] = response.status_code
         
-        return resp_body
+        return resp_body, header
 
     def set_attachment_image_meta( self, id: int, posttype= 'media', fields = {} ):
         """ Write the image_meta given in fields via REST-API Extension to WordPress. 
@@ -680,6 +687,7 @@ class WP_EXT_REST_API( WP_REST_API ):
                     response = requests.post(geturl, headers=header, data=body )
                     resp_body.update( response.json() )
                     resp_body['httpstatus'] = response.status_code
+                    header = response.headers._store
             
             if resp_body['message'] == '':
                 resp_body['message'] = 'Field image_meta was not provided. No REST-request done.'
@@ -687,7 +695,7 @@ class WP_EXT_REST_API( WP_REST_API ):
         else:
             resp_body['message'] += 'Wrong id for media: not an integer above zero.'
         
-        return resp_body
+        return resp_body, header
 
     def get_update_image( self, id: int ):
         """ Call the GET-method of route 'update' of REST-API Extension"""
@@ -703,8 +711,9 @@ class WP_EXT_REST_API( WP_REST_API ):
 
         # return id of the new image on success
         resp_body['httpstatus'] = response.status_code
+        header = response.headers._store
         
-        return resp_body
+        return resp_body, header
 
     def post_update_image( self, id: int, imagefile: str, changemime=True ):
         """ Call the POST-method of route 'update' of REST-API Extension. Update the image 
@@ -754,11 +763,12 @@ class WP_EXT_REST_API( WP_REST_API ):
 
         # return id of the new image on success
         resp_body['httpstatus'] = response.status_code
+        header = response.headers._store
         
         #if response.status_code != 200:
         #    resp_body['message'] = resp_body['message'] + 'Error. Could not update image.'
 
-        return resp_body
+        return resp_body, header
        
     def get_add_image_to_folder( self, folder: str ):
         """ Call the GET-method of route 'addtofolder' of REST-API Extension."""
@@ -771,11 +781,13 @@ class WP_EXT_REST_API( WP_REST_API ):
         
         response = requests.get(geturl, headers=self.headers )
         resp_body.update( json.loads( response.text) )
+        header = response.headers._store
 
         # return id of the new image on success
         resp_body['httpstatus'] = response.status_code
+
         
-        return resp_body
+        return resp_body, header
 
     def post_add_image_to_folder( self, folder: str, imagefile: str ):
         """ Call the POST-method of route 'addtofolder' of REST-API Extension and add
@@ -821,12 +833,13 @@ class WP_EXT_REST_API( WP_REST_API ):
 
         response = requests.post(geturl, headers=header, data=data )
         resp_body.update( json.loads( response.text) )
+        header = response.headers._store
 
         # return id of the new image on success
         resp_body['httpstatus'] = response.status_code
         #resp_body['message'] += response.reason
        
-        return resp_body
+        return resp_body, header
       
     # ------ This methodes are currently not implemented and therefore not tested
     def get_add_image_from_folder( self ):

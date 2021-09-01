@@ -762,7 +762,7 @@ function post_add_image_to_folder($data)
 	// Define folder names, escape slashes (could be done with regex but then it's really hard to read)
 	$dir = wp_upload_dir()['basedir'];
 	$folder = $dir . '/' . $data['folder'];
-	$folder = str_replace('\\', '/', $folder);
+	$folder = str_replace('\\', '/', $folder );
 	$folder = str_replace('\\\\', '/', $folder);
 	$folder = str_replace('//', '/', $folder);
 	$reqfolder = $data['folder'];
