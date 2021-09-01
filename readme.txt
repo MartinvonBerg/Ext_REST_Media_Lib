@@ -258,6 +258,7 @@ and that is much, much better than manual testing like before.
 3.3.1 How to repeat the system test
 - Install an empty, new WP site
 - Install this plugin
+- Install Query Monitor plugin
 - Clone the complete code from github to your local site
 - change the directory to the  ..../test directory in the cloned repository
 - provide a wp_site.json as described in ./test/test_rest-api.py
