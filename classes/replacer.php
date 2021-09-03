@@ -165,7 +165,8 @@ class Replacer
 		$this->setTimeMode( $this->timestamp_replace );
 
 		// Search-and-replace filename in post database
-		// TODO: Check this with scaled images. This is from the original code from enable_media_replacer
+		// EMR comment: "Check this with scaled images." 
+		// This comment is from the original code from enable_media_replacer and tested with scaled images
 		$base_url = parse_url( $this->source_url, PHP_URL_PATH );// emr_get_match_url( $this->source_url);
 		$base_url = str_replace('.' . pathinfo($base_url, PATHINFO_EXTENSION), '', $base_url );
 		
@@ -177,7 +178,8 @@ class Replacer
 	protected function doSearchReplace($args = array()) {
 		
 		// Search-and-replace filename in post database
-		// TODO: Check this with scaled images. This is from the original code from enable_media_replacer
+		// EMR comment: "Check this with scaled images." 
+		// This comment is from the original code from enable_media_replacer and tested with scaled images
 		$base_url = parse_url($this->source_url, PHP_URL_PATH);// emr_get_match_url( $this->source_url);
 		$base_url = str_replace('.' . pathinfo($base_url, PATHINFO_EXTENSION), '', $base_url);
 

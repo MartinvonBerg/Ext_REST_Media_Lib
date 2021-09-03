@@ -22,7 +22,6 @@
 #         So it is better to check that folder ./testfolrder is really empty if the test fails.
 #
 ##############################
-# TODO: test get_update_image
 
 import requests
 import json
@@ -594,8 +593,7 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
           else: assert m == 1
 
 # Mind: the generated IDs are not known before the test, but the filenames are.
-# So, the generated IDs are loaded from an intermediate file to list 'newfiles', that should be deleted afterwards
-# or at least right before the next test
+# So, the generated IDs are loaded from an intermediate file to list 'newfiles', that should be deleted afterwards or at least right before the next test
 @pytest.mark.updateimage ##############
 @pytest.mark.testimage
 def test_created_json_file_list():
@@ -985,6 +983,25 @@ def test_create_gtb_image_text( image_file ):
                # store the rest response to /media/id to wp.created_images
                if result['httpstatus'] == 200:
                     wp.created_posts[n]['post'] =  result
+
+def test_update_image_with_get_request(  ):
+     id = 9999999999999
+     (result, header) = wp.get_update_image( id )
+     get_qm_errors(header)
+     assert result['httpstatus'] == 404
+
+@pytest.mark.parametrize( "image_file", files)
+def test_update_image_with_get_request( image_file ):
+     image_file = get_image( newfiles, image_file)
+
+     if type(image_file) == list:
+          id = image_file[0]
+          sid = str(id)
+          (result, header) = wp.get_update_image( id )
+          get_qm_errors(header)
+          assert result['httpstatus'] == 200
+          msg = result['message']
+          assert sid in msg
 
 @pytest.mark.testimage #############
 @pytest.mark.parametrize( "image_file", files)
