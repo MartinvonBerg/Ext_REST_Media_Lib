@@ -86,11 +86,11 @@ add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_res
  *
  * @param array $result the prepared result
  * @param \WP_REST_Server $server the rest server
- * @param \WP_Rest_Request $request the request
+ * @param \WP_REST_Request $request the request
  * @return array $result the $result to provide via REST-API as http response. The keys $newmeta["image_meta"]['caption'] 
- * and $newmeta["image_meta"]['title'] were changed dependin on the result of the meta update
+ * and $newmeta["image_meta"]['title'] were changed depending on the result of the meta update
  */
-function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_Rest_Request $request) {
+function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Request $request) {
 	// alt_text is only available once at 'top-level' of the json - response
 	// title and caption are availabe at 'top-level' of the json - response AND response['media_details']['image_meta']
 	// This function keeps these values consistent
@@ -125,7 +125,7 @@ function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_Rest_Re
 	// update title and caption in $meta['media_details']['image_meta']
 	if ( ($att) && ('POST' == $method) && ('/wp/v2/media/' == $route) && ($hascaption || $hastitle) ) {
 		// update the image_meta title and caption also 
-		$success = update_metadata( $id, $newmeta, $origin );
+		$success = \mvbplugins\extmedialib\update_metadata( $id, $newmeta, $origin );
 		if ( $success ) {
 			if ($hascaption) $result["media_details"]["image_meta"]["caption"] = $newmeta["image_meta"]['caption'];
 			if ($hastitle)  $result["media_details"]["image_meta"]["title"] = $newmeta["image_meta"]['title'];
@@ -183,7 +183,7 @@ function cb_get_gallery($data)
  * callback to update the gallery entry for the given attachment-id
  *
  * @param string $value new entry for the gallery field
- * @param integer $post-id e.g. attachment which gallery field should be updated
+ * @param object $post e.g. attachment which gallery field should be updated
  * @return bool success of the callback
  */
 function cb_upd_gallery($value, $post)
@@ -235,7 +235,7 @@ function cb_get_gallery_sort($data)
  * callback to update the gallery-sort entry for the given attachment-id
  *
  * @param string $value new entry for the gallery-sort field
- * @param integer $post-id e.g. attachment which gallery-sort-field should be updated
+ * @param object $post e.g. attachment which gallery-sort-field should be updated
  * @return bool success of the callback
  */
 function cb_upd_gallery_sort($value, $post)
@@ -343,7 +343,7 @@ function register_update_image_route()
  * Callback for GET to REST-Route 'update/<id>'. Check wether Parameter id (integer!) is an WP media attachment, e.g. an image and calc md5-sum of original file
  *
  * @param object $data is the complete Request data of the REST-api GET
- * @return array|WP_Error array for the rest response body or a WP Error object
+ * @return \WP_REST_Response|WP_Error array for the rest response body or a WP Error object
  */
 function get_image_update( $data )
 {
@@ -382,7 +382,7 @@ function get_image_update( $data )
  * Important Source: https://developer.wordpress.org/reference/classes/wp_rest_request
  *
  * @param object $data is the complete Request data of the REST-api GET
- * @return array|WP_Error array for the rest response body or a WP Error object
+ * @return \WP_REST_Response|WP_Error array for the rest response body or a WP Error object
  */
 function post_image_update( $data )
 {
@@ -440,10 +440,11 @@ function post_image_update( $data )
 		$fileexists = \is_file( $path_to_new_file );
 		if ( $fileexists ) {
 			$getResp = array(
-				__('message') => __('You requested upload of file') . ' '. $postRequestFileName . ' ' . __('with POST-Method'),
-				__('Error Details') => __('Path') . ': ' . $path_to_new_file,
+				'message' => __('You requested upload of file') . ' '. $postRequestFileName . ' ' . __('with POST-Method'),
+				'Error_Details' => __('Path') . ': ' . $path_to_new_file,
 			);
-			return new WP_Error( __('File exists'), $getResp, array( 'status' => 409 ));
+			$newGetResp = \implode(' , ', $getResp);
+			return new WP_Error( __('File exists'), $newGetResp, array( 'status' => 409 ));
 		}
 
 		// Save new file from POST-body and check MIME-Type
@@ -553,8 +554,8 @@ function post_image_update( $data )
 
 			// delete the file that was uploaded by REST - POST request
 			unlink($old_original_fileName);
-
-			return new WP_Error('Error', $getResp, array( 'status' => 400 ));
+			$newGetResp = \implode(' , ', $getResp);
+			return new WP_Error('Error', $newGetResp, array( 'status' => 400 ));
 		}
 		
 	} elseif (($att) && (strlen($image) < $minsize)) {
@@ -647,7 +648,7 @@ function post_meta_update($data)
 	if ( ($att) && ( 'application/json' == $type ) && ($newmeta != null) && $isJSON ) {
 
 		// update metadata
-		$success = update_metadata( $post_id, $newmeta, $origin );
+		$success = \mvbplugins\extmedialib\update_metadata( $post_id, $newmeta, $origin );
 
 		$mime = \get_post_mime_type( $post_id );
 		
@@ -718,7 +719,7 @@ function register_add_image_rest_route()
  * Callback for GET to REST-Route 'addtofolder/<folder>'. Check wether folder exists and provide message if so
  * 
  * @param object $data is the complete Request data of the REST-api GET
- * @return array REST-response data for the folder if it exists
+ * @return \WP_REST_Response|\WP_Error REST-response data for the folder if it exists
  */
 function get_add_image_to_folder( $data )
 {
@@ -750,7 +751,7 @@ function get_add_image_to_folder( $data )
  * required body: the image file with identical mime-type!
  * 
  * @param object $data is the complete Request data of the REST-api POST
- * @return array|WP_Error REST-response data for the folder if it exists of Error message
+ * @return \WP_REST_Response|WP_Error REST-response data for the folder if it exists of Error message
  */
 function post_add_image_to_folder($data)
 {
@@ -815,7 +816,7 @@ function post_add_image_to_folder($data)
 			);
 			
 			$upload_id = wp_insert_attachment( $att_array, $newfile, 0, true, true ); 
-			$success_subsizes = wp_create_image_subsizes( $newfile, $upload_id) ;
+			$success_subsizes = wp_create_image_subsizes( $newfile, $upload_id ) ;
 			
 			if ( \strpos( $success_subsizes["file"], EXT_SCALED) != \false ) 
 				$correct_new_filename = str_replace( '.' . $ext, '-'. EXT_SCALED . '.' . $ext, $cont);
@@ -845,7 +846,7 @@ function post_add_image_to_folder($data)
 			// something went // delete file
 			unlink($newfile);
 			return new WP_Error('error', 'Mime-Type mismatch for upload ' . $cont, array( 'status' => 400 ));
-		} elseif (is_wp_error($upload_id)) {
+		} elseif (is_wp_error( $upload_id )) {
 			// something went // delete file
 			unlink($newfile);
 			return new WP_Error('error', 'Could not generate attachment for file ' . $cont, array( 'status' => 400 ));
@@ -909,7 +910,7 @@ function register_add_folder_rest_route()
  * Callback for GET to REST-Route 'addfromfolder/<folder>'. Check wether folder exists and provide message if so
  * 
  * @param object $data is the complete Request data of the REST-api GET
- * @return array REST-response data for the folder if it exists
+ * @return \WP_REST_Response|\WP_Error REST-response data for the folder if it exists
  */
 function get_add_image_from_folder($data)
 {
@@ -943,7 +944,7 @@ function get_add_image_from_folder($data)
  * Provides the new WP-ID and the filename that was written to the folder.
  * 
  * @param object $data is the complete Request data of the REST-api POST
- * @return array|WP_Error REST-response data for the folder if it exists of Error message
+ * @return \WP_REST_Response|\WP_Error REST-response data for the folder if it exists of Error message
  */
 function post_add_image_from_folder($data)
 {

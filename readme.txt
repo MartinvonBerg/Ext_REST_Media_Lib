@@ -241,20 +241,26 @@ With the POST-method all images from the given 'folder' will be added to the med
 
 3. Tests
 
+3.0 Linting with phpstan
+Code quality was checked with phpstan and WP extensions 'szepeviktor/phpstan-wordpress' and 'phpstan/extension-installer'. 
+Level 5 is OK except 19 remaining Errors. These were carefully reviewed and regarded as OK. 
+Command: php .\vendor\phpstan\phpstan\phpstan analyse classes inc .\wp_wpcat_json_rest.php --memory-limit 1G
+
 3.1. Unit-Tests
-No unit test at all. I know that is necessary, but for the moment I concentrated on system tests.
+No unit test at all. I know that is necessary, but for the moment I concentrated on system tests. Furthermore IMO this is not usefull if designer and tester are the same person. 
+Almost 100% of the errors are wrong or incomplete understanding of WP functions. A mock with brain-monkey or whatever would result in a wrong mock because my understanding of the
+WP function is wrong. So, no unit tests, I regard it as inefficient for a one-person-approach.
 
 3.2. Integration Test
 Well, IMO this is mainly the (de-)installation procedure for the plugins. Tested manually. Works
 
 3.3 System Test
-GOOD NEWS: The plugin is now 'completely' tested with a new python test suite (PTS). The PTS uses pytest and a bunch of other python modules that have to be available.
+The plugin is now 'completely' system tested with a new python test suite (PTS). The PTS uses pytest and a bunch of other python modules that have to be installed in the Python environment.
 I tried to reach a 'branch coverage' of 100% concerning the functional branches. It's almost impossible to test the paths that were implemented for very special
 errors on the server (domain of unit tests). The testdata contains *.webp and *.jpg files with different sizes. The use cases are 'upload image file', 'change metadata', 'change mime type',
 'update image file', 'create posts (Gutenberg: image, gallery, image-with-text )' and 'delete'. Tests were conducted on a local and remote site. Additionally I
 checked the results of query monitor for every REST-request that uses a function from me. No PHP-errors at all. So, all tests passed. I could not 
-claim a code coverage of 100% or even a test coverage of 100%. That is almost impossible. I concentrated on the main uses cases, as stated above 
-and that is much, much better than manual testing like before.
+claim a code coverage of 100% or even a test coverage of 100%. That is almost impossible. 
 
 3.3.1 How to repeat the system test
 - Install an empty, new WP site
@@ -346,6 +352,7 @@ There are no FAQs just yet.
 *   Aditionally the 'alt-text' and the 'caption' are updated if the are used in gutenberg blocks 'image', 'gallery' and 'media-with-text'. 
 *   Important: There are many, many other blocks, images, galleries around. For these I couldn't realize the update of 'alt-text' and 'caption'.
 *   BUT: The links are updated!
+*   Code quality check with phpstan: level 5 is OK except 19 remaining Errors. These were carefully checked and regarded as OK. Minor changes to reach level 5.
 
 == Upgrade Notice ==
 

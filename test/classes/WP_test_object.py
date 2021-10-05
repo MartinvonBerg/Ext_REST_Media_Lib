@@ -276,7 +276,7 @@ class WP_REST_API():
         
         return resp_body, header
 
-    def add_media( self, imagefile: str ):
+    def add_media( self, imagefile: str, newname='' ):
 
         resp_body = {}
         resp_body['httpstatus'] = 0
@@ -300,6 +300,10 @@ class WP_REST_API():
 
         #get the base filename with extension
         imagefile = os.path.basename( fname )
+
+        # check if the file should be renamed
+        if newname != '':
+            imagefile = newname
 
         # check image mime
         mime = magic.Magic(mime=True)
@@ -717,7 +721,7 @@ class WP_EXT_REST_API( WP_REST_API ):
 
     def post_update_image( self, id: int, imagefile: str, changemime=True ):
         """ Call the POST-method of route 'update' of REST-API Extension. Update the image 
-        with the provided path to the imagefile. Update meta-data seperately."""
+        with the provided path to the imagefile. Update meta-data separately."""
         resp_body = {}
         resp_body['httpstatus'] = 0
         resp_body['message'] = ''

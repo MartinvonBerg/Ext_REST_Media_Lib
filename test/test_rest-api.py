@@ -5,7 +5,7 @@
 #
 # short manual
 # cd to ./test
-# provide a wp_site.json as described below in ./test/
+# provide a file 'wp_site.json' in the directory ./test as described below
 # run the basic tests with
 #   pytest -k 'basic'
 # check your WP-testsite and delete the generated image(s)
@@ -26,7 +26,7 @@
 import requests
 import json
 from distutils.version import StrictVersion
-import os, sys, magic, pathlib, string, re, pprint
+import os, sys, magic, re, pprint, difflib
 from shutil import copyfile 
 import datetime, pytest, base64, hashlib, time, warnings
 from PIL import Image, ImageOps
@@ -37,18 +37,18 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.
 SCRIPT_DIR2 = os.path.join(SCRIPT_DIR, 'classes')
 sys.path.append(SCRIPT_DIR2)
 from WP_test_object import WP_EXT_REST_API, WP_REST_API
-from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, get_image
+from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, get_image, show_diff
 
 # load and define the tested site(s) which shall undergo the test.
-# json schema for wp_siteX.json is:
+# json schema for wp_site.json is:
 # {
 #    "url" : "https://www.example.com/wordpress", # no trailing slash!
 #    "rest_route" : "/wp-json/wp/v2", # don't change this!
 #    "user" : "username", # the username for which you created the application password
-#    "password" : "passwort", # the application password you created for the test
+#    "password" : "password", # the application password you created for the test
 #    "testfolder" : "test" # no leading and trailing slash, use whatever you like
 # }
-path = os.path.join(SCRIPT_DIR, 'wp_site2.json')
+path = os.path.join(SCRIPT_DIR, 'wp_site2.json') # use here the filename that you defined before
 f = open( path )
 wp_site = json.load(f)
 f.close()
@@ -87,7 +87,7 @@ if os.path.isfile( cfpath ):
      
 print('- Files collected')
 
-# ------- pytest ficture to run before and after each test
+# ------- pytest ficture to run before and after each test (currently not used)
 @pytest.fixture(autouse=True)
 def run_around_tests():
      """ Fixture to execute asserts before and after each test run. """
@@ -134,10 +134,7 @@ def test_rest_api_request_without_login():
 
      response = requests.get(url)
      print('--- Get URL ', url, ' with status code:', response.status_code )
-     expected = 403
-     if url.find('http:') >= 0:
-          expected = 401
-     assert response.status_code == expected # 403 for site with https:// and 401 for site with http://
+     assert response.status_code == (401 or 403)
 
 @pytest.mark.basic
 def test_rest_api_request_with_login_and_header():
@@ -189,7 +186,7 @@ def test_wp_site_basic_tests():
      assert wp.tested_plugin_name == 'Ext_REST_Media_Lib'
 
      print('--- WP-Version: ', wp.wpversion )
-     assert wp.wpversion == '5.8.0'
+     assert wp.wpversion == '5.8.1'
 
      print('--- wp.media_writeable_rest_fields: ',  wp.media_writeable_rest_fields )
      print('--- wp.mimetypes: ', wp.mimetypes ) 
@@ -439,16 +436,17 @@ def test_upload_one_image_to_standard_folder():
           pytest.exit(msg, 4)
           
      image_file = files[0]
+     ext = '.' + image_file.split('.')[1]
      print('--- Uploading file: ', image_file, ' to standard folder.')
-     result=wp.add_media( image_file )
+     result=wp.add_media( image_file, 'first_testfile' + ext )
 
      print('--- ', result['message'])
      # check the upload status. 
      assert result['httpstatus'] == 201
+     
      id = result['id']
-
-     result = wp.delete_media( id , 'media' )
-     assert result['httpstatus'] == 200
+     #result = wp.delete_media( id , 'media' )
+     #assert result['httpstatus'] == 200
 
 @pytest.mark.updateimage ###########
 @pytest.mark.testimage
@@ -558,6 +556,8 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      
      # check the link url
      print('--- link: ', result['link'])
+     #diff = show_diff( result['link'], wp.dictall['link'])
+     #assert diff == ('' or '-2')
      assert result['link'] == wp.dictall['link'], 'Don\'t worry. This might fail if an image with the same name already exists in the WP media library.'
 
      # check the time
@@ -984,12 +984,14 @@ def test_create_gtb_image_text( image_file ):
                if result['httpstatus'] == 200:
                     wp.created_posts[n]['post'] =  result
 
+@pytest.mark.testimage ############
 def test_update_image_with_get_request(  ):
      id = 9999999999999
      (result, header) = wp.get_update_image( id )
      get_qm_errors(header)
      assert result['httpstatus'] == 404
 
+@pytest.mark.testimage ############
 @pytest.mark.parametrize( "image_file", files)
 def test_update_image_with_get_request( image_file ):
      image_file = get_image( newfiles, image_file)
@@ -1602,27 +1604,8 @@ def test_clean_up():
 # just here for debugging the tests 
 if __name__ == '__main__':
      ts = round(datetime.datetime.now().timestamp())
-     #test_rest_api_addtofolder_with_valid_folder_file_exists()
-     test_rest_api_get_field_gallery_with_invalid_id()
-     #test_rest_api_request_without_login()
-     #test_rest_api_request_with_login_and_header()
+     #test_get_number_of_posts_and_upload_dir()
      #test_upload_one_image_to_standard_folder()
-     #test_get_number_of_posts_and_upload_dir()
-     #test_image_upload_to_folder_with_ext_rest_api('Paddeln-Alte-Fahrt_1.webp')
-     #test_update_image_metadata_after_posts_were_created('Wanderung-Acquacheta-94_Web.jpg')
-     #test_image_upload_to_folder_with_ext_rest_api('DSC_1722.webp')
-     #wp.get_number_of_posts()
-     #test_info_about_test_site()
-     #test_get_number_of_posts_and_upload_dir()
-     #test_created_json_file_list()
-     #test_update_image_with_flipped_original_and_new_filename( 'DSC_1972.webp' )
+     d = show_diff('https://www.mvb1.de/DSC_1972/', 'https://www.mvb1.de/DSC_1972-2/')
      print('done')
-     #test_create_gtb_gallery_with_all_images()
-
-     erg = {"key":"05f62f13bf62323280b5832b75692208",
-     "type":"notice",
-     "message":"Undefined variable: data",
-     "file":"wp-content\/plugins\/wp-wpcat-json-rest\/wp_wpcat_json_rest.php",
-     "line":179,
-     "stack":["mvbplugins\\e\\cb_get_gallery()","WP_REST_Controller->add_additional_fields_to_object()","WP_REST_Posts_Controller->prepare_item_for_response()","WP_REST_Attachments_Controller->prepare_item_for_response()","WP_REST_Posts_Controller->get_item()","WP_REST_Server->respond_to_request()","WP_REST_Server->dispatch()","WP_REST_Server->serve_request()","rest_api_loaded()","do_action_ref_array('parse_request')","WP->parse_request()","WP->main()","wp()"],
-     "component":"Plugin: wp-wpcat-json-rest"}
+   

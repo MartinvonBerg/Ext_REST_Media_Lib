@@ -2,5 +2,6 @@
     "phpcs.enable": true,
     "phpcs.executablePath": "./vendor/bin/phpcs",
     "phpcs.standard": "WordPress",
-    "print.colourScheme": "Atelier Dune"
+    "print.colourScheme": "Atelier Dune",
+    "telemetry.enableCrashReporter": false
   }

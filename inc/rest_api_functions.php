@@ -22,7 +22,7 @@ namespace mvbplugins\extmedialib;
  *
  * @param string $folder the folder that should be used.
  *
- * @return array the original-files in the given $folder that were NOT added to WP-Cat yet
+ * @return array<int, string> the original-files in the given $folder that were NOT added to WP-Cat yet
  */
 function get_files_to_add( $folder ) {
 	$result = array();
@@ -62,9 +62,9 @@ function get_files_to_add( $folder ) {
 	*
 	* @param string $folder the folder that should be used.
 	*
-	* @return array the original-files in the given $folder that were NOT added to WP-Cat yet
+	* @return array<int, array<string, array|int|string>> the original-files in the given $folder that were NOT added to WP-Cat yet
 	*/
-function get_added_files_from_folder($folder)
+function get_added_files_from_folder( $folder )
 {
 	$result = array();
 	$all = glob($folder . '/*');
@@ -125,11 +125,13 @@ function special_replace($string)
  *
  * @param int   $post_id ID of the attachment in the WP-Mediacatalog.
  *
- * @param array $newmeta array with new metadata taken from the JSON-data in the POST-Request body.
+ * @param array<string[]> $newmeta array with new metadata taken from the JSON-data in the POST-Request body.
  *
+ * @param string $origin the source of the function call 
+ * 
  * @return bool true if success, false if not: ouput of the WP function to update attachment metadata
  */
-function update_metadata( int $post_id, array $newmeta, string $origin)
+function update_metadata( int $post_id, array $newmeta, string $origin )
 {
 	// get and check current Meta-Data from WP-database.
 	$meta = wp_get_attachment_metadata($post_id);
@@ -172,8 +174,6 @@ function update_metadata( int $post_id, array $newmeta, string $origin)
 /**
  * Get the upload URL/path in right way (works with SSL).
  *
- * @param string $param  "basedir" or "baseurl"
- * @param string $subfolder  subfolder to append to basedir or baseurl
  * @return string the base appended with subfolder
  */
 function get_upload_url()
@@ -191,7 +191,12 @@ function get_upload_url()
 	return $url . $subfolder;
 }
 
-/* Check if given content is JSON format. */
+/**
+ * Check if given content is JSON format
+ *
+ * @param mixed $content
+ * @return mixed return the decoded content from json to an php-array if successful
+ */ 
 function bodyIsJSON( $content ) {
 	if ( is_array($content) || is_object($content) )
 		return false; // can never be.

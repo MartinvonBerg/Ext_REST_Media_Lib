@@ -639,7 +639,7 @@ class Replacer
 	
 	/**
 		* Replaces Content across several levels and types of possible data
-		* @param $content String The Content to replace
+		* @param string $content String The Content to replace
 		* @param string|array $search Search string or array
 		* @param string|array $replace Replacement String or array 
 		* @param bool $in_deep Boolean.  This is use to prevent serialization of sublevels. Only pass back serialized from top.
@@ -762,7 +762,7 @@ class Replacer
 		if ( ! is_null( $target_alt_caption['caption'] ) && $isWpImage && $this->docaption ) {
 			if ( strlen($source_alt_caption['caption']) > 0 ) {
 				$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $newhtml);
-			} elseif ( $isWpImage ) {
+			} else {
 				$newcaption = '<figcaption>' . $target_alt_caption['caption'] . '</figcaption></figure>'; 
 				$newhtml = \str_replace( '</figure>', $newcaption, $newhtml);
 			}

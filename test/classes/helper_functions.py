@@ -1,4 +1,4 @@
-import json, re, copy
+import json, re, copy, difflib
 
 def validateJSON(jsonData: str):
     try:
@@ -97,3 +97,31 @@ def get_image( files, image_file):
     print(files)
     found = [x for x in files if image_file in x[1] ][0]
     return found
+
+def show_diff(text, n_text):
+    """
+    http://stackoverflow.com/a/788780
+    Unify operations between two compared strings seqm is a difflib.
+    SequenceMatcher instance whose a & b are strings
+    """
+    seqm = difflib.SequenceMatcher(None, text, n_text)
+    output= []
+    for opcode, a0, a1, b0, b1 in seqm.get_opcodes():
+        if opcode == 'equal':
+            a=0
+            #output.append(seqm.a[a0:a1])
+        elif opcode == 'insert':
+            #output.append("<font color=red>^" + seqm.b[b0:b1] + "</font>")
+            output.append(seqm.b[b0:b1])
+        elif opcode == 'delete':
+            #output.append("<font color=blue>^" + seqm.a[a0:a1] + "</font>")
+            output.append( seqm.a[a0:a1] )
+        elif opcode == 'replace':
+            # seqm.a[a0:a1] -> seqm.b[b0:b1]
+            #output.append("<font color=green>^" + seqm.b[b0:b1] + "</font>")
+            output.append( seqm.b[b0:b1] )
+        else:
+            #raise RuntimeError, "unexpected opcode"
+            output = ''
+
+    return ''.join(output)
