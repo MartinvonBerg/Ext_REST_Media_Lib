@@ -2,7 +2,7 @@
 /**
  * Helper functions for the extension of the rest-api
  *
- * PHP version 7.2.0 - 8.0.0
+ * PHP version 7.4.0 - 8.0.0
  *
  * @category   Rest_Api_Functions
  * @package    Rest_Api_Functions
@@ -12,6 +12,8 @@
  * @link       https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * @since      File available since Release 5.3.0
  */
+
+// phpstan: level 8 reached without baseline
 
 namespace mvbplugins\extmedialib;
 
@@ -35,6 +37,8 @@ function get_files_to_add( $folder ) {
 	$dir = str_replace( '//', '/', $dir);
 	$url = $upload_dir['baseurl'];
 
+	if ( false == $all ) { $all = array(); }
+
 	foreach ( $all as $file ) {
 		$test = $file;
 		if (( ! preg_match_all( '/[0-9]+x[0-9]+/', $test)) && ( ! strstr( $test, '-' . EXT_SCALED)) && ( ! is_dir( $test ) ) ) {
@@ -43,7 +47,7 @@ function get_files_to_add( $folder ) {
 			$addedbefore = attachment_url_to_postid( $file );
 
 			if (empty( $addedbefore )) {
-				$ext = '.' . pathinfo( $file)['extension'];
+				$ext = '.' . pathinfo( $file, PATHINFO_EXTENSION ); //['extension'];
 				$file = str_replace( $ext, '-' . EXT_SCALED . $ext, $file );
 				$addedbefore = attachment_url_to_postid( $file );
 			}
@@ -76,6 +80,8 @@ function get_added_files_from_folder( $folder )
 	$dir = str_replace('//', '/', $dir);
 	$url = $upload_dir['baseurl'];
 
+	if ( false == $all ) { $all = array(); }
+
 	foreach ($all as $file) {
 		$test=$file;
 		if ((! preg_match_all('/[0-9]+x[0-9]+/', $test)) && (! strstr($test, '-' . EXT_SCALED)) && (! is_dir($test))) {
@@ -84,7 +90,7 @@ function get_added_files_from_folder( $folder )
 			$addedbefore = attachment_url_to_postid($file);
 
 			if (empty($addedbefore)) {
-				$ext = '.' . pathinfo($file)['extension'];
+				$ext = '.' . pathinfo($file, PATHINFO_EXTENSION ); //['extension'];
 				$file = str_replace($ext, '-' . EXT_SCALED . $ext, $file);
 				$addedbefore = attachment_url_to_postid($file);
 			}
@@ -129,12 +135,13 @@ function special_replace($string)
  *
  * @param string $origin the source of the function call 
  * 
- * @return bool true if success, false if not: ouput of the WP function to update attachment metadata
+ * @return int|bool true if success, false if not: ouput of the WP function to update attachment metadata
  */
 function update_metadata( int $post_id, array $newmeta, string $origin )
 {
 	// get and check current Meta-Data from WP-database.
 	$meta = wp_get_attachment_metadata($post_id);
+	if ( false == $meta ) { $meta = array(); }
 	$oldmeta = $meta;
 
 	if (array_key_exists('image_meta', $newmeta)) {

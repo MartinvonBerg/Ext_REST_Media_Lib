@@ -16,6 +16,20 @@
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  */
 
+// phpstan: level 6 reached with following 11 remaining errors (used as a baseline for higher levels)
+// These errors were carefully reviewed and are regarded as false negative
+// 37     Right side of || is always false.: 'ABSPATH' is a WP global 
+// 390    Right side of && is always true.: This is not correct.
+// 600    Variable $getResp might not be defined. : The variable is defined. The analysis is wrong.
+// 841    Variable $url_to_new_file might not be defined. : The variable is defined. The analysis is wrong.
+// 853    Variable $title might not be defined. : The variable is defined. The analysis is wrong.
+// 853    Variable $ext might not be defined. : The variable is defined. The analysis is wrong.
+// 853    Variable $ext might not be defined. : The variable is defined. The analysis is wrong.
+// 863    Variable $url_to_new_file might not be defined. : The variable is defined. The analysis is wrong.
+// 876    Negated boolean expression is always true.: This is not correct.
+// 880    Undefined variable: $upload_id : The variable is defined. The analysis is wrong.
+// 892    Variable $getResp might not be defined. : The variable is defined. The analysis is wrong.
+
 namespace mvbplugins\extmedialib;
 
 use \WP_Error as WP_Error;
@@ -84,10 +98,10 @@ add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_res
 /**
  * hook on the finalized REST-response and update the image_meta and the posts using the updated image
  *
- * @param array $result the prepared result
+ * @param array<string> $result the prepared result
  * @param \WP_REST_Server $server the rest server
  * @param \WP_REST_Request $request the request
- * @return array $result the $result to provide via REST-API as http response. The keys $newmeta["image_meta"]['caption'] 
+ * @return array<string> $result the $result to provide via REST-API as http response. The keys $newmeta["image_meta"]['caption'] 
  * and $newmeta["image_meta"]['title'] were changed depending on the result of the meta update
  */
 function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Request $request) {
@@ -127,8 +141,8 @@ function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Re
 		// update the image_meta title and caption also 
 		$success = \mvbplugins\extmedialib\update_metadata( $id, $newmeta, $origin );
 		if ( $success ) {
-			if ($hascaption) $result["media_details"]["image_meta"]["caption"] = $newmeta["image_meta"]['caption'];
-			if ($hastitle)  $result["media_details"]["image_meta"]["title"] = $newmeta["image_meta"]['title'];
+			if ($hascaption) $result["media_details"]["image_meta"]["caption"] = $params['caption'];
+			if ($hastitle)  $result["media_details"]["image_meta"]["title"] = $params['title'];
 		}
 	}
 
@@ -171,7 +185,7 @@ function register_gallery()
 /**
  * callback to retrieve the gallery entry for the given attachment-id
  *
- * @param array $data key-value paired array from the get method with 'id'
+ * @param array{id:int} $data key-value paired array from the get method with 'id'
  * @return string the current entry for the gallery field
  */
 function cb_get_gallery($data)
@@ -223,7 +237,7 @@ function register_gallery_sort()
 /**
  * callback to retrieve the gallery-sort entry for the given attachment-id
  *
- * @param array $data key-value paired array from the get method with 'id'
+ * @param array{id:int} $data key-value paired array from the get method with 'id'
  * @return string the current entry for the gallery-sort field
  */
 function cb_get_gallery_sort($data)
@@ -274,9 +288,10 @@ function register_md5_original()
 /**
  * callback to retrieve the MD5 sum and size in bytes for the given attachment-id
  *
- * @param array $data key-value paired array from the get method with 'id'
- * @return array $md5['MD5']: the MD5 sum of the original attachment file, 
- * 				$md5['size']: the size in bytes of the original attachment file
+ * @param array{id: int} $data key-value paired array from the get method with 'id'
+ * @return array{MD5: string, size: int|false} $md5
+ * 		         $md5['MD5']: the MD5 sum of the original attachment file, 
+ * 				 $md5['size']: the size in bytes of the original attachment file
  */
 function cb_get_md5($data)
 {
@@ -285,6 +300,9 @@ function cb_get_md5($data)
 		'MD5' => '0',
 		'size' => 0,
 		);
+
+	if ( false == $original_filename ) return $md5;
+
 	if (is_file($original_filename)) {
 		$size = filesize($original_filename);
 		$md5 = array(
@@ -342,17 +360,21 @@ function register_update_image_route()
 /**
  * Callback for GET to REST-Route 'update/<id>'. Check wether Parameter id (integer!) is an WP media attachment, e.g. an image and calc md5-sum of original file
  *
- * @param object $data is the complete Request data of the REST-api GET
+ * @param array{id:int} $data is the complete Request data of the REST-api GET
  * @return \WP_REST_Response|WP_Error array for the rest response body or a WP Error object
  */
 function get_image_update( $data )
 {
 	$post_id = $data['id'];
 	$att = wp_attachment_is_image($post_id);
-	$resized = wp_get_attachment_image_src($post_id, 'original')[3];
+	$resized = wp_get_attachment_image_src($post_id, 'original');
+
+	if ( 'array' == \gettype( $resized ) )
+		$resized = $resized[3];
 		
 	if ($att && (! $resized)) {
 		$original_filename = wp_get_original_image_path($post_id);
+		if (false == $original_filename) $original_filename = '';
 		
 		if (is_file( $original_filename )) {
 			$md5 = strtoupper( (string) md5_file( $original_filename ) );
@@ -401,6 +423,7 @@ function post_image_update( $data )
 	if ( ($att) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) ) {
 		// get current metadata from WP-Database
 		$meta = wp_get_attachment_metadata($post_id);
+		if ( false == $meta ) { $meta = array(); }
 		$oldlink = get_attachment_link( $post_id );
 		
 		// Define filenames in different ways for the different functions
@@ -420,11 +443,15 @@ function post_image_update( $data )
 		$gallerydir = trim($gallerydir, '/\\');
 
 		// save old Files before, to redo them if something goes wrong
-		function filerename($fileName_from_att_meta) {
-			rename($fileName_from_att_meta, $fileName_from_att_meta . '.oldimagefile');
-		}
+		//function filerename($fileName_from_att_meta) {
+		//	rename($fileName_from_att_meta, $fileName_from_att_meta . '.oldimagefile');
+		//}
 		$filearray = glob($file6 . '*');
-		array_walk($filearray, '\mvbplugins\extmedialib\filerename');
+		//array_walk($filearray, '\mvbplugins\extmedialib\filerename');
+
+		array_walk($filearray, function( $fileName_from_att_meta ){
+			rename($fileName_from_att_meta, $fileName_from_att_meta . '.oldimagefile');
+		} );
 
 		// generate the filename for the new file
 		if ( $postRequestFileName == '' ) {
@@ -546,11 +573,15 @@ function post_image_update( $data )
 			);
 
 			// recover the original files if something went wrong
-			function recoverfile( $fileName_from_att_meta ) {
-				rename($fileName_from_att_meta, str_replace('.oldimagefile', '', $fileName_from_att_meta));
-			}
+			//function recoverfile( $fileName_from_att_meta ) {
+			//	rename($fileName_from_att_meta, str_replace('.oldimagefile', '', $fileName_from_att_meta));
+			//}
 			$filearray = glob($file6 . '*oldimagefile');
-			array_walk($filearray, '\mvbplugins\extmedialib\recoverfile');
+			//array_walk($filearray, '\mvbplugins\extmedialib\recoverfile');
+
+			array_walk( $filearray, function( $fileName_from_att_meta ) {
+				rename( $fileName_from_att_meta, str_replace('.oldimagefile', '', $fileName_from_att_meta ) );
+			} );
 
 			// delete the file that was uploaded by REST - POST request
 			unlink($old_original_fileName);
@@ -843,11 +874,11 @@ function post_add_image_to_folder($data)
 			unlink($newfile);
 			return new WP_Error('error', 'Could not write file ' . $cont, array( 'status' => 400 ));
 		} elseif (! $mime_type_ok) {
-			// something went // delete file
+			// something went wrong // delete file
 			unlink($newfile);
 			return new WP_Error('error', 'Mime-Type mismatch for upload ' . $cont, array( 'status' => 400 ));
 		} elseif (is_wp_error( $upload_id )) {
-			// something went // delete file
+			// something went wrong // delete file
 			unlink($newfile);
 			return new WP_Error('error', 'Could not generate attachment for file ' . $cont, array( 'status' => 400 ));
 		}

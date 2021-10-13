@@ -48,7 +48,7 @@ from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, ge
 #    "password" : "password", # the application password you created for the test
 #    "testfolder" : "test" # no leading and trailing slash, use whatever you like
 # }
-path = os.path.join(SCRIPT_DIR, 'wp_site2.json') # use here the filename that you defined before
+path = os.path.join(SCRIPT_DIR, 'wp_site1.json') # use here the filename that you defined before
 f = open( path )
 wp_site = json.load(f)
 f.close()
@@ -131,10 +131,11 @@ def test_info_about_test_site():
 @pytest.mark.basic
 def test_rest_api_request_without_login():
      url = wp.url + wp.rest_route
+     codes = [401, 403]
 
      response = requests.get(url)
      print('--- Get URL ', url, ' with status code:', response.status_code )
-     assert response.status_code == (401 or 403)
+     assert response.status_code in codes
 
 @pytest.mark.basic
 def test_rest_api_request_with_login_and_header():
@@ -186,7 +187,7 @@ def test_wp_site_basic_tests():
      assert wp.tested_plugin_name == 'Ext_REST_Media_Lib'
 
      print('--- WP-Version: ', wp.wpversion )
-     assert wp.wpversion == '5.8.1'
+     assert wp.wpversion == '5.8.0'
 
      print('--- wp.media_writeable_rest_fields: ',  wp.media_writeable_rest_fields )
      print('--- wp.mimetypes: ', wp.mimetypes ) 
