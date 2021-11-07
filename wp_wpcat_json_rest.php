@@ -429,9 +429,11 @@ function post_image_update( $data )
 		// Define filenames in different ways for the different functions
 		$fileName_from_att_meta = $meta['file'];
 		$old_attached_file = $fileName_from_att_meta;
+		$old_attached_file_before_update = get_attached_file($post_id, true);
 		$old_original_fileName = str_replace( '-' . EXT_SCALED, '', $old_attached_file); // This is used to save the POST-body
 		$ext = '.' . pathinfo($old_original_fileName)['extension']; // Get the extension
 		$file6 = str_replace($ext, '', $old_original_fileName); // Filename without extension for the deletion with Wildcard '*'
+		$file6 = $dir . \DIRECTORY_SEPARATOR . $file6;
 
 		// data for the REST-response
 		$base_fileName_from_att_meta = basename($fileName_from_att_meta); // filename with extension with '-scaled'
@@ -445,6 +447,7 @@ function post_image_update( $data )
 		// save old Files before, to redo them if something goes wrong
 		//function filerename($fileName_from_att_meta) {
 		//	rename($fileName_from_att_meta, $fileName_from_att_meta . '.oldimagefile');
+		//	if ( ! \is_file( $fileName_from_att_meta . '.oldimagefile' )) $add = 'at least one file not renamed!';
 		//}
 		$filearray = glob($file6 . '*');
 		//array_walk($filearray, '\mvbplugins\extmedialib\filerename');
@@ -459,8 +462,8 @@ function post_image_update( $data )
 			$path_to_new_file = $old_original_fileName;
 		} else {
 			// generate the complete path for the new uploaded file
-			$path_to_new_file = $old_upload_dir . $postRequestFileName; 
-			$path_to_new_file = $dir . '/' . $gallerydir . '/' . $postRequestFileName;
+			//$path_to_new_file = $old_upload_dir . $postRequestFileName; 
+			$path_to_new_file = $dir . \DIRECTORY_SEPARATOR . $gallerydir . \DIRECTORY_SEPARATOR . $postRequestFileName;
 		}
 		
 		// check if file exists alreay, don't overwrite
@@ -469,6 +472,9 @@ function post_image_update( $data )
 			$getResp = array(
 				'message' => __('You requested upload of file') . ' '. $postRequestFileName . ' ' . __('with POST-Method'),
 				'Error_Details' => __('Path') . ': ' . $path_to_new_file,
+				'file6' => 'filebase for rename: ' . $file6,
+				'old' => 'old attach: ' . $old_attached_file_before_update,
+				'dir' => 'Variable $dir: ' . $dir,
 			);
 			$newGetResp = \implode(' , ', $getResp);
 			return new WP_Error( __('File exists'), $newGetResp, array( 'status' => 409 ));

@@ -48,7 +48,7 @@ from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, ge
 #    "password" : "password", # the application password you created for the test
 #    "testfolder" : "test" # no leading and trailing slash, use whatever you like
 # }
-path = os.path.join(SCRIPT_DIR, 'wp_site1.json') # use here the filename that you defined before
+path = os.path.join(SCRIPT_DIR, 'wp_site2.json') # use here the filename that you defined before
 f = open( path )
 wp_site = json.load(f)
 f.close()
@@ -1005,6 +1005,8 @@ def test_update_image_with_get_request( image_file ):
           assert result['httpstatus'] == 200
           msg = result['message']
           assert sid in msg
+
+## TODO: test_update_image_with_changed_image_but_same_filename
 
 @pytest.mark.testimage #############
 @pytest.mark.parametrize( "image_file", files)
