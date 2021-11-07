@@ -3,5 +3,6 @@
     "phpcs.executablePath": "./vendor/bin/phpcs",
     "phpcs.standard": "WordPress",
     "print.colourScheme": "Atelier Dune",
-    "telemetry.enableCrashReporter": false
+    "telemetry.enableCrashReporter": false,
+    "python.pythonPath": "C:\\Users\\Martin von Berg\\AppData\\Local\\Programs\\Python\\Python38-32\\python.exe"
   }

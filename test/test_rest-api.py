@@ -986,7 +986,7 @@ def test_create_gtb_image_text( image_file ):
                     wp.created_posts[n]['post'] =  result
 
 @pytest.mark.testimage ############
-def test_update_image_with_get_request(  ):
+def test_update_image_with_get_request_invalid_id(  ):
      id = 9999999999999
      (result, header) = wp.get_update_image( id )
      get_qm_errors(header)
@@ -994,7 +994,7 @@ def test_update_image_with_get_request(  ):
 
 @pytest.mark.testimage ############
 @pytest.mark.parametrize( "image_file", files)
-def test_update_image_with_get_request( image_file ):
+def test_update_image_with_get_request_valid_id( image_file ):
      image_file = get_image( newfiles, image_file)
 
      if type(image_file) == list:
@@ -1006,7 +1006,114 @@ def test_update_image_with_get_request( image_file ):
           msg = result['message']
           assert sid in msg
 
-## TODO: test_update_image_with_changed_image_but_same_filename
+######## new test ################################################
+@pytest.mark.testimage #############
+@pytest.mark.parametrize( "image_file", files)
+def test_update_image_with_changed_image_but_same_filename( image_file ):
+     # this if-else is here for debugging
+     if __name__ == '__main__':
+          image_file = [639, 'DSC_jgp-1972.jpg']
+     else:
+          image_file = get_image( newfiles, image_file)
+
+     if type(image_file) == list:
+          id = image_file[0]
+          imgfile = image_file[1]
+          #ts = str( round(datetime.datetime.now().timestamp()) )
+
+          # get the image date before the update
+          (before, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
+
+          path = os.path.join(SCRIPT_DIR, 'testdata', imgfile)
+          assert os.path.isfile( path ) == True
+
+          # Grayscale the image and save it with new name 'flipped_<old-name>'
+          im = Image.open( path )
+          im = ImageOps.grayscale( im )
+          #newimg = prefix + '-4orig-' + imgfile # do not rename the file!
+          newimg = imgfile
+          path = os.path.join(SCRIPT_DIR, 'createddata', newimg)
+          im.save( path )
+
+          # update the new url and link dicts
+          # create the dictionaries required for checking
+          # requires that test_get_number_of_posts_and_upload_dir or wp.get_number_of_posts() was executed before to be correct!
+          im = Image.open( path )
+          (width, height) = im.size
+          im.close()
+
+          if width > wp_big or height > wp_big:
+               wp.img_isscaled = True
+               print('--- image is scaled: Yes')
+          else:
+               wp.img_isscaled = False
+
+          wp.generate_dictfb( newimg )
+          wp.generate_dictall()
+
+          # upload the grayscaled image with same name and id
+          # keep the mime-type as is (for the moment)
+          (result, header) = wp.post_update_image( id, path, True )
+          get_qm_errors(header)
+          print('--- local path updated file: ', path)
+          assert result['httpstatus'] == 200
+
+          print ('Comparing: ', result['id'])  
+          assert result['id'] == str(id)
+
+          # check the gallery
+          print('--- gallery: ', result['gallery'])
+          assert result['gallery'] == wp.tested_site['testfolder']
+
+          # Now compare the new data
+          (result, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
+
+          # check the attachment type
+          print('--- attachment type: ', result['media_type'])
+          assert result['media_type'] == 'image'
+
+          # check the guid
+          print('--- guid: ', result['guid']['rendered'])
+          assert result['guid']['rendered'] == wp.dictall['guid']
+     
+          # check the source url
+          print('--- source-url: ', result['source_url'])
+          assert result['source_url'] == wp.dictall['sourceUrl']
+          
+          # check the link url
+          print('--- link: ', result['link'])
+          assert result['link'] == wp.dictall['link'], 'Don\'t worry. This might fail if an image with the same name already exists in the WP media library.'
+
+          # check image mime
+          mime = magic.Magic(mime=True)
+          mimetype = mime.from_file( path )
+          print('--- mime-type: ', result['mime_type'])
+          assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
+
+          # do all the rest
+          assert result['slug'] == wp.dictall['slug'] 
+          assert result['title']['rendered'] == wp.dictall['title'] 
+          assert result['source_url'] == wp.dictall['sourceUrl']
+
+          # check md5 of grayscaled image and changed uploaded image
+          print('--- Calc MD5 from: ', path)
+          assert os.path.isfile( path ) == True
+
+          md5sum = hashlib.md5(open( path,'rb').read()).hexdigest()
+          md5sum = md5sum.upper()
+          print('--- MD5 of local file: ', md5sum)
+          
+          # Now compare the new data
+          (result, header) = wp.get_rest_fields( id, 'media' )
+          get_qm_errors(header)
+          assert result['httpstatus'] == 200 
+
+          if result['httpstatus'] == 200:
+               assert result["md5_original_file"]['MD5'] == md5sum
+
+######## new test ################################################
 
 @pytest.mark.testimage #############
 @pytest.mark.parametrize( "image_file", files)

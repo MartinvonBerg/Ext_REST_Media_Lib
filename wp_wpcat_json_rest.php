@@ -548,7 +548,7 @@ function post_image_update( $data )
 				
 		if (($success_new_file_write != false) && (is_array($success_subsizes))) {
 			$getResp = array(
-				'ID' => $post_id,
+				'id' => $post_id,
 				'message' => __('Successful update. Except Metadata.'),
 				'old_filename' => $original_filename_old_file,
 				'new_fullpath' => $path_to_new_file,

@@ -4,9 +4,9 @@ Contributors: martinvonberg
 Donate link: http://www.mvb1.de
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 5.3
-Tested up to: 5.8
+Tested up to: 5.8.1
 Requires PHP: 7.2
-Stable Tag: 0.0.15
+Stable Tag: 0.0.16
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -354,6 +354,9 @@ There are no FAQs just yet.
 *   BUT: The links are updated!
 *   Code quality check with phpstan: level 5 is OK except 19 remaining Errors. These were carefully checked and regarded as OK. Minor changes to reach level 5.
 
+= 0.0.16 =
+*   Bug-Fix for Image Update with same filename. Python testcase added for that and successfully tested.
+
 == Upgrade Notice ==
 
 Upgrade if you want to use webp images in WP and upload it via the REST-API. 
@@ -365,4 +368,4 @@ This plugin uses the great work from:
 
 - wordpress for coding hints: https://de.wordpress.org/
 - authorization hints: https://developer.wordpress.org/rest-api/frequently-asked-questions/
-- Enable Media Replacer: https://de.wordpress.org/plugins/enable-media-replace/ I'm using to classes of this great plugin to handle the link updates.
+- Enable Media Replacer: https://de.wordpress.org/plugins/enable-media-replace/ I'm using two classes of this great plugin to handle the link updates.
