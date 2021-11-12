@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Helper functions for the extension of the rest-api
  *
@@ -20,67 +21,25 @@ namespace mvbplugins\extmedialib;
 // ---------------- helper functions ----------------------------------------------------
 
 /**
- * Select only the original files that were NOT added yet to WP-Cat from THIS $folder, not from all folders
+ * Return the original files that were already added OR NOT added to WP-Cat from THIS $folder
  *
  * @param string $folder the folder that should be used.
+ * @param bool $get_added_files either provide an array with files that are IN WP-Cat or NOI in WP-Cat
  *
- * @return array<int, string> the original-files in the given $folder that were NOT added to WP-Cat yet
+ * @return array<int, string> | array<int, array<string, array|int|string>> the original-files in the given $folder that are IN or NOI IN WP-Cat yet
  */
-function get_files_to_add( $folder ) {
-	$result = array();
-	$all = glob( $folder . '/*');
-	$i = 0;
-	$upload_dir = wp_upload_dir();
-	$dir = $upload_dir['basedir'];
-	$dir = str_replace( '\\', '/', $dir);
-	$dir = str_replace( '\\\\', '/', $dir);
-	$dir = str_replace( '//', '/', $dir);
-	$url = $upload_dir['baseurl'];
-
-	if ( false == $all ) { $all = array(); }
-
-	foreach ( $all as $file ) {
-		$test = $file;
-		if (( ! preg_match_all( '/[0-9]+x[0-9]+/', $test)) && ( ! strstr( $test, '-' . EXT_SCALED)) && ( ! is_dir( $test ) ) ) {
-			// Check if one of the files in $result was already attached to WPCat.
-			$file = str_replace( $dir, $url, $file );
-			$addedbefore = attachment_url_to_postid( $file );
-
-			if (empty( $addedbefore )) {
-				$ext = '.' . pathinfo( $file, PATHINFO_EXTENSION ); //['extension'];
-				$file = str_replace( $ext, '-' . EXT_SCALED . $ext, $file );
-				$addedbefore = attachment_url_to_postid( $file );
-			}
-
-			if (empty($addedbefore)) {
-				$result [ $i ] = $test;
-				++$i;
-			}
-		}
-	}
-	return $result;
-}
-
-/**
-	* Return the original files that were already added to WP-Cat from THIS $folder
-	*
-	* @param string $folder the folder that should be used.
-	*
-	* @return array<int, array<string, array|int|string>> the original-files in the given $folder that were NOT added to WP-Cat yet
-	*/
-function get_added_files_from_folder( $folder )
+function get_files_from_folder(string $folder, bool $get_added_files)
 {
 	$result = array();
 	$all = glob($folder . '/*');
-	$i=0;
-	$upload_dir = wp_upload_dir();
-	$dir = $upload_dir['basedir'];
-	$dir = str_replace('\\', '/', $dir);
-	$dir = str_replace('\\\\', '/', $dir);
-	$dir = str_replace('//', '/', $dir);
-	$url = $upload_dir['baseurl'];
+	$i = 0;
 
-	if ( false == $all ) { $all = array(); }
+	$dir = get_upload_dir();
+	$url = get_upload_url();
+
+	if (false == $all) {
+		$all = array();
+	}
 
 	foreach ($all as $file) {
 		$test=$file;
@@ -89,39 +48,23 @@ function get_added_files_from_folder( $folder )
 			$file = str_replace($dir, $url, $file);
 			$addedbefore = attachment_url_to_postid($file);
 
-			if (empty($addedbefore)) {
-				$ext = '.' . pathinfo($file, PATHINFO_EXTENSION ); //['extension'];
+			if ($addedbefore === 0) {
+				$ext = '.' . pathinfo($file, PATHINFO_EXTENSION); //['extension'];
 				$file = str_replace($ext, '-' . EXT_SCALED . $ext, $file);
 				$addedbefore = attachment_url_to_postid($file);
 			}
 
-			if (empty($addedbefore)) {
-				$addedbefore = 0;
+			if ($get_added_files) {
+				$result [ $i ] ['id']   = $addedbefore;
+				$result [ $i ] ['file'] = $file;
+				++$i;
+			} 
+			elseif ($addedbefore === 0) {
+				$result[$i] = $test;
+				++$i;
 			}
-			$result [ $i ] ['id']   = $addedbefore;
-			$result [ $i ] ['file'] = $file;
-			++$i;
 		}
 	}
-	return $result;
-}
-
-/**
-	* Special replace for foldernames $string '_ . ? * \ / space' to '-'
-	*
-	* @param string $string the string to check.
-	*
-	* @return string the string with replacments
-	*/
-function special_replace($string)
-{
-	#$result = str_replace('_', '-', $string);
-	#$result = str_replace('.', '-', $result);
-	#$result = str_replace('?', '-', $result);
-	#$result = str_replace('*', '-', $result);
-	$result = str_replace('\\', '-', $string);
-	$result = str_replace('/', '-', $result);
-	$result = str_replace('\s', '-', $result);
 	return $result;
 }
 
@@ -137,38 +80,40 @@ function special_replace($string)
  * 
  * @return int|bool true if success, false if not: ouput of the WP function to update attachment metadata
  */
-function update_metadata( int $post_id, array $newmeta, string $origin )
+function update_metadata(int $post_id, array $newmeta, string $origin)
 {
 	// get and check current Meta-Data from WP-database.
 	$meta = wp_get_attachment_metadata($post_id);
-	if ( false == $meta ) { $meta = array(); }
+	if (false == $meta) {
+		$meta = array();
+	}
 	$oldmeta = $meta;
 
 	if (array_key_exists('image_meta', $newmeta)) {
 		$newmeta = $newmeta['image_meta'];
 
 		// organize metadata.
-		array_key_exists('keywords', $newmeta)  ? $meta['image_meta']['keywords']  = $newmeta['keywords'] : '' ;     // Copy Keywords. GPS is missing. Does matter: is not used in WP.
-		array_key_exists('credit', $newmeta)    ? $meta['image_meta']['credit']    = $newmeta['credit'] : ''     ;   // GPS is updated via file-update.
-		array_key_exists('copyright', $newmeta) ? $meta['image_meta']['copyright'] = $newmeta['copyright'] : '' ;
-		array_key_exists('caption', $newmeta)   ? $meta['image_meta']['caption']   = $newmeta['caption'] : ''   ;
-		array_key_exists('title', $newmeta)     ? $meta['image_meta']['title']     = $newmeta['title']  : ''     ;
+		array_key_exists('keywords', $newmeta)  ? $meta['image_meta']['keywords']  = $newmeta['keywords'] : '';     // Copy Keywords. GPS is missing. Does matter: is not used in WP.
+		array_key_exists('credit', $newmeta)    ? $meta['image_meta']['credit']    = $newmeta['credit'] : '';   // GPS is updated via file-update.
+		array_key_exists('copyright', $newmeta) ? $meta['image_meta']['copyright'] = $newmeta['copyright'] : '';
+		array_key_exists('caption', $newmeta)   ? $meta['image_meta']['caption']   = $newmeta['caption'] : '';
+		array_key_exists('title', $newmeta)     ? $meta['image_meta']['title']     = $newmeta['title']  : '';
 
 		// change the image capture metadata for webp only due to the fact that WP does not write this data to the database.
-		$type = get_post_mime_type( $post_id ); 
-		if ( 'image/webp' == $type) {
-			array_key_exists('aperture', $newmeta)          ? $meta['image_meta']['aperture']           = $newmeta['aperture'] : '' ;
-			array_key_exists('camera', $newmeta)            ? $meta['image_meta']['camera']             = $newmeta['camera'] : '' ;
-			array_key_exists('created_timestamp', $newmeta) ? $meta['image_meta']['created_timestamp']  = $newmeta['created_timestamp'] : '' ;
-			array_key_exists('focal_length', $newmeta)      ? $meta['image_meta']['focal_length']       = $newmeta['focal_length'] : '' ;
-			array_key_exists('iso', $newmeta)               ? $meta['image_meta']['iso']                = $newmeta['iso'] : '' ;
-			array_key_exists('shutter_speed', $newmeta)     ? $meta['image_meta']['shutter_speed']      = $newmeta['shutter_speed'] : '' ;
-			array_key_exists('orientation', $newmeta)       ? $meta['image_meta']['orientation']        = $newmeta['orientation'] : '' ;
+		$type = get_post_mime_type($post_id);
+		if ('image/webp' == $type) {
+			array_key_exists('aperture', $newmeta)          ? $meta['image_meta']['aperture']           = $newmeta['aperture'] : '';
+			array_key_exists('camera', $newmeta)            ? $meta['image_meta']['camera']             = $newmeta['camera'] : '';
+			array_key_exists('created_timestamp', $newmeta) ? $meta['image_meta']['created_timestamp']  = $newmeta['created_timestamp'] : '';
+			array_key_exists('focal_length', $newmeta)      ? $meta['image_meta']['focal_length']       = $newmeta['focal_length'] : '';
+			array_key_exists('iso', $newmeta)               ? $meta['image_meta']['iso']                = $newmeta['iso'] : '';
+			array_key_exists('shutter_speed', $newmeta)     ? $meta['image_meta']['shutter_speed']      = $newmeta['shutter_speed'] : '';
+			array_key_exists('orientation', $newmeta)       ? $meta['image_meta']['orientation']        = $newmeta['orientation'] : '';
 		}
 	}
 
 	// reset title and caption in $meta to prevent overwrite with the route update_meta
-	if ( 'mvbplugin' == $origin) {
+	if ('mvbplugin' == $origin) {
 		$meta['image_meta']['title'] = $oldmeta['image_meta']['title'];
 		$meta['image_meta']['caption'] = $oldmeta['image_meta']['caption'];
 	}
@@ -199,15 +144,30 @@ function get_upload_url()
 }
 
 /**
+ * get the upload DIR 
+ *
+ * @return string the upload base DIR without subfolder
+ */
+function get_upload_dir()
+{
+	$upload_dir = wp_upload_dir();
+	$dir = $upload_dir['basedir'];
+	$search = ['\\', '\\\\', '//'];
+	$dir = str_replace($search, '/', $dir);
+	return $dir;
+}
+
+/**
  * Check if given content is JSON format
  *
  * @param mixed $content
  * @return mixed return the decoded content from json to an php-array if successful
- */ 
-function bodyIsJSON( $content ) {
-	if ( is_array($content) || is_object($content) )
+ */
+function bodyIsJSON($content)
+{
+	if (is_array($content) || is_object($content))
 		return false; // can never be.
 
-	$json = json_decode( $content );
+	$json = json_decode($content);
 	return $json && $json != $content;
 }

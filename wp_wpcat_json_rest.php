@@ -30,9 +30,10 @@
 // 880    Undefined variable: $upload_id : The variable is defined. The analysis is wrong.
 // 892    Variable $getResp might not be defined. : The variable is defined. The analysis is wrong.
 
-namespace mvbplugins\extmedialib;
+// TODO: Umbauen gemäß: https://carlalexander.ca/designing-system-wordpress-rest-api-endpoints/ ???
+// oder: https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/
 
-use \WP_Error as WP_Error;
+namespace mvbplugins\extmedialib;
 
 defined( 'ABSPATH' ) || die( 'Not defined' );
 
@@ -56,108 +57,13 @@ add_action('rest_api_init', '\mvbplugins\extmedialib\register_add_image_rest_rou
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_add_folder_rest_route');
 
 
-// load the helper functions
+// load the helper functions and classes
 require_once __DIR__ . '/inc/rest_api_functions.php';
 require_once __DIR__ . '/classes/replacer.php';
 require_once __DIR__ . '/classes/emrFile.php';
 
-
-//-------------------- AUTH REQUIRED ------------------------------------------------
-// https://developer.wordpress.org/rest-api/frequently-asked-questions/
-// ATTENTION: Do not use username and Password or Application Passwords from WP-AdminPage > Users > Profiles together with basic-auth and with http !!!!!!
-// Only use together with https
-// require the user to be logged in for all REST requests
-add_filter( 'wp_is_application_passwords_available', '__return_true' );
-
-add_filter('rest_authentication_errors', function ( $result ) {
-	// If a previous authentication check was applied,
-	// pass that result along without modification.
-    if ( true === $result || is_wp_error( $result ) ) {
-        return $result;
-    }
- 
-	// No authentication has been performed yet.
-	// Return an error if user is not logged in.
-	if ( ! is_user_logged_in()) {
-		return new WP_Error(
-			'rest_not_logged_in',
-			__('You are not currently logged in.'),
-			array( 'status' => 401 )
-		);
-	}
- 
-	// Our custom authentication check should have no effect
-	// on logged-in requests
-	return $result;
-});
-
-// ------------------- Hook on REST response ----------------------------------------
-// Filter to catch every REST Request and do action relevant for this plugin
-add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_rest', 10, 3 );
-
-/**
- * hook on the finalized REST-response and update the image_meta and the posts using the updated image
- *
- * @param array<string> $result the prepared result
- * @param \WP_REST_Server $server the rest server
- * @param \WP_REST_Request $request the request
- * @return array<string> $result the $result to provide via REST-API as http response. The keys $newmeta["image_meta"]['caption'] 
- * and $newmeta["image_meta"]['title'] were changed depending on the result of the meta update
- */
-function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Request $request) {
-	// alt_text is only available once at 'top-level' of the json - response
-	// title and caption are availabe at 'top-level' of the json - response AND response['media_details']['image_meta']
-	// This function keeps these values consistent
-	$route = $request->get_route(); // wp/v2/media/id
-	$method = $request->get_method(); // 'POST'
-
-	$params = $request->get_params(); // id as int
-	
-	$id = array_key_exists('id', $params) ? $params['id'] : null;
-	$route = \str_replace( \strval( $id ), '', $route );
-	$att = wp_attachment_is_image( $id );
-
-	$hascaption = array_key_exists('caption', $params);
-	$hastitle = array_key_exists('title', $params);
-	#$hasdescription = array_key_exists('description', $params);
-	$hasalt_text = array_key_exists('alt_text', $params);
-
-	$docaption = false;
-	if (array_key_exists('docaption', $params) )
-		if ( 'true' == $params['docaption'] && $hascaption )
-			$docaption = true;
-
-	$newmeta["image_meta"] = array(); 
-	$origin = 'standard';
-
-	if ( $hascaption || $hastitle || $hasalt_text) {
-		if ( $hascaption ) $newmeta["image_meta"]['caption'] = $params['caption'];
-		if ( $hastitle ) $newmeta["image_meta"]['title'] = $params['title'];
-		if ( $hasalt_text ) $newmeta["image_meta"]['alt_text'] = $params['alt_text'];
-	}
-
-	// update title and caption in $meta['media_details']['image_meta']
-	if ( ($att) && ('POST' == $method) && ('/wp/v2/media/' == $route) && ($hascaption || $hastitle) ) {
-		// update the image_meta title and caption also 
-		$success = \mvbplugins\extmedialib\update_metadata( $id, $newmeta, $origin );
-		if ( $success ) {
-			if ($hascaption) $result["media_details"]["image_meta"]["caption"] = $params['caption'];
-			if ($hastitle)  $result["media_details"]["image_meta"]["title"] = $params['title'];
-		}
-	}
-
-	// update the relevant posts using the image
-	if ( ($att) && ('POST' == $method) && ('/wp/v2/media/' == $route) && ($hascaption || $hasalt_text) ) {
-		
-		// store the original image-data in the media replacer class with construct-method of the class
-		$replacer = new \mvbplugins\extmedialib\Replacer( $id );
-		$replacer->API_doMetaUpdate( $newmeta, $docaption ); 
-		$replacer = null;
-	}
-
-	return $result;
-}
-
+require_once __DIR__ . '/inc/require_rest_auth.php';
+require_once __DIR__ . '/inc/trigger_after_rest.php';
 
 // REST-API-EXTENSION FOR WP MEDIA Library---------------------------------------------------------
 //--------------------------------------------------------------------
@@ -393,7 +299,7 @@ function get_image_update( $data )
 			'message' => 'Image ' . $post_id . ' is a resized image',)
 			;
 	} else {
-		return new WP_Error('no_image', 'Invalid Image of any type: ' . $post_id, array( 'status' => 404 ));
+		return new \WP_Error('no_image', 'Invalid Image of any type: ' . $post_id, array( 'status' => 404 ));
 	};
 
 	return rest_ensure_response ( $getResp );
@@ -477,7 +383,7 @@ function post_image_update( $data )
 				'dir' => 'Variable $dir: ' . $dir,
 			);
 			$newGetResp = \implode(' , ', $getResp);
-			return new WP_Error( __('File exists'), $newGetResp, array( 'status' => 409 ));
+			return new \WP_Error( __('File exists'), $newGetResp, array( 'status' => 409 ));
 		}
 
 		// Save new file from POST-body and check MIME-Type
@@ -592,15 +498,15 @@ function post_image_update( $data )
 			// delete the file that was uploaded by REST - POST request
 			unlink($old_original_fileName);
 			$newGetResp = \implode(' , ', $getResp);
-			return new WP_Error('Error', $newGetResp, array( 'status' => 400 ));
+			return new \WP_Error('Error', $newGetResp, array( 'status' => 400 ));
 		}
 		
 	} elseif (($att) && (strlen($image) < $minsize)) {
-		return new WP_Error('too_small', 'Invalid Image (smaller than: '. $minsize .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
+		return new \WP_Error('too_small', 'Invalid Image (smaller than: '. $minsize .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
 	} elseif (($att) && (strlen($image) > wp_max_upload_size())) {
-		return new WP_Error('too_big', 'Invalid Image (bigger than: '. wp_max_upload_size() .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
+		return new \WP_Error('too_big', 'Invalid Image (bigger than: '. wp_max_upload_size() .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
 	} elseif (! $att) {
-		return new WP_Error('not_found', 'Attachment is not an Image: ' . $post_id, array( 'status' => 415 ));
+		return new \WP_Error('not_found', 'Attachment is not an Image: ' . $post_id, array( 'status' => 415 ));
 	}
 	
 	return rest_ensure_response($getResp);
@@ -660,9 +566,9 @@ function get_meta_update($data)
 	$att = wp_attachment_is_image($post_id);
 		
 	if ($att) {
-		return new WP_Error('not_implemented', 'You requested update of meta data for Image with ID '. $post_id . ' with GET-Method. Please get image_meta with standard REST-Request.', array( 'status' => 405 ));
+		return new \WP_Error('not_implemented', 'You requested update of meta data for Image with ID '. $post_id . ' with GET-Method. Please get image_meta with standard REST-Request.', array( 'status' => 405 ));
 	} else {
-		return new WP_Error('no_image', 'Invalid Image of any type: ' . $post_id, array( 'status' => 404 ));
+		return new \WP_Error('no_image', 'Invalid Image of any type: ' . $post_id, array( 'status' => 404 ));
 	};
 };
 
@@ -670,7 +576,7 @@ function get_meta_update($data)
  * Callback for POST to REST-Route 'update_meta/<id>'. Update image_meta of attachment with Parameter id (integer!) only if it is a jpg-image
  * 
  * @param object $data is the complete Request data of the REST-api GET
- * @return object WP_Error for the rest response body or a WP Error object
+ * @return object \WP_Error for the rest response body or a WP Error object
  */
 function post_meta_update($data)
 {
@@ -700,10 +606,10 @@ function post_meta_update($data)
 		);
 
 	} elseif (($att) && (($type!='application/json') || ($newmeta == null))) {
-		return new WP_Error('wrong_data', 'Invalid JSON-Data in body', array( 'status' => 400 ));
+		return new \WP_Error('wrong_data', 'Invalid JSON-Data in body', array( 'status' => 400 ));
 
 	} else {
-		return new WP_Error('no_image', 'Invalid Image: ' . $post_id, array( 'status' => 404 ));
+		return new \WP_Error('no_image', 'Invalid Image: ' . $post_id, array( 'status' => 404 ));
 	};
 	
 	return rest_ensure_response($getResp);
@@ -811,7 +717,7 @@ function post_add_image_to_folder($data)
 	// check and create folder. Do not use WP-standard-folder in media-cat
 	$standard_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // check if WP-standard-folder (e.g. ../2020/12)
 	if ($standard_folder != false) {
-		return new WP_Error('not_allowed', 'Do not add image to WP standard media directory', array( 'status' => 400 ));
+		return new \WP_Error('not_allowed', 'Do not add image to WP standard media directory', array( 'status' => 400 ));
 	}
 	if (! is_dir($folder)) {
 		wp_mkdir_p($folder);
@@ -829,7 +735,8 @@ function post_add_image_to_folder($data)
 		$cont = explode('=', $cont)[1];
 		$ext = pathinfo($cont)['extension'];
 		$title = basename($cont, '.' . $ext);
-		$title = special_replace($title);
+		$searchinstring = ['\\', '\s', '/'];
+		$title = str_replace($searchinstring, '-', $title);
 		$newfile = $folder . '/' . $cont;
 		// update post doesn't update GUID on updates. guid has to be the full url to the file
 		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont;
@@ -878,21 +785,21 @@ function post_add_image_to_folder($data)
 		} elseif (! $success_new_file_write) {
 			// something went wrong // delete file
 			unlink($newfile);
-			return new WP_Error('error', 'Could not write file ' . $cont, array( 'status' => 400 ));
+			return new \WP_Error('error', 'Could not write file ' . $cont, array( 'status' => 400 ));
 		} elseif (! $mime_type_ok) {
 			// something went wrong // delete file
 			unlink($newfile);
-			return new WP_Error('error', 'Mime-Type mismatch for upload ' . $cont, array( 'status' => 400 ));
+			return new \WP_Error('error', 'Mime-Type mismatch for upload ' . $cont, array( 'status' => 400 ));
 		} elseif (is_wp_error( $upload_id )) {
 			// something went wrong // delete file
 			unlink($newfile);
-			return new WP_Error('error', 'Could not generate attachment for file ' . $cont, array( 'status' => 400 ));
+			return new \WP_Error('error', 'Could not generate attachment for file ' . $cont, array( 'status' => 400 ));
 		}
 		// Do not check $success_resize as it could be a small png for icons or so
 	} elseif ($newexists) {
-		return new WP_Error('error', 'File ' . $cont . ' already exists!', array( 'status' => 400 ));
+		return new \WP_Error('error', 'File ' . $cont . ' already exists!', array( 'status' => 400 ));
 	} else {
-		return new WP_Error('error', 'Other Error ', array( 'status' => 400 ));
+		return new \WP_Error('error', 'Other Error ', array( 'status' => 400 ));
 	}
 	
 	return rest_ensure_response($getResp);
@@ -959,8 +866,8 @@ function get_add_image_from_folder($data)
 
 	if (is_dir($folder)) {
 		$exists = 'OK';
-		$files = glob($folder . '/*');
-		$files = get_added_files_from_folder($folder);
+		//$files = glob($folder . '/*');
+		$files = get_files_from_folder($folder, true);
 		//$files = json_encode($files, JSON_PRETTY_PRINT, JSON_UNESCAPED_SLASHES);
 	} else {
 		$exists = 'Could not find directory';
@@ -1002,14 +909,14 @@ function post_add_image_from_folder($data)
 	// check and create folder. Do not use WP-standard-folder in media-cat
 	$standard_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // check if WP-standard-folder
 	if ($standard_folder != false) {
-		return new WP_Error('not_allowed', 'Do not add image from WP standard media directory (again)', array( 'status' => 400 ));
+		return new \WP_Error('not_allowed', 'Do not add image from WP standard media directory (again)', array( 'status' => 400 ));
 	}
 	if (! is_dir($folder)) {
-		return new WP_Error('not_exists', 'Directory does not exist', array( 'status' => 400 ));
+		return new \WP_Error('not_exists', 'Directory does not exist', array( 'status' => 400 ));
 	}
 	
 	// check existing content of folder. get files that are not added to WP yet
-	$files = get_files_to_add($folder);
+	$files = get_files_from_folder($folder, false);
 	$id = array();
 	$files_in_folder = array();
 	$i = 0;
