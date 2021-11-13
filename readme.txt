@@ -365,8 +365,9 @@ There are no FAQs just yet.
 *Code-Rework:
 * loaded updated emrFile.php from github
 * split helper functions in several files and renamed /inc to /includes
-* simplidied loading of WP-Error class
+* simplified loading of WP-Error class
 * added a programatical filter for image quality. Standard is now 80 for jpeg and 40 for webp.
+* tested the whole bunch of changes with the python-test-suite and Lightroom.
 
 == Upgrade Notice ==
 
