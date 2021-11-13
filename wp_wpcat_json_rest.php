@@ -40,15 +40,16 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
 // ----------------- global Definitions and settings ---------------------------------
 const MIN_IMAGE_SIZE = 100;   // minimal file size in bytes to upload.
 const MAX_IMAGE_SIZE = 2560;  // value for resize to ...-scaled.jpg TODO: big_image_size_threshold : read from WP settings. But where?
-const RESIZE_QUALITY = 82;    // quality for image resizing in percent.
+const RESIZE_QUALITY = 80;    // quality for jpeg image resizing in percent.
+const WEBP_QUALITY   = 40;	  // quality for webp image resizing in percent.
 const REST_NAMESPACE = 'extmedialib/v1'; // namespace for REST-API.
 const EXT_SCALED     = 'scaled';    // filename extension for scaled images as constant. Maybe WP will change this in future.
 
-add_filter('jpeg_quality', function () {
-	return RESIZE_QUALITY;
-});
+\add_filter('jpeg_quality', function () { return RESIZE_QUALITY; });
+\apply_filters( 'jpeg_quality', RESIZE_QUALITY, 'image/jpeg');
 
-apply_filters( 'wp_editor_set_quality', 10, 'image/webp' );
+\add_filter( 'wp_editor_set_quality', function () { return WEBP_QUALITY; });
+\apply_filters( 'wp_editor_set_quality', WEBP_QUALITY, 'image/webp' );
 
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_gallery');
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_gallery_sort');
