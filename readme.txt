@@ -6,7 +6,7 @@ Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catal
 Requires at least: 5.3
 Tested up to: 5.8.1
 Requires PHP: 7.2
-Stable Tag: 0.0.17
+Stable Tag: 0.0.18.
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -148,7 +148,8 @@ If the given wordpress-id does not exist it returns with http status-code 404.
 2.1.2 POST-method to extmedialib/v1/update/(?P<id>[\d]+)
 This function updates the complete image including metadata. The given wordpress-id remains unchanged. Only the image-files that belong to that wordpress-id will be updated. All image sub-sizes will be regenerated. All metadata will be updated according to the EXIF-data in the provided image. To complete the update process it is required to set the fields 'title', 'caption', 'alt_text' and 'description' with the standard REST-API-methods (see above). The function 'update_meta' is included.
 
-Note on image resizing: Wordpress sets the standard resize quality to 82%. A setting of 100% was tested but with that the image-files were rather big. The setting may be changed in the PHP-code only. Up to now there is now administration panel for the settings of this plugin.
+Note on image resizing: Wordpress sets the standard resize quality to 82%. A setting of 100% was tested but with that the image-files were rather big. 
+The setting may be changed in the PHP-code only. Up to now there is now administration panel for the settings of this plugin. A programatical setting was added for that in version 0.0.18.
 
 Note on image size: Wordpress scales all images with pixel length (long side) greater than 2560 pixels down to this size. The bigger images will be stored in the ../uploads-directory but NOT used for the wordpress pages. So, it is not useful to upload images bigger than 2560 pixels. This may be changed by setting the 'big_image_size_threshold' by a dedicated hook. This is out of scope of this plugin.
 
@@ -359,6 +360,13 @@ There are no FAQs just yet.
 
 = 0.0.17 =
 *   Just a new tag for SVN upload test
+
+= 0.0.18 =
+*Code-Rework:
+* loaded updated emrFile.php from github
+* split helper functions in several files and renamed /inc to /includes
+* simplidied loading of WP-Error class
+* added a programatical filter for image quality. Standard is now 80 for jpeg and 40 for webp.
 
 == Upgrade Notice ==
 
