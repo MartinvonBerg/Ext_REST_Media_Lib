@@ -31,7 +31,7 @@
 // 892    Variable $getResp might not be defined. : The variable is defined. The analysis is wrong.
 
 // TODO: Umbauen gemäß: https://carlalexander.ca/designing-system-wordpress-rest-api-endpoints/ ???
-// oder: https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/
+// oder: https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/ ???
 
 namespace mvbplugins\extmedialib;
 
@@ -48,6 +48,8 @@ add_filter('jpeg_quality', function () {
 	return RESIZE_QUALITY;
 });
 
+apply_filters( 'wp_editor_set_quality', 10, 'image/webp' );
+
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_gallery');
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_gallery_sort');
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_md5_original');
@@ -58,12 +60,12 @@ add_action('rest_api_init', '\mvbplugins\extmedialib\register_add_folder_rest_ro
 
 
 // load the helper functions and classes
-require_once __DIR__ . '/inc/rest_api_functions.php';
+require_once __DIR__ . '/includes/rest_api_functions.php';
 require_once __DIR__ . '/classes/replacer.php';
 require_once __DIR__ . '/classes/emrFile.php';
 
-require_once __DIR__ . '/inc/require_rest_auth.php';
-require_once __DIR__ . '/inc/trigger_after_rest.php';
+require_once __DIR__ . '/includes/require_rest_auth.php';
+require_once __DIR__ . '/includes/trigger_after_rest.php';
 
 // REST-API-EXTENSION FOR WP MEDIA Library---------------------------------------------------------
 //--------------------------------------------------------------------

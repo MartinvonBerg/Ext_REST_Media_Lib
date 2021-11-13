@@ -1,5 +1,6 @@
 <?php
 namespace mvbplugins\extmedialib;
+
 // ------------------- Hook on REST response ----------------------------------------
 // Filter to catch every REST Request and do action relevant for this plugin
 add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_rest', 10, 3 );
