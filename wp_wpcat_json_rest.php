@@ -30,8 +30,9 @@
 // 880    Undefined variable: $upload_id : The variable is defined. The analysis is wrong.
 // 892    Variable $getResp might not be defined. : The variable is defined. The analysis is wrong.
 
-// TODO: Umbauen gemäß: https://carlalexander.ca/designing-system-wordpress-rest-api-endpoints/ ???
-// oder: https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/ ???
+// TODO: Aufteilung in einzelne Dateien für die Funktionen zum Feld oder Endpunkt.
+// Der Umbau gemäß: https://carlalexander.ca/designing-system-wordpress-rest-api-endpoints/ 
+// oder: https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/ wird nicht weiterverfolgt.
 
 namespace mvbplugins\extmedialib;
 

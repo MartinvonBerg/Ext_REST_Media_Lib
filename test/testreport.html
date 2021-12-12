@@ -243,7 +243,7 @@ function filterTable(elem) { // eslint-disable-line no-unused-vars
 }
 </script>
     <h1>testreport.html</h1>
-    <p>Report generated on 12-Nov-2021 at 11:43:43 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <p>Report generated on 12-Dec-2021 at 16:45:25 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
     <h2>Environment</h2>
     <table id="environment">
       <tr>
@@ -259,8 +259,8 @@ function filterTable(elem) { // eslint-disable-line no-unused-vars
         <td>Python</td>
         <td>3.8.6</td></tr></table>
     <h2>Summary</h2>
-    <p>18 tests ran in 17.03 seconds. </p>
-    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">18 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <p>3 tests ran in 25.09 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">2 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
     <h2>Results</h2>
     <table id="results-table">
       <thead id="results-table-head">
@@ -271,245 +271,37 @@ function filterTable(elem) { // eslint-disable-line no-unused-vars
           <th class="sortable links" col="links">Links</th></tr>
         <tr hidden="true" id="not-found-message">
           <th colspan="4">No results found. Try to check the filters</th></tr></thead>
-      <tbody class="passed results-table-row">
+      <tbody class="failed results-table-row">
         <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_info_about_test_site</td>
-          <td class="col-duration">0.00</td>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">0.05</td>
           <td class="col-links"></td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Python sys.version:  3.8.6 (tags/v3.8.6:db45529, Sep 23 2020, 15:37:30) [MSC v.1927 32 bit (Intel)]
---- imported python modules: 
-[   &#x27;@py_builtins&#x27;, &#x27;@pytest_ar&#x27;, &#x27;Image&#x27;, &#x27;ImageOps&#x27;, &#x27;SCRIPT_DIR&#x27;,
-    &#x27;SCRIPT_DIR2&#x27;, &#x27;StrictVersion&#x27;, &#x27;WP_EXT_REST_API&#x27;, &#x27;WP_REST_API&#x27;,
-    &#x27;__builtins__&#x27;, &#x27;__cached__&#x27;, &#x27;__doc__&#x27;, &#x27;__file__&#x27;, &#x27;__loader__&#x27;,
-    &#x27;__name__&#x27;, &#x27;__package__&#x27;, &#x27;__spec__&#x27;, &#x27;base64&#x27;, &#x27;copyfile&#x27;, &#x27;datetime&#x27;,
-    &#x27;difflib&#x27;, &#x27;f&#x27;, &#x27;files&#x27;, &#x27;find_plugin_in_json_resp_body&#x27;, &#x27;get_image&#x27;,
-    &#x27;hashlib&#x27;, &#x27;jpgfiles&#x27;, &#x27;json&#x27;, &#x27;magic&#x27;, &#x27;newfiles&#x27;, &#x27;os&#x27;, &#x27;path&#x27;, &#x27;pprint&#x27;,
-    &#x27;pytest&#x27;, &#x27;re&#x27;, &#x27;remove_html_tags&#x27;, &#x27;requests&#x27;, &#x27;show_diff&#x27;, &#x27;sys&#x27;,
-    &#x27;testdata&#x27;, &#x27;time&#x27;, &#x27;warnings&#x27;, &#x27;webpfiles&#x27;, &#x27;wp&#x27;, &#x27;wp_big&#x27;, &#x27;wp_site&#x27;]
---- SCRIPT_DIR:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test
---- SCRIPT_DIR2:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\classes
---- found image files in ../testdata/*.&lt;types&gt;:  [&#x27;DSC_jgp-1972.jpg&#x27;, &#x27;NZ_Ausw_1L_61_sw-1.jpg&#x27;, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;, &#x27;Wanderung-Acquacheta-94_Web.jpg&#x27;, &#x27;DSC_1722.webp&#x27;, &#x27;DSC_1749-Wald.webp&#x27;, &#x27;DSC_WEBP_1972.webp&#x27;, &#x27;Paddeln-Alte-Fahrt_1.webp&#x27;]
-<br/></div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_request_without_login</td>
-          <td class="col-duration">0.42</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Get URL  https://www.bergreisefoto.de/wp-json/wp/v2  with status code: 401
-<br/></div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_request_with_login_and_header</td>
-          <td class="col-duration">0.49</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Get URL  https://www.bergreisefoto.de/wp-json/wp/v2  with status code: 200
-<br/></div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_request_with_login_base_url</td>
-          <td class="col-duration">0.81</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>site-info:name :  Testsite für Bergreisefoto
-site-info:descr:  Eine weitere WordPress-Website
-<br/></div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_request_https_status</td>
-          <td class="col-duration">0.82</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- https-status:  good
-<br/></div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_wp_site_basic_tests</td>
-          <td class="col-duration">0.45</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- tested Plugin Name:  Ext_REST_Media_Lib
---- WP-Version:  5.8.0
---- wp.media_writeable_rest_fields:  {&#x27;image_meta&#x27;, &#x27;caption&#x27;, &#x27;alt_text&#x27;, &#x27;title&#x27;, &#x27;description&#x27;, &#x27;gallery_sort&#x27;}
---- wp.mimetypes:  {&#x27;image/webp&#x27;, &#x27;image/jpeg&#x27;}
---- wp.wpversion:  5.8.0
---- wp.url:  https://www.bergreisefoto.de
---- wp.rest_route:  /wp-json/wp/v2
---- wp.suburl:  
---- wp.tested_plugin_dir:  wp-wpcat-json-rest/wp_wpcat_json_rest
---- wp.tested_plugin_name:  Ext_REST_Media_Lib
---- wp.tested_plugin_min_version:  0.0.14
---- files in createdfiles.json loaded to `newfiles`:  []
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-IMPORTANT NOTE: COPY THE content of https://www.bergreisefoto.de/wp-admin/site-health.php?tab=debug into the clipboard and paste it in the *.html report to store all information about the test-site:
------------------------------------------------------------------------------
---- Directory sizes: 
-{   &#x27;database_size&#x27;: {   &#x27;debug&#x27;: &#x27;3,06 MB (3209635 bytes)&#x27;,
-                         &#x27;raw&#x27;: 3209635,
-                         &#x27;size&#x27;: &#x27;3,06 MB&#x27;},
-    &#x27;plugins_size&#x27;: {   &#x27;debug&#x27;: &#x27;28,00 B (28 bytes)&#x27;,
-                        &#x27;raw&#x27;: 28,
-                        &#x27;size&#x27;: &#x27;28,00 B&#x27;},
-    &#x27;raw&#x27;: 0,
-    &#x27;themes_size&#x27;: {   &#x27;debug&#x27;: &#x27;6,44 MB (6756996 bytes)&#x27;,
-                       &#x27;raw&#x27;: 6756996,
-                       &#x27;size&#x27;: &#x27;6,44 MB&#x27;},
-    &#x27;total_size&#x27;: {   &#x27;debug&#x27;: &#x27;55,70 MB (58410890 bytes)&#x27;,
-                      &#x27;raw&#x27;: 58410890,
-                      &#x27;size&#x27;: &#x27;55,70 MB&#x27;},
-    &#x27;uploads_size&#x27;: {&#x27;debug&#x27;: &#x27;0,00 B (0 bytes)&#x27;, &#x27;size&#x27;: &#x27;0,00 B&#x27;},
-    &#x27;wordpress_size&#x27;: {   &#x27;debug&#x27;: &#x27;46,20 MB (48444231 bytes)&#x27;,
-                          &#x27;raw&#x27;: 48444231,
-                          &#x27;size&#x27;: &#x27;46,20 MB&#x27;}}
-<br/></div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_request_plugin_status</td>
-          <td class="col-duration">0.45</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- PI-Name is: Ext_REST_Media_Lib
---- PI-Version: 0.0.17
----------------------------------------------
---- Installed Plugins:
-------  Admin Columns
-             Version  4.4.4  is  active
-------  Ext_REST_Media_Lib
-             Version  0.0.17  is  active
-------  Gutenberg
-             Version  11.9.0  is  active
-------  Query Monitor
-             Version  3.7.1  is  active
---- Query Monitor is installed and active.
-<br/></div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_request_active_theme</td>
-          <td class="col-duration">0.44</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Theme-Name is: astra
----  Theme-Status: active
---- Theme-Version: 3.7.5
----------------------------------------------
---- Installed Themes:
-------  Astra
-             Version  3.7.5  is  active
-------  Twenty Nineteen
-             Version  2.1  is  inactive
-------  Twenty Twenty
-             Version  1.8  is  inactive
-------  Twenty Twenty-One
-             Version  1.4  is  inactive
-<br/></div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_get_field_gallery_with_invalid_id</td>
-          <td class="col-duration">0.42</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="empty log">No log output captured.</div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_invalid_id</td>
-          <td class="col-duration">0.41</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="empty log">No log output captured.</div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_invalid_id</td>
-          <td class="col-duration">0.40</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="empty log">No log output captured.</div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_invalid_id</td>
-          <td class="col-duration">0.41</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="empty log">No log output captured.</div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_set_update_meta_with_invalid_id</td>
-          <td class="col-duration">0.40</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="empty log">No log output captured.</div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_invalid_folder</td>
-          <td class="col-duration">0.40</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="empty log">No log output captured.</div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_valid_folder</td>
-          <td class="col-duration">0.40</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="empty log">No log output captured.</div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_standard_folder</td>
-          <td class="col-duration">1.44</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_jgp-1972.jpg
-<br/></div></td></tr></tbody>
-      <tbody class="passed results-table-row">
-        <tr>
-          <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_valid_folder_file_exists</td>
-          <td class="col-duration">6.32</td>
-          <td class="col-links"></td></tr>
-        <tr>
-          <td class="extra" colspan="4">
-            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_jgp-1972.jpg
+            <div class="log">image_file = &#x27;DSC_jgp-1972.jpg&#x27;<br/><br/>    @pytest.mark.testimage ############<br/>    @pytest.mark.parametrize( &quot;image_file&quot;, files)<br/>    def test_image_upload_to_folder_with_ext_rest_api( image_file ):<br/>         createdfiles = []<br/>         image_number_before = wp.media[&#x27;count&#x27;]<br/>    <br/>         # get current time and<br/>         # assume a maximumt offset of 5 secondes between server and local machine that runs the test<br/>         uploadtime = datetime.datetime.now(datetime.timezone.utc).strftime(&quot;%Y-%m-%dT%H:%M:%S&quot;)<br/>         uploadtime = datetime.datetime.strptime( uploadtime, &quot;%Y-%m-%dT%H:%M:%S&quot;) - datetime.timedelta(seconds=10)<br/>    <br/>         print(&#x27;--- Uploading file: &#x27;, image_file)<br/>         (result, header) = wp.post_add_image_to_folder( wp.tested_site[&#x27;testfolder&#x27;], image_file)<br/>         get_qm_errors(header)<br/>    <br/>         print(&#x27;--- &#x27;, result[&#x27;message&#x27;])<br/>         # check the upload status.<br/>&gt;        assert result[&#x27;httpstatus&#x27;] == 200<br/><span class="error">E        assert 400 == 200</span><br/><span class="error">E          +400</span><br/><span class="error">E          -200</span><br/><br/>test_rest-api.py:478: AssertionError<br/> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  DSC_jgp-1972.jpg
 Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_jgp-1972.jpg
+---  File DSC_jgp-1972.jpg already exists!
 <br/></div></td></tr></tbody>
       <tbody class="passed results-table-row">
         <tr>
           <td class="col-result">Passed</td>
-          <td class="col-name">test_rest-api.py::test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype</td>
-          <td class="col-duration">1.34</td>
+          <td class="col-name">test_rest-api.py::test_upload_one_image_to_standard_folder</td>
+          <td class="col-duration">1.55</td>
           <td class="col-links"></td></tr>
         <tr>
           <td class="extra" colspan="4">
-            <div class="empty log">No log output captured.</div></td></tr></tbody></table></body></html>
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Starting Test in directory:  test
+--- Uploading file:  DSC_jgp-1972.jpg  to standard folder.
+---  Created
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_get_number_of_posts_and_upload_dir</td>
+          <td class="col-duration">0.15</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Counted 3 images in the media library.
+<br/></div></td></tr></tbody></table></body></html>

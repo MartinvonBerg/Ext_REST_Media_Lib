@@ -48,7 +48,7 @@ from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, ge
 #    "password" : "password", # the application password you created for the test
 #    "testfolder" : "test" # no leading and trailing slash, use whatever you like
 # }
-path = os.path.join(SCRIPT_DIR, 'wp_site2.json') # use here the filename that you defined before
+path = os.path.join(SCRIPT_DIR, 'wp_site4.json') # use here the filename that you defined before
 f = open( path )
 wp_site = json.load(f)
 f.close()

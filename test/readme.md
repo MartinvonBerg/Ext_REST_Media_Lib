@@ -2,7 +2,7 @@
 
 The plugin is somehow 'completely' tested with a new python test suite (PTS). The PTS uses pytest and a bunch of other modules that have to be available.
 I tried to reach a 'branch coverage' of 100% concerning the functional branches. It's almost impossible to test the paths that were implemented for very special
-errprs on the server. The testdata contains *.webp and *.jpg filess with different sizes. The use cases are 'upload image file', 'change metadata', 'change mime type',
+errors on the server. The testdata contains *.webp and *.jpg filess with different sizes. The use cases are 'upload image file', 'change metadata', 'change mime type',
 'update image file', 'create posts (Gutenberg: image, gallery, image-with-text )' and 'delete'. Tests were conducted on local and remote site. All fine. I could not 
 claim a code coverage of 100% or even a test coverage of 100%. That is almost impossible. I concentrated on the main uses cases, as stated above 
 and that is much, much better than manual testing like before.
