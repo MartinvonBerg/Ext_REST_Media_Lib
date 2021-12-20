@@ -1,0 +1,79 @@
+version: '3'
+
+services:
+  db:
+    image: mysql:5.7
+    volumes:
+      - db_data:/var/lib/mysql:rw # this volume is NOT visible from the host
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: somewordpress
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    networks:
+      - wordpress-network
+
+  wordpress-beta:
+    depends_on:
+      - db
+    image: wordpress:beta-5.9-beta3-php8.1-apache
+    # port is NOT changed to insure working REST-API
+    ports:
+      - "80:80"
+    # the following is required for the access by REST-API: 
+    extra_hosts:
+      - "localhost:172.18.0.1"
+    restart: always
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wp_data:/var/www/html:rw # this volume is NOT visible from the host
+      - ./wp-data/wp-content/uploads:/var/www/html/wp-content/uploads:rw
+      - ./app/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini # required to increase the php upload limit from 2 MB to higher value. 2MB is standard for WP images on docker.
+    networks:
+      - wordpress-network
+
+  wordpress-cli:
+    depends_on:
+      - db
+      - wordpress-beta
+    image: wordpress:cli
+    user: xfs # required to get the correct access rights
+    volumes:
+      - wp_data:/var/www/html:rw
+      - ./app:/tmp:rw
+    environment:
+      WP_CLI_CACHE_DIR: /tmp
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_HOST: db:3306 # this is required to work wp-cli on the correct database
+       
+    command: >
+      /bin/sh -c '
+      sleep 15;
+      wp core install --path="/var/www/html" --url=localhost --title="Beta Wordpress by Docker" --admin_user=admin --admin_password=secret --admin_email=mail@mvb1.de;
+      sleep 5;
+      wp plugin install --path="/var/www/html" query-monitor wp-wpcat-json-rest gutenberg --activate;
+      wp plugin uninstall hello akismet;
+      wp option update permalink_structure '/%category%/%postname%/';
+      wp user get admin --format=json > /tmp/user.json;
+      sleep 1;
+      wp --debug eval-file /tmp/wp-eval-run.php > /tmp/wp-docker.json;
+      wp cli info > /tmp/info.txt;
+      wp core version --extra >> /tmp/info.txt;
+      '
+    #command: wp user get Martin
+    networks:
+      - wordpress-network
+
+volumes:
+    db_data: 
+    wp_data:
+
+networks:
+  wordpress-network:
+    driver: bridge
