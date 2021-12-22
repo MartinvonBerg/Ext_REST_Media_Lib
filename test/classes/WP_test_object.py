@@ -47,7 +47,18 @@ class WP_REST_API():
     
 
     def get_wp_version( self ): 
-        self.wpversion = '5.8.0'
+        response = requests.get( self.url )
+        sfind = 'meta name="generator" content='
+        sresp = str(response.content)
+        pos = sresp.find( sfind )
+        length = len(sfind)
+        pos = pos + length
+        pos2 = sresp.find( '/>', pos ) -1
+        if (pos2 > pos) and (pos > 0):
+            version = sresp[pos:pos2]
+            self.wpversion = version.replace('"','')
+        else:
+            self.wpversion = '5.8.2 (TBC)'
 
     def get_themes( self ):
         geturl = self.url + self.rest_route + '/themes'
