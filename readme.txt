@@ -4,9 +4,9 @@ Contributors: martinvonberg
 Donate link: http://www.mvb1.de
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 5.3
-Tested up to: 5.8.1
+Tested up to: 5.9.0
 Requires PHP: 7.2
-Stable Tag: 0.0.18.
+Stable Tag: 0.0.18
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
