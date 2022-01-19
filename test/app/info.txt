@@ -13,7 +13,7 @@ WP-CLI packages dir:
 WP-CLI global config:	
 WP-CLI project config:	
 WP-CLI version:	2.5.0
-WordPress version: 5.9-beta3-52391
+WordPress version: 5.9-RC3-52601
 Database revision: 51917
 TinyMCE version:   4.9110 (49110-20201110)
 Package language:  en_US

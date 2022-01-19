@@ -31,8 +31,6 @@
 // 892    Variable $getResp might not be defined. : The variable is defined. The analysis is wrong.
 
 // TODO: Aufteilung in einzelne Dateien für die Funktionen zum Feld oder Endpunkt.
-// Der Umbau gemäß: https://carlalexander.ca/designing-system-wordpress-rest-api-endpoints/ 
-// oder: https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/ wird nicht weiterverfolgt.
 
 namespace mvbplugins\extmedialib;
 

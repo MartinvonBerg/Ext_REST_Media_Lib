@@ -607,7 +607,7 @@ class Replacer
 				$arg = array(
 					'ID'            => $post_id,
 					'post_date'     => $this->datetime,
-					'post_date_gmt' => get_gmt_from_date( $this->datetime ),
+					'post_modified_gmt' => get_gmt_from_date( $this->datetime ), // was before 'post_date_gmt' : changed the published date.
 				);
 				$result = wp_update_post( $arg );
 				wp_cache_delete( $post_id, 'posts' );

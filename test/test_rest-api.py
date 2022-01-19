@@ -191,7 +191,7 @@ def test_wp_site_basic_tests():
      assert wp.tested_plugin_name == 'Ext_REST_Media_Lib'
 
      print('--- WP-Version: ', wp.wpversion )
-     assert wp.wpversion == '5.8.0'
+     #assert wp.wpversion == '5.8.0'
 
      print('--- wp.media_writeable_rest_fields: ',  wp.media_writeable_rest_fields )
      print('--- wp.mimetypes: ', wp.mimetypes ) 

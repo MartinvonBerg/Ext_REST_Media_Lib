@@ -368,6 +368,9 @@ There are no FAQs just yet.
 * simplified loading of WP-Error class
 * added a programatical filter for image quality. Standard is now 80 for jpeg and 40 for webp.
 * tested the whole bunch of changes with the python-test-suite and Lightroom.
+* The further code rework acc. to: https://carlalexander.ca/designing-system-wordpress-rest-api-endpoints/ or
+* https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/ 
+* looks very promising but won't be done.
 
 == Upgrade Notice ==
 
