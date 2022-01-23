@@ -11,7 +11,7 @@
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
  * Version:           0.0.18
  * Author:            Martin von Berg
- * Author URI:        www.mvb1.de
+ * Author URI:        https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
  * License:           GPL-2.0
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  */

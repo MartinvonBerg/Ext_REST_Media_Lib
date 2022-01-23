@@ -1,7 +1,7 @@
 === wp_wpcat_json_rest ===
 Plugin Name: wp_wpcat_json_rest
 Contributors: martinvonberg
-Donate link: http://www.mvb1.de
+Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 5.3
 Tested up to: 5.9.0
