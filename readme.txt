@@ -6,7 +6,7 @@ Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catal
 Requires at least: 5.3
 Tested up to: 5.9.0
 Requires PHP: 7.2
-Stable Tag: 0.0.18
+Stable Tag: 0.0.19
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -371,6 +371,9 @@ There are no FAQs just yet.
 * The further code rework acc. to: https://carlalexander.ca/designing-system-wordpress-rest-api-endpoints/ or
 * https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/ 
 * looks very promising but won't be done.
+
+= 0.0.19 =
+*   Just a new tag for SVN upload test
 
 == Upgrade Notice ==
 
