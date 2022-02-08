@@ -171,3 +171,22 @@ function bodyIsJSON($content)
 	$json = json_decode($content);
 	return $json && $json != $content;
 }
+
+/**
+ * set the filename to the complete path
+ *
+ * @param  string $dir Path that shall be trailing the filename
+ * @param  string $fileName the $filename that shall include dir
+ * @return string the corrected fileName
+ */
+function set_complete_path( $dir, $fileName ) {
+	// if provided filename is empty : use the old filename
+	$isCompletePath = strpos( $fileName, $dir . '/');
+
+	if ( $isCompletePath === false) {
+		$path_to_new_file = $dir . \DIRECTORY_SEPARATOR . $fileName;
+	} else {
+		$path_to_new_file = $fileName;
+	}
+	return $path_to_new_file;
+}
