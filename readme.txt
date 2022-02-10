@@ -369,11 +369,14 @@ There are no FAQs just yet.
 * added a programatical filter for image quality. Standard is now 80 for jpeg and 40 for webp.
 * tested the whole bunch of changes with the python-test-suite and Lightroom.
 * The further code rework acc. to: https://carlalexander.ca/designing-system-wordpress-rest-api-endpoints/ or
-* https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/ 
-* looks very promising but won't be done.
+* https://torquemag.io/2018/03/advanced-oop-wordpress-customizing-rest-api-endpoints-improve-wordpress-search/ looks very promising but won't be done.
 
 = 0.0.19 =
 *   Just a new tag for SVN upload test
+
+= 0.0.20 =
+* Rework of the image update function (endpoint of POST-Request /update/): The function updates the image FILE only and the filename if provided in POST request. 
+* If the title of the old image was different from the filename than title will be kept. All other meta-data remains unchanged including post-parent.
 
 == Upgrade Notice ==
 

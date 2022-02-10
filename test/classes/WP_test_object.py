@@ -555,14 +555,15 @@ class WP_EXT_REST_API( WP_REST_API ):
             self.tested_plugin_activated = True
 
     def generate_dictfb( self, filename: str ):
-        """ generate the variations of the filename which must be base.extenstion withou the path!
+        """ generate the variations of the filename which must be base.extenstion without the path!
             The extension shall be stored with '.' as first chracter."""
-        base = os.path.splitext(filename)[0]
-        ext = os.path.splitext(filename)[1]
+        base = os.path.splitext(filename)[0] # basefilename
+        ext = os.path.splitext(filename)[1] #extension
 
         if base == '' or ext == '':
             return 0
 
+        # different variants of the base filename
         lower = base.lower()
         under = base.replace('-','_')
         minus = base.replace('_','-')
