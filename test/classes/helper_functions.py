@@ -22,6 +22,17 @@ def remove_html_tags(text: str):
     text = text.replace('\n','')
     return text
 
+def get_caption_from_html(text: str):
+    """get the caption from the rest_fiels with new html tags"""
+    # example
+    # <p>caption7373_1644595907</p>\n<div class="read-more"><a href="http://127.0.0.1/wordpress/dsc_1722/">Weiterlesen &#8250;</a></div>\n<p><!-- end of .read-more --></p>\n' 
+    #
+    pos1 = text.find('<p>')
+    pos2 = text.find('</p>\n')
+    if pos2 > pos1:
+        text = text[pos1+3:pos2]
+    return text
+
 def find_value_in_dic(newdict: dict, id: int, tagtype: str, tag: str):
     """ Find an img-tag specified by id in a dictionary of html-tags 
     and return the path of keys (list-type) to the tag of this value."""

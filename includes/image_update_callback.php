@@ -118,7 +118,7 @@ function post_image_update( $data )
 
 			$old_basename_without_extension = \str_replace( $ext, '', $base_fileName_from_att_meta); 
 			if ( \str_replace( $ext, '', $wpmediadata["post_title"]) == $old_basename_without_extension) {
-				$new_post_title = $postRequestFileName;
+				$new_post_title = pathinfo( $postRequestFileName )['filename'];
 			} else {
 				$new_post_title = $wpmediadata["post_title"];
 			} 

@@ -5,8 +5,8 @@ Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 5.3
 Tested up to: 5.9.0
-Requires PHP: 7.2
-Stable Tag: 0.0.19
+Requires PHP: 7.3
+Stable Tag: 0.0.20
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -377,6 +377,7 @@ There are no FAQs just yet.
 = 0.0.20 =
 * Rework of the image update function (endpoint of POST-Request /update/): The function updates the image FILE only and the filename if provided in POST request. 
 * If the title of the old image was different from the filename than title will be kept. All other meta-data remains unchanged including post-parent.
+* Minimum required PHP version is 7.3 now as now tests with 7.2 were done.
 
 == Upgrade Notice ==
 
