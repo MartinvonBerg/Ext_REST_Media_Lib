@@ -363,7 +363,7 @@ function post_image_update( $data )
 		$gallerydir = str_replace($dir, '', $old_upload_dir);
 		$gallerydir = trim($gallerydir, '/\\');
 
-		// get parent and permalink
+		// get parent
 		$oldParent = \wp_get_post_parent_id( $post_id);
 
 		// call the media replacer class with construct-method of the class to get basic information about the attachment-image
@@ -457,7 +457,7 @@ function post_image_update( $data )
 			);
 			
 			// update the attachment = image with standard methods of WP
-			wp_insert_attachment( $att_array, $gallerydir . '/' . $new_File_Name . $new_File_Extension, 0, true, false );
+			wp_insert_attachment( $att_array, $gallerydir . '/' . $new_File_Name . $new_File_Extension, 0, true, false ); // Dieser ändert den slug und den permalink
 			$success_subsizes = wp_create_image_subsizes( $path_to_new_file, $post_id ); // nach dieser Funktion ist der Dateiname falsch! Nur dann wenn größer als big-image-size!
 			
 			// update post doesn't update GUID on updates. guid has to be the full url to the file

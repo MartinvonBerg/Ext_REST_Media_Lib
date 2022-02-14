@@ -414,8 +414,8 @@ class Replacer
 			// We do this always, event if the content of the post was not changed, but maybe the image-file was changed. And we are here after several checks of the REST-API.
 			$arg = array(
 				'ID'            => $post_id,
-				'post_date'     => $this->datetime,
-				'post_date_gmt' => get_gmt_from_date( $this->datetime ),
+				//'post_date'     => $this->datetime, // this changed the published date, too, so keep it commented out.
+				'post_modified_gmt' => get_gmt_from_date( $this->datetime ), // was before 'post_date_gmt' : changed the published date.
 			);
 			$result = wp_update_post( $arg );
 			wp_cache_delete( $post_id, 'posts' );
@@ -606,7 +606,7 @@ class Replacer
 				// We do this always, event if the content of the post was not changed, but maybe the image-file was changed. 
 				$arg = array(
 					'ID'            => $post_id,
-					'post_date'     => $this->datetime,
+					//'post_date'     => $this->datetime, // this changed the published date, too, so keep it commented out.
 					'post_modified_gmt' => get_gmt_from_date( $this->datetime ), // was before 'post_date_gmt' : changed the published date.
 				);
 				$result = wp_update_post( $arg );
@@ -708,7 +708,7 @@ class Replacer
 			'caption' => $this->target_metadata['image_meta']['caption'],
 		);
 
-		// get the original html of the figure tag
+		// get the original gutenberg-html in html-comments of the figure tag
 		$comment_length = strlen( $foundtext );
 		$comment_start =  strpos( $post_content, $foundtext ) +1;
 		$comment_end = 0;
@@ -749,17 +749,17 @@ class Replacer
 				}
 			}
 			// do the replacement for the wp:gallery
-			if ( ! is_null( $target_alt_caption['caption'] ) && $this->docaption )
+			if ( ( $target_alt_caption['caption'] != '' ) && $this->docaption )
 				$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $innerhtml);
-			if ( ! is_null( $target_alt_caption['alt_text'] ) )
+			if ( ( $target_alt_caption['alt_text'] != '' ) )
 				$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $newhtml);
 		}
 
 		// do the replacement
-		if ( ! is_null( $target_alt_caption['alt_text'] ) && ( ! $isWpGallery ) )
+		if ( ($target_alt_caption['alt_text'] != '' ) && ( ! $isWpGallery ) )
 			$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $innerhtml);
 			
-		if ( ! is_null( $target_alt_caption['caption'] ) && $isWpImage && $this->docaption ) {
+		if ( ( $target_alt_caption['caption'] != '' ) && $isWpImage && $this->docaption ) {
 			if ( strlen($source_alt_caption['caption']) > 0 ) {
 				$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $newhtml);
 			} else {

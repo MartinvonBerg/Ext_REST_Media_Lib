@@ -15,6 +15,8 @@ add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_res
  * and $newmeta["image_meta"]['title'] were changed depending on the result of the meta update
  */
 function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Request $request) {
+	global $wpdb;
+
 	// alt_text is only available once at 'top-level' of the json - response
 	// title and caption are availabe at 'top-level' of the json - response AND response['media_details']['image_meta']
 	// This function keeps these values consistent
@@ -54,6 +56,18 @@ function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Re
 			if ($hascaption) $result["media_details"]["image_meta"]["caption"] = $params['caption'];
 			if ($hastitle)  $result["media_details"]["image_meta"]["title"] = $params['title'];
 		}
+	}
+	// update slug (=post_name) and therefore permalink with the new title 
+	if ( ($att) && ('POST' == $method) && ('/wp/v2/media/' == $route) && $hastitle ) {
+		$new_slug = \sanitize_title_with_dashes($params['title']);
+
+		$wpdb->update( $wpdb->posts, 
+			array( 'post_name' => $new_slug ), 
+			array('ID' => $id) 
+		);
+		
+		$result['link']= \str_replace($result['slug'],$new_slug,$result['link']);
+		$result['slug'] = $new_slug;
 	}
 
 	// update the relevant posts using the image
