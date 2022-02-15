@@ -35,7 +35,6 @@ class Replacer
 	
 	// old settings moved to class attributes
 	protected $replace_type;
-	protected $timestamp_replace ;
 	protected $do_new_location;
 	public    $new_location_dir;
 	protected $docaption;
@@ -106,7 +105,6 @@ class Replacer
 	public function API_doSearchReplace () {
 		// settings from upload.php 
 		$this->replace_type = 'replace_and_search';
-		$this->timestamp_replace = 1;
 		$this->do_new_location = false;
 		
 		$args = array(
@@ -114,7 +112,7 @@ class Replacer
 		);
   
 		// Search Replace will also update thumbnails.
-		$this->setTimeMode( $this->timestamp_replace );  
+		$this->setTimeMode( static::TIME_UPDATEMODIFIED );  
 		$this->doSearchReplace( $args ); 
 
 		// if all set and done, update the date. This updates the date of the image in the media lib only.
@@ -158,11 +156,10 @@ class Replacer
 		
 		// settings from original /view/upload.php 
 		$this->replace_type = 'replace_and_search';
-		$this->timestamp_replace = 1;
 		$this->do_new_location = false;
 		
 		// Search Replace will also update thumbnails.
-		$this->setTimeMode( $this->timestamp_replace );
+		$this->setTimeMode( static::TIME_UPDATEMODIFIED );
 
 		// Search-and-replace filename in post database
 		// EMR comment: "Check this with scaled images." 
@@ -276,7 +273,7 @@ class Replacer
 		}
 		else {
 			//$update_ar['post_date'] = 'post_date';
-		//  $update_ar['post_date_gmt'] = 'post_date_gmt';
+			//$update_ar['post_date_gmt'] = 'post_date_gmt';
 		}
 		$update_ar['post_modified'] = $post_date;
 		$update_ar['post_modified_gmt'] = $post_date_gmt;

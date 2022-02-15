@@ -442,6 +442,8 @@ function post_image_update( $data )
 		
 		if ( $all_mime_ext_OK ) {
 
+			$datetime = current_time('mysql');
+			
 			// resize missing images
 			$att_array = array(
 				'ID'			 => $post_id,
@@ -454,6 +456,8 @@ function post_image_update( $data )
 				'post_status'    => 'inherit',
 				'post_parent'	 => $oldParent, // int
 				'post_name' 	 => '' , // this is used for Permalink :  https://example.com/title-88/, (if empty post_title is used)
+				'post_date_gmt'		 => $wpmediadata['post_date_gmt'],
+				'post_modified_gmt' => get_gmt_from_date( $datetime ),
 			);
 			
 			// update the attachment = image with standard methods of WP
