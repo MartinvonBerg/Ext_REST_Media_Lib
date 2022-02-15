@@ -6,7 +6,7 @@ Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catal
 Requires at least: 5.3
 Tested up to: 5.9.0
 Requires PHP: 7.3
-Stable Tag: 0.0.20
+Stable Tag: 0.1.0
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -374,17 +374,17 @@ There are no FAQs just yet.
 = 0.0.19 =
 *   Just a new tag for SVN upload test
 
-= 0.0.20 =
+= 0.1.0 =
 * Rework of the image update function (endpoint of POST-Request /update/): The function updates the image FILE only and the filename if provided in POST request. 
-*   Content, description, alt-text, parent ASO are no kept and not overwritten.
-*   Change the modified date, only and not the published date on changes.
+*   Content, description, alt-text, parent ASO are now kept and no longer overwritten.
+*   Change the modified date, only and not the published date on changes. Valid for image and post that uses it.
 *   Set the slug and permalink according to title, if the title is changed.
 *   If the title of the old image was different from the filename than title will be kept. All other meta-data remains unchanged including post-parent.
 * Minimum required PHP version is 7.3 now as now tests with 7.2 were done.
 
 == Upgrade Notice ==
 
-Upgrade to 0.0.20 is highly recommended to get rid of the inconsistent update functions. 
+Upgrade to 0.1.0 is highly recommended to get rid of the inconsistent update functions. 
 
 
 == Credits ==
