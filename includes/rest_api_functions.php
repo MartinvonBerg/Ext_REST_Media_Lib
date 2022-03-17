@@ -18,7 +18,7 @@
 
 namespace mvbplugins\extmedialib;
 
-// ---------------- helper functions ----------------------------------------------------
+// ---------------- general helper functions ----------------------------------------------------
 
 /**
  * Return the original files that were already added OR NOT added to WP-Cat from THIS $folder

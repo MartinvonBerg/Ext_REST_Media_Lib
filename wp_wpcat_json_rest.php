@@ -16,22 +16,6 @@
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  */
 
-// phpstan: level 6 reached with following 11 remaining errors (used as a baseline for higher levels)
-// These errors were carefully reviewed and are regarded as false negative
-// 37     Right side of || is always false.: 'ABSPATH' is a WP global 
-// 390    Right side of && is always true.: This is not correct.
-// 600    Variable $getResp might not be defined. : The variable is defined. The analysis is wrong.
-// 841    Variable $url_to_new_file might not be defined. : The variable is defined. The analysis is wrong.
-// 853    Variable $title might not be defined. : The variable is defined. The analysis is wrong.
-// 853    Variable $ext might not be defined. : The variable is defined. The analysis is wrong.
-// 853    Variable $ext might not be defined. : The variable is defined. The analysis is wrong.
-// 863    Variable $url_to_new_file might not be defined. : The variable is defined. The analysis is wrong.
-// 876    Negated boolean expression is always true.: This is not correct.
-// 880    Undefined variable: $upload_id : The variable is defined. The analysis is wrong.
-// 892    Variable $getResp might not be defined. : The variable is defined. The analysis is wrong.
-
-// TODO: Aufteilung in einzelne Dateien für die Funktionen zum Feld oder Endpunkt.
-
 namespace mvbplugins\extmedialib;
 
 defined( 'ABSPATH' ) || die( 'Not defined' );
@@ -50,8 +34,15 @@ const EXT_SCALED     = 'scaled';    // filename extension for scaled images as c
 \add_filter( 'wp_editor_set_quality', function () { return WEBP_QUALITY; });
 \apply_filters( 'wp_editor_set_quality', WEBP_QUALITY, 'image/webp' );
 
-add_action('rest_api_init', '\mvbplugins\extmedialib\register_gallery');
-add_action('rest_api_init', '\mvbplugins\extmedialib\register_gallery_sort');
+$field = 'gallery';
+$descr = 'gallery-field for Lightroom';
+$type = 'string';
+add_action_field(  $field,  $descr, $type );
+
+$field = 'gallery_sort';
+$descr = 'Gallery-field for sort-order from Lightroom-Collection with custom sort activated';
+add_action_field(  $field,  $descr, $type );
+
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_md5_original');
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_update_image_route');
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_update_image_meta_route');
@@ -66,113 +57,72 @@ require_once __DIR__ . '/classes/emrFile.php';
 
 require_once __DIR__ . '/includes/require_rest_auth.php';
 require_once __DIR__ . '/includes/trigger_after_rest.php';
-//require_once __DIR__ . '/includes/image_update_callback.php';
+require_once __DIR__ . '/includes/rest_api_field_functions.php';
+
 
 // REST-API-EXTENSION FOR WP MEDIA Library---------------------------------------------------------
+/**
+ * register custom-field $field as REST-API-Field only for attachments (media) and add the action for it.
+ *
+ * @param  string $field the name of the field to register.
+ * @param  string $descr the description for the shema.
+ * @param  string $type the datatype of the field, e.g. string.
+ * @return void
+ */
+function add_action_field( string $field, string $descr, string $type ) 
+{
+	/*
+	add_action('rest_api_init', function($arguments) use ($field, $descr, $type) {
+		return \mvbplugins\extmedialib\register_attach_field($field, $descr, $type);
+	},10,3);
+	*/
+	add_action('rest_api_init', function($arguments) use ($field, $descr, $type) 
+	{
+		register_rest_field(
+			'attachment',
+			$field,
+			array(
+				'get_callback' => function ( $object ) use ( $field ) {
+					return (string) get_post_meta( $object['id'], $field, true );
+				},
+				'update_callback' => '\mvbplugins\extmedialib\cb_upd_field',
+				'schema' => array(
+					'description' => __( $descr ),
+					'type' => $type,
+					),
+				)
+		);
+	}, 10, 3 );
+}
+
 //--------------------------------------------------------------------
 /**
- * register custom-data 'gallery' as REST-API-Field only for attachments (media)
+ * register custom-field $field as REST-API-Field only for attachments (media).
  *
+ * @param  string $field the name of the field to register.
+ * @param  string $descr the description for the shema.
+ * @param  string $type the datatype of the field, e.g. string.
  * @return void
- */ 
-function register_gallery()
+ */
+/*
+function register_attach_field( string $field, string $descr, string $type )
 {
 	register_rest_field(
 		'attachment',
-		'gallery',
+		$field,
 		array(
-			'get_callback' => '\mvbplugins\extmedialib\cb_get_gallery',
-			'update_callback' => '\mvbplugins\extmedialib\cb_upd_gallery',
+			'get_callback' => function ( $object ) use ( $field ) {
+                return (string) get_post_meta( $object['id'], $field, true );
+			},
+			'update_callback' => '\mvbplugins\extmedialib\cb_upd_field',
 			'schema' => array(
-				'description' => __('gallery-field for Lightroom'),
-				'type' => 'string',
+				'description' => __( $descr ),
+				'type' => $type,
 				),
 			)
 	);
 }
-
-/**
- * callback to retrieve the gallery entry for the given attachment-id
- *
- * @param array{id:int} $data key-value paired array from the get method with 'id'
- * @return string the current entry for the gallery field
- */
-function cb_get_gallery($data)
-{
-	return (string) get_post_meta( $data['id'], 'gallery', true );
-}
-
-/**
- * callback to update the gallery entry for the given attachment-id
- *
- * @param string $value new entry for the gallery field
- * @param object $post e.g. attachment which gallery field should be updated
- * @return bool success of the callback
- */
-function cb_upd_gallery($value, $post)
-{
-	$old = (string) get_post_meta( $post->ID, 'gallery', true );
-	$ret = update_post_meta( $post->ID, 'gallery', $value );
-	// check the return-value here as this also falso if the value remains unchanged.
-	if ( $ret == false && ($old == $value) )
-		$ret = true;
-	if ( is_int( $ret) )
-		$ret = true;
-	return $ret;
-};
-
-//--------------------------------------------------------------------
-/**
- * register custom-data 'gallery_sort' as REST-API-Field only for attachments (media)
- *
- * @return void
- */ 
-function register_gallery_sort()
-{
-	register_rest_field(
-		'attachment',
-		'gallery_sort',
-		array(
-			'get_callback' => '\mvbplugins\extmedialib\cb_get_gallery_sort',
-			'update_callback' => '\mvbplugins\extmedialib\cb_upd_gallery_sort',
-			'schema' => array(
-				'description' => __('Gallery-field for sort-order from Lightroom-Collection with custom sort activated'),
-				'type' => 'integer',
-				)
-			)
-	);
-}
-
-/**
- * callback to retrieve the gallery-sort entry for the given attachment-id
- *
- * @param array{id:int} $data key-value paired array from the get method with 'id'
- * @return string the current entry for the gallery-sort field
- */
-function cb_get_gallery_sort($data)
-{
-	return (string) get_post_meta($data['id'], 'gallery_sort', true);
-}
-
-/**
- * callback to update the gallery-sort entry for the given attachment-id
- *
- * @param string $value new entry for the gallery-sort field
- * @param object $post e.g. attachment which gallery-sort-field should be updated
- * @return bool success of the callback
- */
-function cb_upd_gallery_sort($value, $post)
-{
-	$old = (string) get_post_meta( $post->ID, 'gallery_sort', true );
-	$ret = update_post_meta( $post->ID, 'gallery_sort', $value );
-	// check the return-value here as this causes problems with the LR plugin. 
-	if ( $ret == false && ($old == $value) )
-		$ret = true;
-	if ( is_int( $ret) )
-		$ret = true;
-	return $ret;
-};
-
+*/
 //--------------------------------------------------------------------
 /**
  * register custom-data 'md5' as REST-API-Field only for attachments. Provides md5 sum and size in bytes of original-file.
@@ -192,36 +142,6 @@ function register_md5_original()
 				),
 		)
 	);
-}
-
-/**
- * callback to retrieve the MD5 sum and size in bytes for the given attachment-id
- *
- * @param array{id: int} $data key-value paired array from the get method with 'id'
- * @return array{MD5: string, size: int|false} $md5
- * 		         $md5['MD5']: the MD5 sum of the original attachment file, 
- * 				 $md5['size']: the size in bytes of the original attachment file
- */
-function cb_get_md5($data)
-{
-	$original_filename = wp_get_original_image_path($data['id']);
-	$md5 = array(
-		'MD5' => '0',
-		'size' => 0,
-		'file' => $original_filename,
-		);
-
-	if ( false == $original_filename ) return $md5;
-
-	if (is_file($original_filename)) {
-		$size = filesize($original_filename);
-		$md5 = array(
-			'MD5' => strtoupper((string)md5_file($original_filename)),
-			'size' => $size,
-			
-			);
-	}
-	return $md5;
 }
 
 
