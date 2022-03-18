@@ -34,15 +34,6 @@ const EXT_SCALED     = 'scaled';    // filename extension for scaled images as c
 \add_filter( 'wp_editor_set_quality', function () { return WEBP_QUALITY; });
 \apply_filters( 'wp_editor_set_quality', WEBP_QUALITY, 'image/webp' );
 
-$field = 'gallery';
-$descr = 'gallery-field for Lightroom';
-$type = 'string';
-add_action_field(  $field,  $descr, $type );
-
-$field = 'gallery_sort';
-$descr = 'Gallery-field for sort-order from Lightroom-Collection with custom sort activated';
-add_action_field(  $field,  $descr, $type );
-
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_md5_original');
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_update_image_route');
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_update_image_meta_route');
@@ -61,6 +52,16 @@ require_once __DIR__ . '/includes/rest_api_field_functions.php';
 
 
 // REST-API-EXTENSION FOR WP MEDIA Library---------------------------------------------------------
+$field = 'gallery';
+$descr = 'gallery-field for Lightroom';
+$type = 'string';
+add_action_field(  $field,  $descr, $type );
+
+$field = 'gallery_sort';
+$descr = 'Gallery-field for sort-order from Lightroom-Collection with custom sort activated';
+$type = 'string';
+add_action_field(  $field,  $descr, $type );
+
 /**
  * register custom-field $field as REST-API-Field only for attachments (media) and add the action for it.
  *
@@ -85,7 +86,7 @@ function add_action_field( string $field, string $descr, string $type )
 				'get_callback' => function ( $object ) use ( $field ) {
 					return (string) get_post_meta( $object['id'], $field, true );
 				},
-				'update_callback' => '\mvbplugins\extmedialib\cb_upd_field',
+				'update_callback' => '\mvbplugins\extmedialib\cb_update_field',
 				'schema' => array(
 					'description' => __( $descr ),
 					'type' => $type,
@@ -95,34 +96,6 @@ function add_action_field( string $field, string $descr, string $type )
 	}, 10, 3 );
 }
 
-//--------------------------------------------------------------------
-/**
- * register custom-field $field as REST-API-Field only for attachments (media).
- *
- * @param  string $field the name of the field to register.
- * @param  string $descr the description for the shema.
- * @param  string $type the datatype of the field, e.g. string.
- * @return void
- */
-/*
-function register_attach_field( string $field, string $descr, string $type )
-{
-	register_rest_field(
-		'attachment',
-		$field,
-		array(
-			'get_callback' => function ( $object ) use ( $field ) {
-                return (string) get_post_meta( $object['id'], $field, true );
-			},
-			'update_callback' => '\mvbplugins\extmedialib\cb_upd_field',
-			'schema' => array(
-				'description' => __( $descr ),
-				'type' => $type,
-				),
-			)
-	);
-}
-*/
 //--------------------------------------------------------------------
 /**
  * register custom-data 'md5' as REST-API-Field only for attachments. Provides md5 sum and size in bytes of original-file.
