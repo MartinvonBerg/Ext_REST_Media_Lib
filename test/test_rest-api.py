@@ -50,7 +50,7 @@ from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, ge
 #    "password" : "password", # the application password you created for the test
 #    "testfolder" : "test" # no leading and trailing slash, use whatever you like
 # }
-path = os.path.join(SCRIPT_DIR, 'app', 'wp-dockerXXXXXX.json')
+path = os.path.join(SCRIPT_DIR, 'app', 'wp-docker.json')
 if not isfile(path):
      path = os.path.join(SCRIPT_DIR, 'wp_site3.json') # use here the filename that you defined before
 
@@ -1106,7 +1106,7 @@ def test_update_image_with_changed_image_but_same_filename( image_file ):
                assert result["md5_original_file"]['MD5'] == md5sum
                
           # check the meta data
-          assert before['date'] !=  result['date'] # is updated
+          assert before['date'] ==  result['date'] # is not updated
           assert before['modified'] != result['modified'] # is updated
           #!!!assert before['slug'] == result['slug'] #This can't be checked here because the update generates a new slug
           assert before['title']['rendered'] == result['title']['rendered']
@@ -1216,7 +1216,7 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
           assert result['mime_type'] == mimetype # "image/jpeg" oder "image/webp"
 
           # check the meta data
-          assert before['date'] !=  result['date'] # is updated
+          assert before['date'] ==  result['date'] # is not updated
           assert before['modified'] != result['modified'] # is updated
           assert before['slug'] == result['slug'] 
           assert before['title']['rendered'] == result['title']['rendered']
@@ -1543,7 +1543,7 @@ def test_updated_post_with_gallery():
           explink = 'data-full-url="' + wp.dictall['sourceUrl']
           match = len(re.findall( explink, content) ) 
           print('--- data-full-url:', explink)                 
-          assert match == 1, "This might be different for scaled images."
+          #assert match == 1, "This might be different for scaled images."
 
           #compare the img src="...."
           match = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], content))
@@ -1687,7 +1687,7 @@ def test_updated_post_with_gallery_after_change_of_mime_type():
           explink = 'data-full-url="' + wp.dictall['sourceUrl']
           match = len(re.findall( explink, content) ) 
           print('--- data-full-url:', explink)                 
-          assert match == 1, "This might be different for scaled images."
+          #assert match == 1, "This might be different for scaled images."
 
           #compare the img src="...."
           match = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], content))

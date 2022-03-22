@@ -60,7 +60,6 @@ function cb_get_md5( array $data ) :array
 		$md5 = array(
 			'MD5' => strtoupper((string)md5_file($original_filename)),
 			'size' => $size,
-			
 			);
 	}
 	return $md5;

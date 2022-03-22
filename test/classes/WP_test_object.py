@@ -418,7 +418,7 @@ class WP_REST_API():
 
         if result['httpstatus'] == 200:
              content = f'\
-                <!-- wp:image {{"id":{id},"sizeSlug":"large"}} -->\
+                <!-- wp:image {{"id":{id},"sizeSlug":"large","linkDestination":"none"}} -->\
                     <figure class="wp-block-image size-large">\
                     <img src="{src}" alt="{alt}" class="wp-image-{id}"/>\
                     {caption}</figure>\
@@ -484,25 +484,25 @@ class WP_REST_API():
                 caption = remove_html_tags( caption )
                 if caption == '':
                     caption = 'No Caption found'
+                else:
+                    caption = '<figcaption>' + caption + '</figcaption>'
                  
                 content += f'\
-                            <li class="blocks-gallery-item">\
-                            <figure><img src="{src}" alt="{alt}" data-id="{id}" data-full-url="{srcfull}"\
-                                data-link="{link}" class="wp-image-{id}" />\
-                                <figcaption class="blocks-gallery-item__caption">{caption}</figcaption>\
-                            </figure></li>'
+                            <!-- wp:image {{"id":{id},"sizeSlug":"large","linkDestination":"none"}} -->\
+                            <figure class="wp-block-image size-large">\
+                                <img src="{src}" alt="{alt}" class="wp-image-{id}"/>{caption}\
+                            </figure><!-- /wp:image -->'
             
             else:
                 idsstring = idsstring.replace( id + ',', '')
                 idsstring = idsstring.replace( id, '')
              
-        contentbefore= f'<!-- wp:gallery {{"ids":[{idsstring}],"columns":{columns},"linkTo":"none"}} -->\
-                    <figure class="wp-block-gallery columns-{columns} is-cropped">\
-                    <ul class="blocks-gallery-grid">'    
+        contentbefore= f'<!-- wp:gallery {{"columns":{columns},"linkTo":"none"}} -->\
+                    <figure class="wp-block-gallery has-nested-images columns-{columns} is-cropped">'    
 
         content = contentbefore + content    
         
-        content += f'</ul><figcaption class="blocks-gallery-caption">{galcaption}</figcaption>\
+        content += f'<figcaption class="blocks-gallery-caption">{galcaption}</figcaption>\
                     </figure><!-- /wp:gallery -->'
         
         return content
