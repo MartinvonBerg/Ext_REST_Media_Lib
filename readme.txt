@@ -382,6 +382,9 @@ There are no FAQs just yet.
 *   If the title of the old image was different from the filename than title will be kept. All other meta-data remains unchanged including post-parent.
 * Minimum required PHP version is 7.3 now as now tests with 7.2 were done.
 
+= 0.1.1 =
+* Code Refactoring and meaningful PHPunit tests completed
+
 == Upgrade Notice ==
 
 Upgrade to 0.1.0 is highly recommended to get rid of the inconsistent update functions. 
