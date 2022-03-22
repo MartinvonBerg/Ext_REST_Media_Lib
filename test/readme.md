@@ -1,3 +1,6 @@
+# Unit-Test with PHPUnit
+Meaningful Unit-Tests are now done with PHPUnit and BrainMonkey. The files are located in ./tests.
+
 # System Test
 
 The plugin is 'completely' tested with a new python test suite (PTS). The PTS uses pytest and a bunch of other modules that have to be available for Python.

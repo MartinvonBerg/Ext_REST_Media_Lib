@@ -248,9 +248,7 @@ Level 5 is OK except 19 remaining Errors. These were carefully reviewed and rega
 Command: php .\vendor\phpstan\phpstan\phpstan analyse classes inc .\wp_wpcat_json_rest.php --memory-limit 1G
 
 3.1. Unit-Tests
-No unit test at all. I know that is necessary, but for the moment I concentrated on system tests. Furthermore IMO this is not usefull if designer and tester are the same person. 
-Almost 100% of the errors are wrong or incomplete understanding of WP functions. A mock with brain-monkey or whatever would result in a wrong mock because my understanding of the
-WP function is wrong. So, no unit tests, I regard it as inefficient for a one-person-approach.
+Meaningful Unit-Tests are now done with PHPUnit. The files are located in ./tests.
 
 3.2. Integration Test
 Well, IMO this is mainly the (de-)installation procedure for the plugins. Tested manually. Works
@@ -396,3 +394,4 @@ This plugin uses the great work from:
 - wordpress for coding hints: https://de.wordpress.org/
 - authorization hints: https://developer.wordpress.org/rest-api/frequently-asked-questions/
 - Enable Media Replacer: https://de.wordpress.org/plugins/enable-media-replace/ I'm using two classes of this great plugin to handle the link updates.
+- PHPunit and BrainMonkey for Testing
