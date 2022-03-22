@@ -6,7 +6,7 @@ Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catal
 Requires at least: 5.3
 Tested up to: 5.9.0
 Requires PHP: 7.3
-Stable Tag: 0.1.0
+Stable Tag: 0.1.1
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
