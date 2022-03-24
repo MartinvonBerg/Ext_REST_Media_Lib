@@ -7,7 +7,7 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
  * Callback for GET to REST-Route 'update/<id>'. Check wether Parameter id (integer!) is an WP media attachment, e.g. an image and calc md5-sum of original file
  *
  * @param array{id:int} $data is the complete Request data of the REST-api GET
- * @return \WP_REST_Response|WP_Error array for the rest response body or a WP Error object
+ * @return object WP_REST_Response|WP_Error array for the rest response body or a WP Error object
  */
 function get_image_update( $data )
 {
@@ -33,7 +33,7 @@ function get_image_update( $data )
 			'md5_original_file' => $md5,
 			'max_upload_size' => (string)wp_max_upload_size() . ' bytes'
 		);
-	} elseif ($att && $resized) {
+	} elseif ($att) {
 		$file2 = get_attached_file($post_id, true);
 		$getResp = array(
 			'message' => 'Image ' . $post_id . ' is a resized image',)
@@ -52,7 +52,7 @@ function get_image_update( $data )
  * Important Source: https://developer.wordpress.org/reference/classes/wp_rest_request
  *
  * @param object $data is the complete Request data of the REST-api GET
- * @return \WP_REST_Response|WP_Error array for the rest response body or a WP Error object
+ * @return object WP_REST_Response|WP_Error array for the rest response body or a WP Error object
  */
 function post_image_update( $data )
 {
@@ -279,7 +279,7 @@ function post_image_update( $data )
 		return new \WP_Error('too_big', 'Invalid Image (bigger than: '. wp_max_upload_size() .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
 	} elseif (! $att) {
 		return new \WP_Error('not_found', 'Attachment is not an Image: ' . $post_id, array( 'status' => 415 ));
-	}
+	} else $getResp = '';
 	
 	return rest_ensure_response($getResp);
 };

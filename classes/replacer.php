@@ -137,7 +137,7 @@ class Replacer
 		$newmeta['alt_text'] = filter_var( $newmeta['alt_text'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
 		$newmeta['caption'] = filter_var( $newmeta['caption'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
 		array_key_exists('alt_text', $newmeta)  ? $target_meta['alt_text'] = $newmeta['alt_text'] : null ;
-		array_key_exists('caption',  $newmeta)  ? $target_meta['caption']  = $newmeta['caption']  : null ;
+		array_key_exists('caption',  $newmeta)  ? $target_meta['caption']  = $newmeta['caption']  : $target_meta['caption'] = '' ;
 		$this->target_metadata['image_meta']['caption'] = $target_meta['caption'];
 		$this->target_metadata['image_meta']['alt_text'] = $target_meta['alt_text'];
 

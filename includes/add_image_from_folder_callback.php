@@ -41,7 +41,7 @@ function get_add_image_from_folder($data)
  * Provides the new WP-ID and the filename that was written to the folder.
  * 
  * @param object $data is the complete Request data of the REST-api POST
- * @return \WP_REST_Response|\WP_Error REST-response data for the folder if it exists of Error message
+ * @return object WP_REST_Response|WP_Error REST-response data for the folder if it exists of Error message
  */
 function post_add_image_from_folder($data)
 {

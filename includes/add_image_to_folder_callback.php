@@ -39,7 +39,7 @@ function get_add_image_to_folder( $data )
  * required body: the image file with identical mime-type!
  * 
  * @param object $data is the complete Request data of the REST-api POST
- * @return \WP_REST_Response|WP_Error REST-response data for the folder if it exists of Error message
+ * @return object WP_REST_Response|WP_Error REST-response data for the folder if it exists of Error message
  */
 function post_add_image_to_folder($data)
 {
@@ -73,6 +73,9 @@ function post_add_image_to_folder($data)
 	$image = $data->get_body(); // body e.g. jpg-image as string of POST-Request
 	$cont =$data->get_header('Content-Disposition');
 	$newfile = '';
+	$url_to_new_file = '';
+	$title = '';
+	$ext = '';
 	
 	// define filename
 	if (! empty($cont)) {
@@ -105,6 +108,13 @@ function post_add_image_to_folder($data)
 			);
 			
 			$upload_id = wp_insert_attachment( $att_array, $newfile, 0, true, true ); 
+
+			if (is_wp_error( $upload_id )) {
+				// something went wrong: delete file and return
+				unlink($newfile);
+				return new \WP_Error('error', 'Could not generate attachment for file ' . $cont, array( 'status' => 400 ));
+			}
+
 			$success_subsizes = wp_create_image_subsizes( $newfile, $upload_id ) ;
 			
 			if ( \strpos( $success_subsizes["file"], EXT_SCALED) != \false ) 
@@ -131,16 +141,12 @@ function post_add_image_to_folder($data)
 			// something went wrong // delete file
 			unlink($newfile);
 			return new \WP_Error('error', 'Could not write file ' . $cont, array( 'status' => 400 ));
-		} elseif (! $mime_type_ok) {
+		} else {
 			// something went wrong // delete file
 			unlink($newfile);
 			return new \WP_Error('error', 'Mime-Type mismatch for upload ' . $cont, array( 'status' => 400 ));
-		} elseif (is_wp_error( $upload_id )) {
-			// something went wrong // delete file
-			unlink($newfile);
-			return new \WP_Error('error', 'Could not generate attachment for file ' . $cont, array( 'status' => 400 ));
-		}
-		// Do not check $success_resize as it could be a small png for icons or so
+		} 
+	
 	} elseif ($newexists) {
 		return new \WP_Error('error', 'File ' . $cont . ' already exists!', array( 'status' => 400 ));
 	} else {
