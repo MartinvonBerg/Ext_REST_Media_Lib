@@ -6,7 +6,7 @@
  * @package           Ext_REST_Media_Lib
  *
  * @wordpress-plugin
- * Plugin Name:       Ext_REST_Media_Lib
+ * Plugin Name:       Extended_REST-API_for_Media_Library
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
  * Version:           0.1.1

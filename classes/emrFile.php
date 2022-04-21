@@ -16,7 +16,6 @@ namespace mvbplugins\extmedialib;
 
 class emrFile
 {
-
   protected $file; // the full file w/ path.
   protected $extension;
   protected $fileName;
@@ -24,7 +23,6 @@ class emrFile
   protected $fileURL;
   protected $fileMime;
   protected $permissions = 0;
-
   protected $exists = false;
 
   public function __construct($file)
@@ -48,14 +46,15 @@ class emrFile
      $filedata = wp_check_filetype_and_ext($this->file, $this->fileName);
      // This will *not* be checked, is not meant for permission of validation!
      // Note: this function will work on non-existing file, but not on existing files containing wrong mime in file.
-     $this->fileMime = (isset($filedata['type']) && strlen($filedata['type']) > 0) ? $filedata['type'] : false;
+     $this->fileMime = (isset($filedata['type']) && (strlen($filedata['type']) > 0) ) ? $filedata['type'] : false;
 
-     if ($this->fileMime == false && strlen($this->file) > 0 && function_exists('mime_content_type') && $this->exists)
-		 {
+     if ( ($this->fileMime == false) && $this->exists )
+      {
 			  // If it's not a registered mimetype
-        $this->fileMime = mime_content_type($this->file);
-		 }
-
+        //$this->fileMime = mime_content_type($this->file);
+        $image = exif_imagetype( $file ); 
+        $this->fileMime = image_type_to_mime_type($image);
+		 } 
   }
 
   public function checkAndCreateFolder()

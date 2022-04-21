@@ -1,10 +1,10 @@
 === wp_wpcat_json_rest ===
-Plugin Name: wp_wpcat_json_rest
+Plugin Name: Extended_REST-API_for_Media_Library
 Contributors: martinvonberg
 Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 5.3
-Tested up to: 5.9.0
+Tested up to: 5.9.3
 Requires PHP: 7.3
 Stable Tag: 0.1.1
 License: GPLv2
