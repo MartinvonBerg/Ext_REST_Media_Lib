@@ -50,7 +50,7 @@ from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, ge
 #    "password" : "password", # the application password you created for the test
 #    "testfolder" : "test" # no leading and trailing slash, use whatever you like
 # }
-path = os.path.join(SCRIPT_DIR, 'app', 'wp-docker.json')
+path = os.path.join(SCRIPT_DIR, 'app', 'wpXXXXX-docker.json')
 if not isfile(path):
      path = os.path.join(SCRIPT_DIR, 'wp_site3.json') # use here the filename that you defined before
 
@@ -189,8 +189,9 @@ def test_wp_site_basic_tests():
      assert len(wp.active_theme) > 0
 
      print('--- tested Plugin Name: ', wp.tested_plugin_name )
-     assert wp.tested_plugin_name == 'Ext_REST_Media_Lib'
-
+     #assert wp.tested_plugin_name == 'Ext_REST_Media_Lib'
+     assert wp.tested_plugin_name == 'Extended_REST-API_for_Media_Library' or 'Ext_REST_Media_Lib'
+     
      print('--- WP-Version: ', wp.wpversion )
      ##assert wp.wpversion == '5.8.0'
 

@@ -17,7 +17,7 @@ services:
   wordpress-beta:
     depends_on:
       - db
-    image: wordpress:latest
+    image: wordpress:beta-6.0-RC1-apache
     # port is NOT changed to insure working REST-API
     ports:
       - "80:80"

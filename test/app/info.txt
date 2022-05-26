@@ -1,7 +1,7 @@
 OS:	Linux 5.10.60.1-microsoft-standard-WSL2 #1 SMP Wed Aug 25 23:20:18 UTC 2021 x86_64
 Shell:	
 PHP binary:	/usr/local/bin/php
-PHP version:	7.4.28
+PHP version:	7.4.29
 php.ini used:	
 MySQL binary:	/usr/bin/mysql
 MySQL version:	mysql  Ver 15.1 Distrib 10.6.7-MariaDB, for Linux (x86_64) using readline 5.1
@@ -13,7 +13,7 @@ WP-CLI packages dir:
 WP-CLI global config:	
 WP-CLI project config:	
 WP-CLI version:	2.6.0
-WordPress version: 5.9.2
+WordPress version: 6.0-RC1-53350
 Database revision: 51917
 TinyMCE version:   4.9110 (49110-20201110)
 Package language:  en_US

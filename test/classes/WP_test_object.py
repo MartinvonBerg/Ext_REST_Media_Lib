@@ -58,7 +58,7 @@ class WP_REST_API():
             version = sresp[pos:pos2]
             self.wpversion = version.replace('"','')
         else:
-            self.wpversion = '5.8.2 (TBC)'
+            self.wpversion = '5.9.3 (TBC)'
 
     def get_themes( self ):
         geturl = self.url + self.rest_route + '/themes'
@@ -513,6 +513,7 @@ class WP_EXT_REST_API( WP_REST_API ):
     to dedicated folders."""
     tested_plugin_dir = 'wp-wpcat-json-rest/wp_wpcat_json_rest'
     tested_plugin_name = 'Ext_REST_Media_Lib'
+    #tested_plugin_name = 'Extended_REST-API_for_Media_Library'
     tested_plugin_min_version = '0.0.14'
     tested_plugin_version = ''
     tested_plugin_activated = False
@@ -550,9 +551,12 @@ class WP_EXT_REST_API( WP_REST_API ):
         """ Get some information about the tested plugin."""
         self.tested_plugin_version = ''
         index = find_plugin_in_json_resp_body( self.plugins, 'name', self.tested_plugin_name)
-        self.tested_plugin_version = self.plugins[index]['version']
-        if self.plugins[index]['status'] == 'active':
-            self.tested_plugin_activated = True
+        try:
+            self.tested_plugin_version = self.plugins[index]['version']
+            if self.plugins[index]['status'] == 'active':
+                self.tested_plugin_activated = True
+        except:
+            self.tested_plugin_activated = False
 
     def generate_dictfb( self, filename: str ):
         """ generate the variations of the filename which must be base.extenstion without the path!

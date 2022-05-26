@@ -6,10 +6,10 @@
  * @package           Ext_REST_Media_Lib
  *
  * @wordpress-plugin
- * Plugin Name:       Extended_REST-API_for_Media_Library
+ * Plugin Name:       Ext_REST_Media_Lib
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
- * Version:           0.1.1
+ * Version:           0.1.2
  * Author:            Martin von Berg
  * Author URI:        https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
  * License:           GPL-2.0

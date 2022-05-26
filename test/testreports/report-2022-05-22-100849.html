@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <style>body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  /* do not increase min-width as some may use split screens */
+  min-width: 800px;
+  color: #999;
+}
+
+h1 {
+  font-size: 24px;
+  color: black;
+}
+
+h2 {
+  font-size: 16px;
+  color: black;
+}
+
+p {
+  color: black;
+}
+
+a {
+  color: #999;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+#environment td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+}
+#environment tr:nth-child(odd) {
+  background-color: #f6f6f6;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed,
+.passed .col-result {
+  color: green;
+}
+
+span.skipped,
+span.xfailed,
+span.rerun,
+.skipped .col-result,
+.xfailed .col-result,
+.rerun .col-result {
+  color: orange;
+}
+
+span.error,
+span.failed,
+span.xpassed,
+.error .col-result,
+.failed .col-result,
+.xpassed .col-result {
+  color: red;
+}
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+#results-table {
+  border: 1px solid #e6e6e6;
+  color: #999;
+  font-size: 12px;
+  width: 100%;
+}
+#results-table th,
+#results-table td {
+  padding: 5px;
+  border: 1px solid #E6E6E6;
+  text-align: left;
+}
+#results-table th {
+  font-weight: bold;
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+.log {
+  background-color: #e6e6e6;
+  border: 1px solid #e6e6e6;
+  color: black;
+  display: block;
+  font-family: "Courier New", Courier, monospace;
+  height: 230px;
+  overflow-y: scroll;
+  padding: 5px;
+  white-space: pre-wrap;
+}
+.log:only-child {
+  height: inherit;
+}
+
+div.image {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.image img {
+  width: 320px;
+}
+
+div.video {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin-left: 5px;
+  overflow: hidden;
+  width: 320px;
+}
+div.video video {
+  overflow: hidden;
+  width: 320px;
+  height: 240px;
+}
+
+.collapsed {
+  display: none;
+}
+
+.expander::after {
+  content: " (show details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.collapser::after {
+  content: " (hide details)";
+  color: #BBB;
+  font-style: italic;
+  cursor: pointer;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+  cursor: pointer;
+}
+
+.sort-icon {
+  font-size: 0px;
+  float: left;
+  margin-right: 5px;
+  margin-top: 5px;
+  /*triangle*/
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+}
+.inactive .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #E6E6E6;
+}
+.asc.active .sort-icon {
+  /*finish triangle*/
+  border-bottom: 8px solid #999;
+}
+.desc.active .sort-icon {
+  /*finish triangle*/
+  border-top: 8px solid #999;
+}
+</style></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>report-2022-05-22-100849.html</h1>
+    <p>Report generated on 22-May-2022 at 10:13:14 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "0.13.1", "py": "1.9.0", "pytest": "6.2.4"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.19041-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"html": "3.1.1", "metadata": "1.11.0"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.8.6</td></tr></table>
+    <h2>Summary</h2>
+    <p>73 tests ran in 265.52 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">73 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_upload_one_image_to_standard_folder</td>
+          <td class="col-duration">3.48</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Starting Test in directory:  test
+--- Uploading file:  DSC_jgp-1972.jpg  to standard folder.
+---  Created
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_get_number_of_posts_and_upload_dir</td>
+          <td class="col-duration">10.98</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Counted 263 images in the media library.
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">4.10</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  DSC_jgp-1972.jpg
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_jgp-1972.jpg
+---  You requested image addition to folder C:/Bitnami/wordpress-5.2.2-0/apps/wordpress/htdocs/wp-content/uploads/python with POST-Request. Done.
+--- last media id:  1
+--- new media id:  8614
+--- gallery:  python
+--- guid for decision:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_jgp-1972.jpg
+--- wp.baseurl for decision:  http://127.0.0.1/
+--- Site uses complete urls!
+--- image is scaled: Yes. Width:  3000  and Height:  2000
+--- attachment type:  image
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_jgp-1972.jpg
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_jgp-1972-scaled.jpg
+--- link:  http://127.0.0.1/wordpress/dsc_jgp-1972/
+--- time:  2022-05-22 08:08:57 image-time:  2022-05-22T08:09:08
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">7.90</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  Skitour-Dbhorn-2020-02-5.jpg
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\Skitour-Dbhorn-2020-02-5.jpg
+---  You requested image addition to folder C:/Bitnami/wordpress-5.2.2-0/apps/wordpress/htdocs/wp-content/uploads/python with POST-Request. Done.
+--- last media id:  1
+--- new media id:  8615
+--- gallery:  python
+--- guid for decision:  http://127.0.0.1/wordpress/wp-content/uploads/python/Skitour-Dbhorn-2020-02-5.jpg
+--- wp.baseurl for decision:  http://127.0.0.1/
+--- Site uses complete urls!
+--- image is scaled: Yes. Width:  5568  and Height:  3712
+--- attachment type:  image
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/Skitour-Dbhorn-2020-02-5.jpg
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/Skitour-Dbhorn-2020-02-5-scaled.jpg
+--- link:  http://127.0.0.1/wordpress/skitour-dbhorn-2020-02-5/
+--- time:  2022-05-22 08:09:01 image-time:  2022-05-22T08:09:12
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[DSC_1722.webp]</td>
+          <td class="col-duration">3.37</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  DSC_1722.webp
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_1722.webp
+---  You requested image addition to folder C:/Bitnami/wordpress-5.2.2-0/apps/wordpress/htdocs/wp-content/uploads/python with POST-Request. Done.
+--- last media id:  1
+--- new media id:  8616
+--- gallery:  python
+--- guid for decision:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1722.webp
+--- wp.baseurl for decision:  http://127.0.0.1/
+--- Site uses complete urls!
+--- attachment type:  image
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1722.webp
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1722.webp
+--- link:  http://127.0.0.1/wordpress/dsc_1722/
+--- time:  2022-05-22 08:09:09 image-time:  2022-05-22T08:09:20
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_image_upload_to_folder_with_ext_rest_api[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">8.70</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Uploading file:  DSC_1749-Wald.webp
+Upload File:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_1749-Wald.webp
+---  You requested image addition to folder C:/Bitnami/wordpress-5.2.2-0/apps/wordpress/htdocs/wp-content/uploads/python with POST-Request. Done.
+--- last media id:  1
+--- new media id:  8617
+--- gallery:  python
+--- guid for decision:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1749-Wald.webp
+--- wp.baseurl for decision:  http://127.0.0.1/
+--- Site uses complete urls!
+--- image is scaled: Yes. Width:  5568  and Height:  3712
+--- attachment type:  image
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1749-Wald.webp
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1749-Wald-scaled.webp
+--- link:  http://127.0.0.1/wordpress/dsc_1749-wald/
+--- time:  2022-05-22 08:09:12 image-time:  2022-05-22T08:09:23
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_created_json_file_list</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Read created files from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createdfiles.json
+[   [8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;],
+    [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">0.67</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- Calc MD5 from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_jgp-1972.jpg
+--- MD5 of local file:  1EDCDED4F7982F2DEE3146F661ABB0F2
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">0.72</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- Calc MD5 from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\Skitour-Dbhorn-2020-02-5.jpg
+--- MD5 of local file:  83812FFD99F9985A56C00FCB272FCEE1
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[DSC_1722.webp]</td>
+          <td class="col-duration">0.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- Calc MD5 from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_1722.webp
+--- MD5 of local file:  5B6B317E32120C6DB8EF3B8C17A08A00
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_ext_rest_api_get_md5_sum[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">0.67</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- Calc MD5 from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_1749-Wald.webp
+--- MD5 of local file:  4052031D8A9202852A39EE1596C409DF
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">2.09</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">2.19</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[DSC_1722.webp]</td>
+          <td class="col-duration">2.11</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_new_value[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">2.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">1.39</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">1.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[DSC_1722.webp]</td>
+          <td class="col-duration">1.38</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_with_valid_id_same_value[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">1.39</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">0.73</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">0.76</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[DSC_1722.webp]</td>
+          <td class="col-duration">0.72</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_new_value[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">0.76</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">1.39</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">1.44</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[DSC_1722.webp]</td>
+          <td class="col-duration">1.36</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_set_field_gallery_sort_with_valid_id_same_value[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">1.36</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">0.62</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">0.62</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[DSC_1722.webp]</td>
+          <td class="col-duration">0.61</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_rest_api_get_update_meta_with_valid_id[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">0.61</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+entry:  [8614, &#x27;DSC_jgp-1972.jpg&#x27;]  is type  &lt;class &#x27;list&#x27;&gt; . ID= 8614 and file is DSC_jgp-1972.jpg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+entry:  [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;]  is type  &lt;class &#x27;list&#x27;&gt; . ID= 8615 and file is Skitour-Dbhorn-2020-02-5.jpg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[DSC_1722.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+entry:  [8616, &#x27;DSC_1722.webp&#x27;]  is type  &lt;class &#x27;list&#x27;&gt; . ID= 8616 and file is DSC_1722.webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_id_of_created_images[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+entry:  [8617, &#x27;DSC_1749-Wald.webp&#x27;]  is type  &lt;class &#x27;list&#x27;&gt; . ID= 8617 and file is DSC_1749-Wald.webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">5.06</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+Comparing:  8614
+--- title:  title8614_1653206999
+--- gallery_sort:  8614
+--- caption:  caption8614_1653206999
+--- alt_text:  alt_text8614_1653206999
+--- attachment type:  image
+--- gallery:  python
+--- image is scaled: Yes
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_jgp-1972.jpg
+--- link:  http://127.0.0.1/wordpress/title8614_1653206999/
+--- time:  2022-05-22 08:09:49 image-time:  2022-05-22T08:10:00
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">5.13</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+Comparing:  8615
+--- title:  title8615_1653207005
+--- gallery_sort:  8615
+--- caption:  caption8615_1653207005
+--- alt_text:  alt_text8615_1653207005
+--- attachment type:  image
+--- gallery:  python
+--- image is scaled: Yes
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/Skitour-Dbhorn-2020-02-5.jpg
+--- link:  http://127.0.0.1/wordpress/title8615_1653207005/
+--- time:  2022-05-22 08:09:54 image-time:  2022-05-22T08:10:05
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[DSC_1722.webp]</td>
+          <td class="col-duration">5.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+Comparing:  8616
+--- title:  title8616_1653207010
+--- gallery_sort:  8616
+--- caption:  caption8616_1653207010
+--- alt_text:  alt_text8616_1653207010
+--- attachment type:  image
+--- gallery:  python
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1722.webp
+--- link:  http://127.0.0.1/wordpress/title8616_1653207010/
+--- time:  2022-05-22 08:09:59 image-time:  2022-05-22T08:10:10
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">5.10</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+Comparing:  8617
+--- title:  title8617_1653207015
+--- gallery_sort:  8617
+--- caption:  caption8617_1653207015
+--- alt_text:  alt_text8617_1653207015
+--- attachment type:  image
+--- gallery:  python
+--- image is scaled: Yes
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1749-Wald.webp
+--- link:  http://127.0.0.1/wordpress/title8617_1653207015/
+--- time:  2022-05-22 08:10:04 image-time:  2022-05-22T08:10:15
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">2.88</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">2.88</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[DSC_1722.webp]</td>
+          <td class="col-duration">2.85</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_with_one_image[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">2.84</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_gallery_with_all_images</td>
+          <td class="col-duration">4.89</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">3.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">3.22</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[DSC_1722.webp]</td>
+          <td class="col-duration">3.05</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_create_gtb_image_text[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">3.25</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_get_request_invalid_id</td>
+          <td class="col-duration">0.74</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_get_request_valid_id[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">0.74</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_get_request_valid_id[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">0.65</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_get_request_valid_id[DSC_1722.webp]</td>
+          <td class="col-duration">0.64</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_get_request_valid_id[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">0.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_changed_image_but_same_filename[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">6.97</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- image is scaled: Yes
+--- local path updated file:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\DSC_jgp-1972.jpg
+Comparing:  8614
+--- gallery:  python
+--- attachment type:  image
+--- mime-type:  image/jpeg
+--- Calc MD5 from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\DSC_jgp-1972.jpg
+--- MD5 of local file:  29586A3A8DBCB2871B4DD1A209CA316F
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_jgp-1972.jpg
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_jgp-1972.jpg
+--- link:  http://127.0.0.1/wordpress/title8614_1653206999/
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_changed_image_but_same_filename[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">10.31</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- image is scaled: Yes
+--- local path updated file:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\Skitour-Dbhorn-2020-02-5.jpg
+Comparing:  8615
+--- gallery:  python
+--- attachment type:  image
+--- mime-type:  image/jpeg
+--- Calc MD5 from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\Skitour-Dbhorn-2020-02-5.jpg
+--- MD5 of local file:  A6E9F839FC2438403FEB2699B37A6DCC
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/Skitour-Dbhorn-2020-02-5.jpg
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/Skitour-Dbhorn-2020-02-5.jpg
+--- link:  http://127.0.0.1/wordpress/title8615_1653207005/
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_changed_image_but_same_filename[DSC_1722.webp]</td>
+          <td class="col-duration">6.08</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- local path updated file:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\DSC_1722.webp
+Comparing:  8616
+--- gallery:  python
+--- attachment type:  image
+--- mime-type:  image/webp
+--- Calc MD5 from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\DSC_1722.webp
+--- MD5 of local file:  6F31BF7658289C13BDBCCF5A18A2C834
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1722.webp
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1722.webp
+--- link:  http://127.0.0.1/wordpress/title8616_1653207010/
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_changed_image_but_same_filename[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">12.42</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- image is scaled: Yes
+--- local path updated file:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\DSC_1749-Wald.webp
+Comparing:  8617
+--- gallery:  python
+--- attachment type:  image
+--- mime-type:  image/webp
+--- Calc MD5 from:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\DSC_1749-Wald.webp
+--- MD5 of local file:  8BAF0FD6573D481C90540782EC515686
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1749-Wald.webp
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/DSC_1749-Wald.webp
+--- link:  http://127.0.0.1/wordpress/title8617_1653207015/
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">9.17</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- image is scaled: Yes
+--- local path updated file:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\flip__DSC_jgp-1972.jpg
+Comparing:  8614
+--- gallery:  python
+--- attachment type:  image
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972.jpg
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972.jpg
+--- link:  http://127.0.0.1/wordpress/title8614_1653206999/
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">12.89</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- image is scaled: Yes
+--- local path updated file:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\flip__Skitour-Dbhorn-2020-02-5.jpg
+Comparing:  8615
+--- gallery:  python
+--- attachment type:  image
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5.jpg
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5.jpg
+--- link:  http://127.0.0.1/wordpress/title8615_1653207005/
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[DSC_1722.webp]</td>
+          <td class="col-duration">8.45</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- local path updated file:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\flip__DSC_1722.webp
+Comparing:  8616
+--- gallery:  python
+--- attachment type:  image
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722.webp
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722.webp
+--- link:  http://127.0.0.1/wordpress/title8616_1653207010/
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_with_flipped_original_and_new_filename[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">14.78</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- image is scaled: Yes
+--- local path updated file:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\createddata\flip__DSC_1749-Wald.webp
+Comparing:  8617
+--- gallery:  python
+--- attachment type:  image
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald.webp
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald.webp
+--- link:  http://127.0.0.1/wordpress/title8617_1653207015/
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">6.51</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- timestamp:  1653207133
+--- image is scaled: Yes
+Comparing:  8614
+--- title:  updated_title8614_1653207133
+--- gallery_sort:  8614
+--- caption:  updated_caption8614_1653207133
+--- alt_text:  updated_alt8614_1653207133
+--- attachment type:  image
+--- gallery:  python
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972.jpg
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972.jpg
+--- link:  http://127.0.0.1/wordpress/updated_title8614_1653207133/
+--- time:  2022-05-22 08:12:03 image-time:  2022-05-22T08:12:14
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">6.56</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- timestamp:  1653207140
+--- image is scaled: Yes
+Comparing:  8615
+--- title:  updated_title8615_1653207140
+--- gallery_sort:  8615
+--- caption:  updated_caption8615_1653207140
+--- alt_text:  updated_alt8615_1653207140
+--- attachment type:  image
+--- gallery:  python
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5.jpg
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5.jpg
+--- link:  http://127.0.0.1/wordpress/updated_title8615_1653207140/
+--- time:  2022-05-22 08:12:09 image-time:  2022-05-22T08:12:20
+--- mime-type:  image/jpeg
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[DSC_1722.webp]</td>
+          <td class="col-duration">6.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- timestamp:  1653207147
+Comparing:  8616
+--- title:  updated_title8616_1653207147
+--- gallery_sort:  8616
+--- caption:  updated_caption8616_1653207147
+--- alt_text:  updated_alt8616_1653207147
+--- attachment type:  image
+--- gallery:  python
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722.webp
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722.webp
+--- link:  http://127.0.0.1/wordpress/updated_title8616_1653207147/
+--- time:  2022-05-22 08:12:16 image-time:  2022-05-22T08:12:27
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_update_image_metadata_after_posts_were_created[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">6.39</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- timestamp:  1653207153
+--- image is scaled: Yes
+Comparing:  8617
+--- title:  updated_title8617_1653207153
+--- gallery_sort:  8617
+--- caption:  updated_caption8617_1653207153
+--- alt_text:  updated_alt8617_1653207153
+--- attachment type:  image
+--- gallery:  python
+--- guid:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald.webp
+--- source-url:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald.webp
+--- link:  http://127.0.0.1/wordpress/updated_title8617_1653207153/
+--- time:  2022-05-22 08:12:22 image-time:  2022-05-22T08:12:33
+--- mime-type:  image/webp
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[DSC_jgp-1972.jpg]</td>
+          <td class="col-duration">2.91</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- image is scaled: Yes
+--- Found image  8614  in post  8618 . Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8614_1653207133&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-scaled.jpg&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;2560&quot; height=&quot;1707&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-scaled.jpg&quot; alt=&quot;updated_alt8614_1653207133&quot; class=&quot;wp-image-8614&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-scaled.jpg 2560w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-300x200.jpg 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1024x683.jpg 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-768x512.jpg 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1300x867.jpg 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1536x1024.jpg 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-2048x1365.jpg 2048w&quot; sizes=&quot;(max-width: 2560px) 100vw, 2560px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8614_1653207133&lt;/figcaption&gt;&lt;/figure&gt;&lt;/body&gt;&lt;/html&gt;
+--- imgalt:  updated_alt8614_1653207133
+--- it is an image. search imgcaption  updated_caption8614_1653207133
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-[0-9]+x[0-9]+.jpg
+--- Found image  8614  in post  8623 . Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;div class=&quot;wp-block-media-text alignwide is-stacked-on-mobile&quot; style=&quot;grid-template-columns:50% auto&quot;&gt;                    &lt;figure class=&quot;wp-block-media-text__media&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1024x683.jpg&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;683&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1024x683.jpg&quot; alt=&quot;updated_alt8614_1653207133&quot; class=&quot;wp-image-8614 size-full&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1024x683.jpg 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-300x200.jpg 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-768x512.jpg 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1300x867.jpg 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1536x1024.jpg 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-2048x1365.jpg 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;/figure&gt;                    &lt;div class=&quot;wp-block-media-text__content&quot;&gt;                                            &lt;p class=&quot;has-large-font-size&quot;&gt;Created at: 1653207036&lt;/p&gt;                    &lt;/div&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;
+--- imgalt:  updated_alt8614_1653207133
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-[0-9]+x[0-9]+.jpg
+--- data-link: http://127.0.0.1/wordpress/flip__dsc_jgp-1972/  is NOT checked.
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[Skitour-Dbhorn-2020-02-5.jpg]</td>
+          <td class="col-duration">2.71</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- image is scaled: Yes
+--- Found image  8615  in post  8619 . Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8615_1653207140&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-scaled.jpg&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;2560&quot; height=&quot;1707&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-scaled.jpg&quot; alt=&quot;updated_alt8615_1653207140&quot; class=&quot;wp-image-8615&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-scaled.jpg 2560w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-300x200.jpg 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-768x512.jpg 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1300x867.jpg 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1536x1024.jpg 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-2048x1365.jpg 2048w&quot; sizes=&quot;(max-width: 2560px) 100vw, 2560px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8615_1653207140&lt;/figcaption&gt;&lt;/figure&gt;&lt;/body&gt;&lt;/html&gt;
+--- imgalt:  updated_alt8615_1653207140
+--- it is an image. search imgcaption  updated_caption8615_1653207140
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-[0-9]+x[0-9]+.jpg
+--- Found image  8615  in post  8624 . Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;div class=&quot;wp-block-media-text alignwide is-stacked-on-mobile&quot; style=&quot;grid-template-columns:50% auto&quot;&gt;                    &lt;figure class=&quot;wp-block-media-text__media&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;683&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg&quot; alt=&quot;updated_alt8615_1653207140&quot; class=&quot;wp-image-8615 size-full&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-300x200.jpg 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-768x512.jpg 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1300x867.jpg 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1536x1024.jpg 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-2048x1365.jpg 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;/figure&gt;                    &lt;div class=&quot;wp-block-media-text__content&quot;&gt;                                            &lt;p class=&quot;has-large-font-size&quot;&gt;Created at: 1653207039&lt;/p&gt;                    &lt;/div&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;
+--- imgalt:  updated_alt8615_1653207140
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-[0-9]+x[0-9]+.jpg
+--- data-link: http://127.0.0.1/wordpress/flip__skitour-dbhorn-2020-02-5/  is NOT checked.
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[DSC_1722.webp]</td>
+          <td class="col-duration">2.68</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- Found image  8616  in post  8620 . Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8616_1653207147&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722.webp&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;2560&quot; height=&quot;1561&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722.webp&quot; alt=&quot;updated_alt8616_1653207147&quot; class=&quot;wp-image-8616&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722.webp 2560w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-300x183.webp 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-768x468.webp 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1300x793.webp 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1536x937.webp 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-2048x1249.webp 2048w&quot; sizes=&quot;(max-width: 2560px) 100vw, 2560px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8616_1653207147&lt;/figcaption&gt;&lt;/figure&gt;&lt;/body&gt;&lt;/html&gt;
+--- imgalt:  updated_alt8616_1653207147
+--- it is an image. search imgcaption  updated_caption8616_1653207147
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-[0-9]+x[0-9]+.webp
+--- Found image  8616  in post  8625 . Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;div class=&quot;wp-block-media-text alignwide is-stacked-on-mobile&quot; style=&quot;grid-template-columns:50% auto&quot;&gt;                    &lt;figure class=&quot;wp-block-media-text__media&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;624&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp&quot; alt=&quot;updated_alt8616_1653207147&quot; class=&quot;wp-image-8616 size-full&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-300x183.webp 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-768x468.webp 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1300x793.webp 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1536x937.webp 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-2048x1249.webp 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;/figure&gt;                    &lt;div class=&quot;wp-block-media-text__content&quot;&gt;                                            &lt;p class=&quot;has-large-font-size&quot;&gt;Created at: 1653207043&lt;/p&gt;                    &lt;/div&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;
+--- imgalt:  updated_alt8616_1653207147
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-[0-9]+x[0-9]+.webp
+--- data-link: http://127.0.0.1/wordpress/flip__dsc_1722/  is NOT checked.
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_updated_posts_with_images[DSC_1749-Wald.webp]</td>
+          <td class="col-duration">2.66</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>[[8614, &#x27;DSC_jgp-1972.jpg&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;], [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- image is scaled: Yes
+--- Found image  8617  in post  8621 . Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8617_1653207153&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-scaled.webp&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;2560&quot; height=&quot;1707&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-scaled.webp&quot; alt=&quot;updated_alt8617_1653207153&quot; class=&quot;wp-image-8617&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-scaled.webp 2560w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-300x200.webp 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-768x512.webp 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1300x867.webp 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1536x1024.webp 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-2048x1365.webp 2048w&quot; sizes=&quot;(max-width: 2560px) 100vw, 2560px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8617_1653207153&lt;/figcaption&gt;&lt;/figure&gt;&lt;/body&gt;&lt;/html&gt;
+--- imgalt:  updated_alt8617_1653207153
+--- it is an image. search imgcaption  updated_caption8617_1653207153
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-[0-9]+x[0-9]+.webp
+--- Found image  8617  in post  8626 . Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;div class=&quot;wp-block-media-text alignwide is-stacked-on-mobile&quot; style=&quot;grid-template-columns:50% auto&quot;&gt;                    &lt;figure class=&quot;wp-block-media-text__media&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;683&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp&quot; alt=&quot;updated_alt8617_1653207153&quot; class=&quot;wp-image-8617 size-full&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-300x200.webp 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-768x512.webp 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1300x867.webp 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1536x1024.webp 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-2048x1365.webp 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;/figure&gt;                    &lt;div class=&quot;wp-block-media-text__content&quot;&gt;                                            &lt;p class=&quot;has-large-font-size&quot;&gt;Created at: 1653207046&lt;/p&gt;                    &lt;/div&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;
+--- imgalt:  updated_alt8617_1653207153
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-[0-9]+x[0-9]+.webp
+--- data-link: http://127.0.0.1/wordpress/flip__dsc_1749-wald/  is NOT checked.
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_updated_post_with_gallery</td>
+          <td class="col-duration">3.38</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Found gallery  8622  Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;figure class=&quot;wp-container-2 wp-block-gallery-1 wp-block-gallery has-nested-images columns-3 is-cropped&quot;&gt;                                                        &lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8614_1653207133&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1024x683.jpg&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;683&quot; data-id=&quot;8614&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1024x683.jpg&quot; alt=&quot;updated_alt8614_1653207133&quot; class=&quot;wp-image-8614&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1024x683.jpg 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-300x200.jpg 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-768x512.jpg 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1300x867.jpg 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-1536x1024.jpg 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-2048x1365.jpg 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8614_1653207133&lt;/figcaption&gt;&lt;/figure&gt;                                                        &lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8615_1653207140&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;683&quot; data-id=&quot;8615&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg&quot; alt=&quot;updated_alt8615_1653207140&quot; class=&quot;wp-image-8615&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-300x200.jpg 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-768x512.jpg 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1300x867.jpg 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1536x1024.jpg 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-2048x1365.jpg 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8615_1653207140&lt;/figcaption&gt;&lt;/figure&gt;                                                        &lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8616_1653207147&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;624&quot; data-id=&quot;8616&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp&quot; alt=&quot;updated_alt8616_1653207147&quot; class=&quot;wp-image-8616&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-300x183.webp 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-768x468.webp 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1300x793.webp 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1536x937.webp 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-2048x1249.webp 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8616_1653207147&lt;/figcaption&gt;&lt;/figure&gt;                                                        &lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8617_1653207153&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;683&quot; data-id=&quot;8617&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp&quot; alt=&quot;updated_alt8617_1653207153&quot; class=&quot;wp-image-8617&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-300x200.webp 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-768x512.webp 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1300x867.webp 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1536x1024.webp 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-2048x1365.webp 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8617_1653207153&lt;/figcaption&gt;&lt;/figure&gt;&lt;figcaption class=&quot;blocks-gallery-caption&quot;&gt;Erste Galerie!&lt;/figcaption&gt;                    &lt;/figure&gt;&lt;/body&gt;&lt;/html&gt;
+--- image is scaled: Yes
+--- alt:  updated_alt8614_1653207133
+--- caption:  updated_caption8614_1653207133
+--- data-full-url: data-full-url=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-scaled.jpg
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_jgp-1972-[0-9]+x[0-9]+.jpg
+--- data-link: http://127.0.0.1/wordpress/flip__dsc_jgp-1972/
+--- image is scaled: Yes
+--- alt:  updated_alt8615_1653207140
+--- caption:  updated_caption8615_1653207140
+--- data-full-url: data-full-url=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-scaled.jpg
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-[0-9]+x[0-9]+.jpg
+--- data-link: http://127.0.0.1/wordpress/flip__skitour-dbhorn-2020-02-5/
+--- alt:  updated_alt8616_1653207147
+--- caption:  updated_caption8616_1653207147
+--- data-full-url: data-full-url=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722.webp
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-[0-9]+x[0-9]+.webp
+--- data-link: http://127.0.0.1/wordpress/flip__dsc_1722/
+--- image is scaled: Yes
+--- alt:  updated_alt8617_1653207153
+--- caption:  updated_caption8617_1653207153
+--- data-full-url: data-full-url=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-scaled.webp
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-[0-9]+x[0-9]+.webp
+--- data-link: http://127.0.0.1/wordpress/flip__dsc_1749-wald/
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_change_mime_type_of_one_image</td>
+          <td class="col-duration">5.01</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Changing image of DSC_jgp-1972.jpg with 8614 to: DSC_1722.webp
+--- local path updated file:  C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\originals\1653207174.webp
+--- New list with files: 
+[   [8614, &#x27;1653207174.webp&#x27;], [8615, &#x27;Skitour-Dbhorn-2020-02-5.jpg&#x27;],
+    [8616, &#x27;DSC_1722.webp&#x27;], [8617, &#x27;DSC_1749-Wald.webp&#x27;]]
+--- timestamp:  1653207174
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_updated_post_with_gallery_after_change_of_mime_type</td>
+          <td class="col-duration">6.41</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Found gallery  8622  Now comparing with content.
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;&lt;figure class=&quot;wp-container-2 wp-block-gallery-1 wp-block-gallery has-nested-images columns-3 is-cropped&quot;&gt;                                                        &lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;mime-change_caption8614_1653207174&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174-1024x624.webp&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;624&quot; data-id=&quot;8614&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174-1024x624.webp&quot; alt=&quot;mime-change_alt8614_1653207174&quot; class=&quot;wp-image-8614&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174-1024x624.webp 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174-300x183.webp 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174-768x468.webp 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174-1300x793.webp 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174-1536x937.webp 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174-2048x1249.webp 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;mime-change_caption8614_1653207174&lt;/figcaption&gt;&lt;/figure&gt;                                                        &lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8615_1653207140&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;683&quot; data-id=&quot;8615&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg&quot; alt=&quot;updated_alt8615_1653207140&quot; class=&quot;wp-image-8615&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1024x683.jpg 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-300x200.jpg 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-768x512.jpg 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1300x867.jpg 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-1536x1024.jpg 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-2048x1365.jpg 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8615_1653207140&lt;/figcaption&gt;&lt;/figure&gt;                                                        &lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8616_1653207147&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;624&quot; data-id=&quot;8616&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp&quot; alt=&quot;updated_alt8616_1653207147&quot; class=&quot;wp-image-8616&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1024x624.webp 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-300x183.webp 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-768x468.webp 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1300x793.webp 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-1536x937.webp 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-2048x1249.webp 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8616_1653207147&lt;/figcaption&gt;&lt;/figure&gt;                                                        &lt;figure class=&quot;wp-block-image size-large&quot;&gt;&lt;a data-fslightbox=&quot;1&quot; data-type=&quot;image&quot; data-caption=&quot;updated_caption8617_1653207153&quot; href=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp&quot;&gt;&lt;img loading=&quot;lazy&quot; width=&quot;1024&quot; height=&quot;683&quot; data-id=&quot;8617&quot; src=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp&quot; alt=&quot;updated_alt8617_1653207153&quot; class=&quot;wp-image-8617&quot; srcset=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1024x683.webp 1024w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-300x200.webp 300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-768x512.webp 768w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1300x867.webp 1300w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-1536x1024.webp 1536w, http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-2048x1365.webp 2048w&quot; sizes=&quot;(max-width: 1024px) 100vw, 1024px&quot;&gt;&lt;/a&gt;&lt;figcaption&gt;updated_caption8617_1653207153&lt;/figcaption&gt;&lt;/figure&gt;&lt;figcaption class=&quot;blocks-gallery-caption&quot;&gt;Erste Galerie!&lt;/figcaption&gt;                    &lt;/figure&gt;&lt;/body&gt;&lt;/html&gt;
+--- alt:  mime-change_alt8614_1653207174
+--- caption:  mime-change_caption8614_1653207174
+--- data-full-url: data-full-url=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174.webp
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/1653207174-[0-9]+x[0-9]+.webp
+--- data-link: http://127.0.0.1/wordpress/1653207174/
+--- image is scaled: Yes
+--- alt:  updated_alt8615_1653207140
+--- caption:  updated_caption8615_1653207140
+--- data-full-url: data-full-url=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-scaled.jpg
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__Skitour-Dbhorn-2020-02-5-[0-9]+x[0-9]+.jpg
+--- data-link: http://127.0.0.1/wordpress/flip__skitour-dbhorn-2020-02-5/
+--- alt:  updated_alt8616_1653207147
+--- caption:  updated_caption8616_1653207147
+--- data-full-url: data-full-url=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722.webp
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1722-[0-9]+x[0-9]+.webp
+--- data-link: http://127.0.0.1/wordpress/flip__dsc_1722/
+--- image is scaled: Yes
+--- alt:  updated_alt8617_1653207153
+--- caption:  updated_caption8617_1653207153
+--- data-full-url: data-full-url=&quot;http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-scaled.webp
+--- img src:  http://127.0.0.1/wordpress/wp-content/uploads/python/flip__DSC_1749-Wald-[0-9]+x[0-9]+.webp
+--- data-link: http://127.0.0.1/wordpress/flip__dsc_1749-wald/
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_rest-api.py::test_clean_up</td>
+          <td class="col-duration">9.69</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>--- Deleted media-id:  8614
+--- Deleted media-id:  8615
+--- Deleted media-id:  8616
+--- Deleted media-id:  8617
+--- Deleted post-id:  8618
+--- Deleted post-id:  8619
+--- Deleted post-id:  8620
+--- Deleted post-id:  8621
+--- Deleted post-id:  8622
+--- Deleted post-id:  8623
+--- Deleted post-id:  8624
+--- Deleted post-id:  8625
+--- Deleted post-id:  8626
+Done.
+<br/></div></td></tr></tbody></table></body></html>
