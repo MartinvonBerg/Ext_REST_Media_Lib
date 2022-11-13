@@ -9,7 +9,9 @@
  * Plugin Name:       Ext_REST_Media_Lib
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the WP-REST-API to work with Wordpress Media-Library directly. Add and Update images even to folders. Only with Authorization.
- * Version:           0.1.2
+ * Version:           0.1.3
+ * Requires at least: 5.9
+ * Requires PHP       7.3
  * Author:            Martin von Berg
  * Author URI:        https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
  * License:           GPL-2.0
@@ -108,7 +110,7 @@ $args = array(
 		},
 		'required' => true,
 		),
-	);
+);
 $route = 'update_meta/(?P<id>[\d]+)';
 $function = 'meta_update';
 
@@ -123,7 +125,7 @@ $args = array(
 		},
 		'required' => true,
 		),
-	);
+);
 $route = 'addtofolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)';	// 'addtofolder/', ==> REQ = ...addtofolder/?folder=<foldername>
 $function = 'add_image_to_folder';
 
@@ -144,7 +146,7 @@ $args = array(
 		},
 		'required' => true,
 		),
-	);
+);
 $route = 'addfromfolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)';
 $function = 'add_image_from_folder';
 

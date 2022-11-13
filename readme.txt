@@ -4,9 +4,9 @@ Contributors: martinvonberg
 Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 5.3
-Tested up to: 6.0
+Tested up to: 6.1
 Requires PHP: 7.3
-Stable Tag: 0.1.2
+Stable Tag: 0.1.3
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -385,6 +385,9 @@ There are no FAQs just yet.
 
 = 0.1.2 =
 * Test with WordPress 6.0.
+
+= 0.1.3 =
+* Test with WordPress 6.1.
 
 == Upgrade Notice ==
 

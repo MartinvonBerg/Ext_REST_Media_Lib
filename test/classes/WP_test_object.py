@@ -58,7 +58,7 @@ class WP_REST_API():
             version = sresp[pos:pos2]
             self.wpversion = version.replace('"','')
         else:
-            self.wpversion = '5.9.3 (TBC)'
+            self.wpversion = '6.1 (TBC)'
 
     def get_themes( self ):
         geturl = self.url + self.rest_route + '/themes'
@@ -188,9 +188,9 @@ class WP_REST_API():
         self.wpauth = args_in_array['authentication']
         self.headers = {
             'Authorization': self.wpauth,
-            'Accept' : '*/*',
-            'Accept-Encoding' : 'gzip, deflate, br',
-            'Connection' : 'keep-alive',
+            #'Accept' : '*/*',
+            #'Accept-Encoding' : 'gzip, deflate, br',
+            #'Connection' : 'keep-alive',
             'User-Agent' : 'PostmanRuntime/7.28.3'
         }
         self.get_wp_version()
@@ -435,8 +435,13 @@ class WP_REST_API():
         
         alt = result['alt_text']
         # TODO: This won't work if size full is not available!
-        #src = result['media_details']['sizes']['full']['source_url']
-        src = result['media_details']['sizes']['large']['source_url']
+        try:
+            src = result['media_details']['sizes']['full']['source_url']
+        except:
+            src = result['media_details']['sizes']['large']['source_url']
+        finally:
+            src = ''
+            
         link = result['link']
 
         if result['httpstatus'] == 200:
