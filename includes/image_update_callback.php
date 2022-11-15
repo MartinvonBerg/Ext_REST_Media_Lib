@@ -196,18 +196,28 @@ function post_image_update( $data )
 			);
 			
 			// update the attachment = image with standard methods of WP
-			wp_insert_attachment( $att_array, $gallerydir . '/' . $new_File_Name . $new_File_Extension, 0, true, false ); // Dieser ändert den slug und den permalink
+			wp_insert_attachment( $att_array, $gallerydir . '/' . $new_File_Name . $new_File_Extension, $oldParent, true, false ); // Dieser ändert den slug und den permalink
 			$success_subsizes = wp_create_image_subsizes( $path_to_new_file, $post_id ); // nach dieser Funktion ist der Dateiname falsch! Nur dann wenn größer als big-image-size!
+		
+			// write data for description->rendered, full->file (only basename . ext is used) full->source_url, source_url, 
+			// use path relative to upload path without trailing-slash and -scaled if image is scaled. read this from $success_subsizes
+			// only guid-rendered and orginal_image are set with full filename
+			$pos = strpos($success_subsizes['file'], '-scaled');
+			if ( $pos != \false) {
+				\update_metadata( 'post', $post_id, '_wp_attached_file', $gallerydir . '/' . $new_File_Name . '-' . EXT_SCALED . $new_File_Extension, $prev_value = '' );
+			}
+			else {
+				\update_metadata( 'post', $post_id, '_wp_attached_file', $gallerydir . '/' . $new_File_Name . $new_File_Extension, $prev_value = '' );
+			}
 			
+						
 			// update post doesn't update GUID on updates. guid has to be the full url to the file
 			$url_to_new_file = get_upload_url() . '/' . $gallerydir . '/' . $new_File_Name . $new_File_Extension;
 			$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $post_id) );
-			update_post_meta($post_id, '_wp_attached_file', $gallerydir . '/' . $new_File_Name . $new_File_Extension); // mit dieser Funktion wird er wieder korrigiert
-
-
+			
 			// set the meta and the caption back to the original values. Absichtlich? Das Bild kann ein völlig anderes sein.
 			// Die Metadaten müssen getrennt gesetzt werden, steht doch auch so in der Anleitung.
-			// Diese Funktion aktualisiert nur das Bild, nicht die Metadaten!
+			// Diese Funktion aktualisiert nur das Bild und den zugehörigen Link, nicht die Metadaten!
 			
 			//update the posts that use the image with class from plugin enable_media_replace
 			// This updates only the image url that are used in the post. The metadata e.g. caption is NOT updated.

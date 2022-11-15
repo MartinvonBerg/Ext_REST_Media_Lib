@@ -52,7 +52,7 @@ from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, ge
 # }
 path = os.path.join(SCRIPT_DIR, 'app', 'wpXXXXX-docker.json')
 if not isfile(path):
-     path = os.path.join(SCRIPT_DIR, 'wp_site6.json') # use here the filename that you defined before
+     path = os.path.join(SCRIPT_DIR, 'wp_site3.json') # use here the filename that you defined before
 
 f = open( path )
 wp_site = json.load(f)
@@ -1125,7 +1125,7 @@ def test_update_image_with_changed_image_but_same_filename( image_file ):
      
           # check the source url
           print('--- source-url: ', result['source_url'])
-          wp.dictall['sourceUrl'] = wp.dictall['sourceUrl'].replace('-scaled','')
+          #wp.dictall['sourceUrl'] = wp.dictall['sourceUrl'].replace('-scaled','')
           assert result['source_url'] == wp.dictall['sourceUrl'] # Here source Url ist without -scaled TODO: PHP inconsistent!!! full - source_url und source_url müsste mit -scaled sein!
           
           # check the link url
@@ -1210,7 +1210,7 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
      
           # check the source url
           print('--- source-url: ', result['source_url'])
-          wp.dictall['sourceUrl'] = wp.dictall['sourceUrl'].replace('-scaled','') # TODO: PHP check!!
+          #wp.dictall['sourceUrl'] = wp.dictall['sourceUrl'].replace('-scaled','') # TODO: PHP check!!
           assert result['source_url'] == wp.dictall['sourceUrl']
           
           # check the link url
@@ -1253,7 +1253,7 @@ def test_update_image_with_flipped_original_and_new_filename( image_file ):
                else: assert m == 1
                m = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], descr))
                print('--- m sizes: ',m)
-               assert abs(m-nsizes) < 2.1, 'This might fail if there are special subsizes used that are not used for the srcset.'
+               assert abs(m-nsizes) < 3.1, 'This might fail if there are special subsizes used that are not used for the srcset.'
 
           assert remove_html_tags(before['caption']['rendered']) ==  remove_html_tags(result['caption']['rendered']), 'This is only successful if the metadata is updated within this test function, otherwise not.'
 
@@ -1365,7 +1365,7 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
 
           # check the source url
           print('--- source-url: ', result['source_url'])
-          wp.dictall['sourceUrl'] = wp.dictall['sourceUrl'].replace('-scaled','') # TODO: PHP check!!
+          #wp.dictall['sourceUrl'] = wp.dictall['sourceUrl'].replace('-scaled','') # TODO: PHP check!!
           assert result['source_url'] == wp.dictall['sourceUrl']
                    
           # check the link url
@@ -1411,7 +1411,7 @@ def test_update_image_metadata_after_posts_were_created( image_file ):
                else: assert m == 1
                m = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], descr))
                print('--- m sizes: ',m)
-               assert abs(m-nsizes) < 2.1, 'This might fail if there are special subsizes used that are not used for the srcset.'
+               assert abs(m-nsizes) < 3.1, 'This might fail if there are special subsizes used that are not used for the srcset.'
 
           # check the image_meta: complete for webp
           if mimetype == 'image/webp':
