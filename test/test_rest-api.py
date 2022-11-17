@@ -1489,7 +1489,7 @@ def test_updated_posts_with_images( image_file ):
                     #compare the img src="...."
                     match = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], content))
                     print('--- img src: ', wp.dictall['mediaDetailsSizesSrcUrl'])
-                    assert abs(match-nsizes) < 3.1, 'Not all sizes might be used for the srcset in the image'
+                    assert abs(match-nsizes) < 4.1, 'Not all sizes might be used for the srcset in the image'
 
                     # compare the data-link. The link is not in wp-image and only in the un-rendered code of wp-media-text
                     if post['type'] == 'wp-image-text':
@@ -1562,7 +1562,7 @@ def test_updated_post_with_gallery():
           #compare the img src="...."
           match = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], content))
           print('--- img src: ', wp.dictall['mediaDetailsSizesSrcUrl'])
-          assert abs(match-nsizes) < 3.1, 'Not all sizes might be used for the srcset in the image'
+          assert abs(match-nsizes) < 4.1, 'Not all sizes might be used for the srcset in the image'
 
           # compare the data-link
           explink = wp.dictall['link']
@@ -1708,7 +1708,7 @@ def test_updated_post_with_gallery_after_change_of_mime_type():
           #compare the img src="...."
           match = len(re.findall( wp.dictall['mediaDetailsSizesSrcUrl'], content))
           print('--- img src: ', wp.dictall['mediaDetailsSizesSrcUrl'])
-          assert abs(match-nsizes) < 3.1, 'Not all sizes might be used for the srcset in the image'
+          assert abs(match-nsizes) < 4.1, 'Not all sizes might be used for the srcset in the image'
 
           # compare the data-link
           explink = wp.dictall['link']

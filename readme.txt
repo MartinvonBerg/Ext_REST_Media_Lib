@@ -12,6 +12,7 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 
 == Description ==
+Extend the REST-API to work with Wordpress Media-Library. Organize images in Folders. Add and Update images including Metadata and Posts using the images. Access with Authorization only.
 This plugin extends the REST-API of Wordpress to directly access the Media-Library for Images. It is intended to be used together with a Lightroom Plugin or as a stand-alone interface for headless WordPress. The new REST-API endpoints (functions) allow to add additional metadata to images, update existing metadata or update images completely without changing the Wordpress-ID. Images may be added to the standard directory hierarchy of wordpress or to an additional folder which allows better organization and searching for images.
 
 
@@ -387,7 +388,7 @@ There are no FAQs just yet.
 * Test with WordPress 6.0.
 
 = 0.1.3 =
-* Test with WordPress 6.1.
+* Test with WordPress 6.1. Minor Bug Fixes.
 
 == Upgrade Notice ==
 
