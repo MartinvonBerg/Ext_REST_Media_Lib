@@ -17,6 +17,8 @@
  * License:           GPL-2.0
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  */
+// TODO: check update of: EMR: https://wordpress.org/plugins/enable-media-replace/#developers
+// TODO: metadaten bei gleinen Bildgrößen nach dem UPload entfernen.
 
 namespace mvbplugins\extmedialib;
 
