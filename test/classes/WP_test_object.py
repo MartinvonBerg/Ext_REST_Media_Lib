@@ -517,9 +517,9 @@ class WP_EXT_REST_API( WP_REST_API ):
     extendeds the REST-API of WordPress to update images and add images 
     to dedicated folders."""
     tested_plugin_dir = 'wp-wpcat-json-rest/wp_wpcat_json_rest'
-    tested_plugin_name = 'Ext_REST_Media_Lib'
+    tested_plugin_name = 'Media Library Extension'
     #tested_plugin_name = 'Extended_REST-API_for_Media_Library'
-    tested_plugin_min_version = '0.0.14'
+    tested_plugin_min_version = '0.1.3'
     tested_plugin_version = ''
     tested_plugin_activated = False
     created_images = {}

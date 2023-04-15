@@ -50,9 +50,9 @@ from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, ge
 #    "password" : "password", # the application password you created for the test
 #    "testfolder" : "test" # no leading and trailing slash, use whatever you like
 # }
-path = os.path.join(SCRIPT_DIR, 'app', 'wpXXXXX-docker.json')
+path = os.path.join(SCRIPT_DIR, 'app', 'wp_site1.json')
 if not isfile(path):
-     path = os.path.join(SCRIPT_DIR, 'wp_site3.json') # use here the filename that you defined before
+     path = os.path.join(SCRIPT_DIR, 'wp_site6.json') # use here the filename that you defined before
 
 f = open( path )
 wp_site = json.load(f)
@@ -189,11 +189,10 @@ def test_wp_site_basic_tests():
      assert len(wp.active_theme) > 0
 
      print('--- tested Plugin Name: ', wp.tested_plugin_name )
-     #assert wp.tested_plugin_name == 'Ext_REST_Media_Lib'
      assert wp.tested_plugin_name == 'Extended_REST-API_for_Media_Library' or 'Ext_REST_Media_Lib'
      
      print('--- WP-Version: ', wp.wpversion )
-     ##assert wp.wpversion == '6.1'
+     ##assert wp.wpversion == '6.2'
 
      print('--- wp.media_writeable_rest_fields: ',  wp.media_writeable_rest_fields )
      print('--- wp.mimetypes: ', wp.mimetypes ) 
@@ -801,7 +800,7 @@ def test_update_image_metadata( image_file ):
           assert result['httpstatus'] == 200
 
           # Now compare the new data
-          time.sleep(3)
+          time.sleep(10)
           (result, header) = wp.get_rest_fields( id, 'media' )
           get_qm_errors(header)
           assert result['httpstatus'] == 200 
@@ -963,7 +962,7 @@ def test_create_gtb_gallery_with_all_images():
           if result['httpstatus'] == 200:
                wp.created_posts[n]['post'] =  result
 
-@pytest.mark.testpost # --------------
+@pytest.mark.testmediawithtext # --------------
 @pytest.mark.parametrize( "image_file", files)
 def test_create_gtb_image_text( image_file ): 
      image_file = get_image( newfiles, image_file)
