@@ -12,13 +12,13 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
 function get_image_update( $data )
 {
 	$post_id = $data['id'];
-	$att = wp_attachment_is_image($post_id);
+	$isAttchmnt = wp_attachment_is_image($post_id);
 	$resized = wp_get_attachment_image_src($post_id, 'original');
 
 	if ( 'array' == \gettype( $resized ) )
 		$resized = $resized[3];
 		
-	if ($att && (! $resized)) {
+	if ($isAttchmnt && (! $resized)) {
 		$original_filename = wp_get_original_image_path($post_id);
 		if (false == $original_filename) $original_filename = '';
 		
@@ -33,7 +33,7 @@ function get_image_update( $data )
 			'md5_original_file' => $md5,
 			'max_upload_size' => (string)wp_max_upload_size() . ' bytes'
 		);
-	} elseif ($att) {
+	} elseif ($isAttchmnt) {
 		$file2 = get_attached_file($post_id, true);
 		$getResp = array(
 			'message' => 'Image ' . $post_id . ' is a resized image',)
@@ -61,18 +61,23 @@ function post_image_update( $data )
 	include_once ABSPATH . 'wp-admin/includes/image.php';
 	$minsize   = MIN_IMAGE_SIZE;
 	$post_id = $data['id'];
-	$att = wp_attachment_is_image($post_id);
+	$isAttchmnt = wp_attachment_is_image($post_id);
 	$dir = wp_upload_dir()['basedir'];
-	$image = $data->get_body(); // body as string (=jpg-image) of POST-Request
-	$postRequestFileName = explode( ';', $data->get_headers()['content_disposition'][0] )[1];
-	$postRequestFileName = trim( \str_replace('filename=', '', $postRequestFileName) );
-	$postRequestFileName = \sanitize_file_name( $postRequestFileName );
+	$image = $data->get_body(); // body as string (=jpg/webp-image) of POST-Request
+
+	if ( \array_key_exists('content_disposition', $data->get_headers()) ) {
+		$postRequestFileName = explode( ';', $data->get_headers()['content_disposition'][0] )[1];
+		$postRequestFileName = trim( \str_replace('filename=', '', $postRequestFileName) );
+		$postRequestFileName = \sanitize_file_name( $postRequestFileName );
+	} else {
+		$postRequestFileName = '';
+	}
 			
-	if ( ($att) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) ) {
+	if ( ($isAttchmnt) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) ) {
 		// get current metadata from WP-Database
 		$meta = wp_get_attachment_metadata($post_id);
 		$wpmediadata = get_post( $post_id, 'ARRAY_A'); 
-		if ( false == $meta ) { $meta = array(); }
+		if ( $meta === false ) { $meta = []; }
 		$oldlink = get_attachment_link( $post_id ); // identical to old permalink
 		
 		// Define filenames in different ways for the different functions
@@ -88,7 +93,6 @@ function post_image_update( $data )
 		$old_original_fileName = set_complete_path($dir, $old_original_fileName);
 		$filename_for_deletion = str_replace($ext, '', $old_original_fileName); // Filename without extension for the deletion with Wildcard '*'
 		
-
 		// data for the REST-response
 		$base_fileName_from_att_meta = basename($fileName_from_att_meta); // filename with extension with '-scaled'
 		$original_filename_old_file = str_replace('-' . EXT_SCALED, '', $base_fileName_from_att_meta);
@@ -148,7 +152,15 @@ function post_image_update( $data )
 				'old' => 'old attach: ' . $old_attached_file_before_update,
 				'dir' => 'Variable $dir: ' . $dir,
 			);
+
 			$newGetResp = \implode(' , ', $getResp);
+			
+			// restore the original files
+			$filearray = glob($filename_for_deletion . '*oldimagefile');
+			array_walk( $filearray, function( $fileName_from_att_meta ) {
+				rename( $fileName_from_att_meta, str_replace('.oldimagefile', '', $fileName_from_att_meta ) );
+			} );
+
 			return new \WP_Error( __('File exists'), $newGetResp, array( 'status' => 409 ));
 		}
 
@@ -156,9 +168,20 @@ function post_image_update( $data )
 		$success_new_file_write = file_put_contents( $path_to_new_file, $image );
 		
 		// check the new file type and extension
-		$changemime = $data->get_params()['changemime'] == 'true' ? true : false;
+		if ( array_key_exists('changemime', $data->get_params() ) && $data->get_params()['changemime'] === 'true' ) {
+			$changemime = true;
+		} else { 
+			$changemime = false;
+		}
+
+		// check mime-type from header. The mime-type in header is required, otherwise upload will fail.
+		if ( $data->get_content_type() !== null && array_key_exists('value', $data->get_content_type()) ) {
+			$new_mime_from_header = $data->get_content_type()['value']; // upload content-type of POST-Request 
+		} else { 
+			$new_mime_from_header = ''; 
+		}
+
 		$newfile_mime = wp_get_image_mime( $path_to_new_file );
-		$new_mime_from_header = $data->get_content_type()['value']; // upload content-type of POST-Request
 		$new_File_Extension = pathinfo( $path_to_new_file )['extension'];
 		$wp_allowed_mimes = \get_allowed_mime_types();
 		$wp_allowed_ext = array_search( $newfile_mime, $wp_allowed_mimes, false);
@@ -278,16 +301,16 @@ function post_image_update( $data )
 			} );
 
 			// delete the file that was uploaded by REST - POST request
-			unlink($old_original_fileName);
-			$newGetResp = \implode(' , ', $getResp);
+			unlink($path_to_new_file); 
+			$newGetResp = \mvbplugins\extmedialib\implode_all(' , ', $getResp); 
 			return new \WP_Error('Error', $newGetResp, array( 'status' => 400 ));
 		}
 		
-	} elseif (($att) && (strlen($image) < $minsize)) {
+	} elseif (($isAttchmnt) && (strlen($image) < $minsize)) {
 		return new \WP_Error('too_small', 'Invalid Image (smaller than: '. $minsize .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
-	} elseif (($att) && (strlen($image) > wp_max_upload_size())) {
+	} elseif (($isAttchmnt) && (strlen($image) > wp_max_upload_size())) {
 		return new \WP_Error('too_big', 'Invalid Image (bigger than: '. wp_max_upload_size() .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
-	} elseif (! $att) {
+	} elseif (! $isAttchmnt) {
 		return new \WP_Error('not_found', 'Attachment is not an Image: ' . $post_id, array( 'status' => 415 ));
 	} else $getResp = '';
 	

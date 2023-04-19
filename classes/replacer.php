@@ -125,26 +125,28 @@ class Replacer
 		$this->docaption = $dothecaption;
 
 		// prepare the metadata from the REST POST request
-		$this->target_metadata = $this->source_metadata;
+		$this->target_metadata = $this->source_metadata; 
 		$newmeta = $newmeta['image_meta'];
-		$target_meta = array();
+		$target_meta = [];
 
 		// get the current alt_text of the image
 		$source_alt_text = get_post_meta( $this->post_id, '_wp_attachment_image_alt', true) ?? '' ;
 		$this->source_metadata['image_meta']['alt_text'] = $source_alt_text;
 
 		// sanitize the input
+		array_key_exists('alt_text',  $newmeta) ? '' : $newmeta['alt_text'] = '' ;
+		array_key_exists('caption',  $newmeta) ? '' : $newmeta['caption'] = '' ;
 		$newmeta['alt_text'] = filter_var( $newmeta['alt_text'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
 		$newmeta['caption'] = filter_var( $newmeta['caption'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
-		array_key_exists('alt_text', $newmeta)  ? $target_meta['alt_text'] = $newmeta['alt_text'] : null ;
-		array_key_exists('caption',  $newmeta)  ? $target_meta['caption']  = $newmeta['caption']  : $target_meta['caption'] = '' ;
+		array_key_exists('alt_text', $newmeta) ? $target_meta['alt_text'] = $newmeta['alt_text'] : null ; // Wieso steht hier null?
+		array_key_exists('caption',  $newmeta) ? $target_meta['caption']  = $newmeta['caption']  : $target_meta['caption'] = '' ;
 		$this->target_metadata['image_meta']['caption'] = $target_meta['caption'];
 		$this->target_metadata['image_meta']['alt_text'] = $target_meta['alt_text'];
 
 		// get the directory in the uploads folder that contains the image 
 		$baseurl = \mvbplugins\extmedialib\get_upload_url() ; 
 		$gallerydir = \str_replace( $baseurl, '', $this->source_url );
-		$file = $this->source_metadata['original_image'];
+		$file = array_key_exists('original_image',$this->source_metadata) ? $this->source_metadata['original_image'] : null; 
 		if ( ! $file ) $file = $this->sourceFile->getFileName();
 
 		$gallerydir = str_replace( $file, '', $gallerydir );
@@ -154,7 +156,7 @@ class Replacer
 		$this->new_location_dir = $gallerydir;
 		$this->target_url = $this->source_url;
 		
-		// settings from original /view/upload.php 
+		// settings from original /view/upload.php from media-replacer-class.
 		$this->replace_type = 'replace_and_search';
 		$this->do_new_location = false;
 		
@@ -546,7 +548,20 @@ class Replacer
 
 				// get all the figures in the post_content
 				$dom=new \domDocument;
+				libxml_use_internal_errors(true);
 				$dom->loadHTML($post_content);
+				$errors = libxml_get_errors();
+				foreach ($errors as $error) {
+					switch ($error->level) {
+						case LIBXML_ERR_WARNING:
+							break;
+						 case LIBXML_ERR_ERROR:
+							break;
+						case LIBXML_ERR_FATAL:
+							return 0;
+							break;
+					}
+				}
 				//$figures = $dom->getElementsByTagName('figure'); // every image has to be a figure, works only with gutenberg
 
 				// get all the comments in the post_content

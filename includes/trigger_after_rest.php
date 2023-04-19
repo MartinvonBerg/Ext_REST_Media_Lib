@@ -39,7 +39,7 @@ function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Re
 		if ( 'true' == $params['docaption'] && $hascaption )
 			$docaption = true;
 
-	$newmeta["image_meta"] = array(); 
+	$newmeta["image_meta"] = []; 
 	$origin = 'standard';
 
 	if ( $hascaption || $hastitle || $hasalt_text) {

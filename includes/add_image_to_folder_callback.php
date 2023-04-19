@@ -65,7 +65,7 @@ function post_add_image_to_folder($data)
 		return new \WP_Error('not_allowed', 'Do not add image to WP standard media directory', array( 'status' => 400 ));
 	}
 	if (! is_dir($folder)) {
-		wp_mkdir_p($folder);
+		wp_mkdir_p($folder);  // TODO : sanitize 
 	}
 	
 	// check body und Header Content-Disposition
@@ -80,12 +80,12 @@ function post_add_image_to_folder($data)
 	// define filename
 	if (! empty($cont)) {
 		$cont = explode(';', $cont)[1];
-		$cont = explode('=', $cont)[1];
+		$cont = explode('=', $cont)[1]; // TODO : sanitize_file_name
 		$ext = pathinfo($cont)['extension'];
 		$title = basename($cont, '.' . $ext);
 		$searchinstring = ['\\', '\s', '/'];
 		$title = str_replace($searchinstring, '-', $title);
-		$newfile = $folder . '/' . $cont;
+		$newfile = $folder . '/' . $cont;  // TODO : sanitize_file_name
 		// update post doesn't update GUID on updates. guid has to be the full url to the file
 		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont;
 	}

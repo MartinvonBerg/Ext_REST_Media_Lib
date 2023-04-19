@@ -40,7 +40,7 @@ function post_meta_update($data)
 	if ( ($att) && ( 'application/json' == $type ) && ($newmeta != null) && $isJSON ) {
 
 		// update metadata
-		$success = \mvbplugins\extmedialib\update_metadata( $post_id, $newmeta, $origin );
+		$success = \mvbplugins\extmedialib\update_metadata( $post_id, $newmeta, $origin ); // TODO : sanitize entries of json?
 
 		$mime = \get_post_mime_type( $post_id );
 		
