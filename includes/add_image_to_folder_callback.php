@@ -65,34 +65,39 @@ function post_add_image_to_folder($data)
 		return new \WP_Error('not_allowed', 'Do not add image to WP standard media directory', array( 'status' => 400 ));
 	}
 	if (! is_dir($folder)) {
-		wp_mkdir_p($folder);  // TODO : sanitize 
+		wp_mkdir_p($folder); // TBD : sanitize this? htmlspecialchars did not work
 	}
 	
 	// check body und Header Content-Disposition
-	$type = $data->get_content_type()['value']; // upload content-type of POST-Request
-	$image = $data->get_body(); // body e.g. jpg-image as string of POST-Request
-	$cont =$data->get_header('Content-Disposition');
+	if ( $data->get_content_type() !== null && array_key_exists('value', $data->get_content_type()) ) {
+		$type = $data->get_content_type()['value']; // upload content-type of POST-Request 
+	} else { 
+		$type = ''; 
+	}
+	 
+	$image = $data->get_body(); 
+	$cont = $data->get_header('Content-Disposition');
 	$newfile = '';
 	$url_to_new_file = '';
 	$title = '';
 	$ext = '';
 	
 	// define filename
-	if (! empty($cont)) {
+	if (! empty($cont) ) {
 		$cont = explode(';', $cont)[1];
-		$cont = explode('=', $cont)[1]; // TODO : sanitize_file_name
+		$cont = explode('=', $cont)[1]; // TBD : sanitize this? htmlspecialchars did not work
 		$ext = pathinfo($cont)['extension'];
 		$title = basename($cont, '.' . $ext);
 		$searchinstring = ['\\', '\s', '/'];
 		$title = str_replace($searchinstring, '-', $title);
-		$newfile = $folder . '/' . $cont;  // TODO : sanitize_file_name
+		$newfile = $folder . '/' . $cont; // TBD : sanitize this? htmlspecialchars did not work
 		// update post doesn't update GUID on updates. guid has to be the full url to the file
-		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont;
+		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont; // TBD : sanitize this? htmlspecialchars did not work
 	}
 	$newexists = file_exists($newfile);
 	
 	// add the new image if it is a jpg, png, or gif
-	if ( ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) ) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) && (! $newexists)) {
+	if ( ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) ) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) && (! $newexists) && $url_to_new_file !== '') {
 		$success_new_file_write = file_put_contents($newfile, $image);
 		$new_file_mime = wp_check_filetype($newfile)['type'];
 		$mime_type_ok = $type == $new_file_mime;

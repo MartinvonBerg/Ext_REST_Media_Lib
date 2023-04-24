@@ -74,7 +74,7 @@ function get_files_from_folder(string $folder, bool $get_added_files)
  *
  * @param int   $post_id ID of the attachment in the WP-Mediacatalog.
  *
- * @param array<string[]> $newmeta array with new metadata taken from the JSON-data in the POST-Request body.
+ * @param array<string[]|array> $newmeta array with new metadata taken from the JSON-data in the POST-Request body.
  *
  * @param string $origin the source of the function call 
  * 
@@ -84,37 +84,39 @@ function update_metadata(int $post_id, array $newmeta, string $origin)
 {
 	// get and check current Meta-Data from WP-database.
 	$meta = wp_get_attachment_metadata($post_id);
-	if (false == $meta) {
-		$meta = array();
-	}
+	if ( $meta === false) { $meta = [];	}
 	$oldmeta = $meta;
 
 	if (array_key_exists('image_meta', $newmeta)) {
 		$newmeta = $newmeta['image_meta'];
+		// sanitize the keywords
+		foreach ($newmeta['keywords'] as $key => $entry) {
+			$newmeta['keywords'][$key] = \htmlspecialchars( $entry );
+		};
 
-		// organize metadata.
-		array_key_exists('keywords', $newmeta)  ? $meta['image_meta']['keywords']  = $newmeta['keywords'] : '';     // Copy Keywords. GPS is missing. Does matter: is not used in WP.
-		array_key_exists('credit', $newmeta)    ? $meta['image_meta']['credit']    = $newmeta['credit'] : '';   // GPS is updated via file-update.
-		array_key_exists('copyright', $newmeta) ? $meta['image_meta']['copyright'] = $newmeta['copyright'] : '';
-		array_key_exists('caption', $newmeta)   ? $meta['image_meta']['caption']   = $newmeta['caption'] : '';
-		array_key_exists('title', $newmeta)     ? $meta['image_meta']['title']     = $newmeta['title']  : '';
+		// organize metadata. GPS-data is missing. Does matter: is not used in WP. GPS is updated via file-update.
+		array_key_exists('keywords', $newmeta)  ? $meta['image_meta']['keywords']  = $newmeta['keywords'] : ''; 
+		array_key_exists('credit', $newmeta)    ? $meta['image_meta']['credit']    = \htmlspecialchars($newmeta['credit']) : '';
+		array_key_exists('copyright', $newmeta) ? $meta['image_meta']['copyright'] = \htmlspecialchars($newmeta['copyright']) : '';
+		array_key_exists('caption', $newmeta)   ? $meta['image_meta']['caption']   = \htmlspecialchars($newmeta['caption']) : '';
+		array_key_exists('title', $newmeta)     ? $meta['image_meta']['title']     = \htmlspecialchars($newmeta['title'])  : '';
 
 		// change the image capture metadata for webp only due to the fact that WP does not write this data to the database.
 		$type = get_post_mime_type($post_id);
 		if ('image/webp' == $type) {
-			array_key_exists('aperture', $newmeta)          ? $meta['image_meta']['aperture']           = $newmeta['aperture'] : '';
-			array_key_exists('camera', $newmeta)            ? $meta['image_meta']['camera']             = $newmeta['camera'] : '';
-			array_key_exists('created_timestamp', $newmeta) ? $meta['image_meta']['created_timestamp']  = $newmeta['created_timestamp'] : '';
-			array_key_exists('focal_length', $newmeta)      ? $meta['image_meta']['focal_length']       = $newmeta['focal_length'] : '';
-			array_key_exists('iso', $newmeta)               ? $meta['image_meta']['iso']                = $newmeta['iso'] : '';
-			array_key_exists('shutter_speed', $newmeta)     ? $meta['image_meta']['shutter_speed']      = $newmeta['shutter_speed'] : '';
-			array_key_exists('orientation', $newmeta)       ? $meta['image_meta']['orientation']        = $newmeta['orientation'] : '';
+			array_key_exists('aperture', $newmeta)          ? $meta['image_meta']['aperture']           = \htmlspecialchars($newmeta['aperture']) : '';
+			array_key_exists('camera', $newmeta)            ? $meta['image_meta']['camera']             = \htmlspecialchars($newmeta['camera']) : '';
+			array_key_exists('created_timestamp', $newmeta) ? $meta['image_meta']['created_timestamp']  = \htmlspecialchars($newmeta['created_timestamp']) : '';
+			array_key_exists('focal_length', $newmeta)      ? $meta['image_meta']['focal_length']       = \htmlspecialchars($newmeta['focal_length']) : '';
+			array_key_exists('iso', $newmeta)               ? $meta['image_meta']['iso']                = \htmlspecialchars($newmeta['iso']) : '';
+			array_key_exists('shutter_speed', $newmeta)     ? $meta['image_meta']['shutter_speed']      = \htmlspecialchars($newmeta['shutter_speed']) : '';
+			array_key_exists('orientation', $newmeta)       ? $meta['image_meta']['orientation']        = \htmlspecialchars($newmeta['orientation']) : '';
 		}
 	}
 
 	// reset title and caption in $meta to prevent overwrite with the route update_meta
-	if ('mvbplugin' == $origin) {
-		$meta['image_meta']['title'] = $oldmeta['image_meta']['title'];
+	if ('mvbplugin' === $origin) {
+		$meta['image_meta']['title']   = $oldmeta['image_meta']['title'];
 		$meta['image_meta']['caption'] = $oldmeta['image_meta']['caption'];
 	}
 	// write metadata.

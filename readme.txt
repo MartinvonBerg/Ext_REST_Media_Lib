@@ -4,9 +4,9 @@ Contributors: martinvonberg
 Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 5.3
-Tested up to: 6.1
+Tested up to: 6.2
 Requires PHP: 7.3
-Stable Tag: 0.1.3
+Stable Tag: 0.1.4
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -69,7 +69,7 @@ Example https-request with POST-method:
 https://www.your-domain.whatever/wp-json/wp/v2/media/666?gallery=test-gallery
 
 New functionality behind this request
-A POST-request with 'alt_text' and / or 'caption' will change the content of ALL posts using that image. The 'alt-text' and the 'caption' are updated if they are used in 
+A POST-request with 'alt_text' and / or 'caption' will change the content of ALL posts using that image. The 'alt_text' and the 'caption' are updated if they are used in 
 gutenberg blocks 'image', 'gallery' and 'media-with-text'. Note: There are many, many other blocks, images, galleries around. For these I couldn't realize the update of 'alt-text' and 'caption'.
 
 New Parameter for the above POST-request
@@ -389,6 +389,9 @@ There are no FAQs just yet.
 
 = 0.1.3 =
 * Test with WordPress 6.1. Minor Bug Fixes.
+
+= 0.1.4 =
+* Test with WordPress 6.2. Minor Bug Fixes especially in image_update_callback.php.
 
 == Upgrade Notice ==
 

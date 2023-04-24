@@ -31,7 +31,13 @@ function post_meta_update($data)
 {
 	$post_id = $data[ 'id' ];
 	$att = wp_attachment_is_image( $post_id );
-	$type = $data->get_content_type()['value']; // upload content-type of POST-Request
+	
+	// check body und Header Content-Disposition
+	if ( $data->get_content_type() !== null && array_key_exists('value', $data->get_content_type()) ) {
+		$type = $data->get_content_type()['value']; // upload content-type of POST-Request 
+	} else { 
+		$type = ''; 
+	}
 	$newmeta = $data->get_body(); // body e.g. as JSON with new metadata as string of POST-Request
 	$isJSON = bodyIsJSON( $newmeta );
 	$newmeta = json_decode($newmeta, $assoc=true);
@@ -40,7 +46,7 @@ function post_meta_update($data)
 	if ( ($att) && ( 'application/json' == $type ) && ($newmeta != null) && $isJSON ) {
 
 		// update metadata
-		$success = \mvbplugins\extmedialib\update_metadata( $post_id, $newmeta, $origin ); // TODO : sanitize entries of json?
+		$success = \mvbplugins\extmedialib\update_metadata( $post_id, $newmeta, $origin );
 
 		$mime = \get_post_mime_type( $post_id );
 		
