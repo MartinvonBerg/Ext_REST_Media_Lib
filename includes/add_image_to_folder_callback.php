@@ -142,6 +142,9 @@ function post_add_image_to_folder($data)
 				'gallery' => $reqfolder,
 				'Bytes written' => $success_new_file_write,
 			);
+			// do_action after successful upload
+			\do_action( 'wp_rest_mediacat_upload', $upload_id, 'context-rest-upload');
+
 		} elseif (! $success_new_file_write) {
 			// something went wrong // delete file
 			unlink($newfile);

@@ -104,7 +104,6 @@ function post_add_image_from_folder($data)
 			}
 
 			update_post_meta($upload_id, '_wp_attached_file', $attfile);
-		
 			update_post_meta($upload_id, 'gallery', $reqfolder);
 		
 			if (is_wp_error($upload_id)) {
@@ -115,6 +114,9 @@ function post_add_image_from_folder($data)
 				$id[$i] = $upload_id;
 				$files_in_folder[$i] = $file;
 				$i = $i + 1;
+
+				// do_action after successful upload
+				\do_action( 'wp_rest_mediacat_upload', $upload_id, 'context-rest-upload');
 			}
 		}
 	} // end foreach
