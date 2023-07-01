@@ -143,6 +143,7 @@ function post_add_image_to_folder($data)
 				'Bytes written' => $success_new_file_write,
 			);
 			// do_action after successful upload
+			//global $wp_filter; $a = serialize($wp_filter[ 'wp_rest_mediacat_upload' ]->callbacks); error_log( $a );
 			\do_action( 'wp_rest_mediacat_upload', $upload_id, 'context-rest-upload');
 
 		} elseif (! $success_new_file_write) {

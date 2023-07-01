@@ -269,6 +269,10 @@ function post_image_update( $data )
 			
 			// delete old files
 			array_map("unlink", glob($filename_for_deletion . '*oldimagefile'));
+			
+			// do_action after successful update
+			//\error_log('extmedialib: Successful update');global $wp_filter; $a = serialize($wp_filter[ 'wp_rest_mediacat_upload' ]->callbacks); error_log( $a );
+			\do_action( 'wp_rest_mediacat_upload', $post_id, 'context-rest-upload');
 
 		} else {
 			// something went wrong redo the change, recover the old files

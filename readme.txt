@@ -6,7 +6,7 @@ Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catal
 Requires at least: 5.3
 Tested up to: 6.2
 Requires PHP: 7.3
-Stable Tag: 0.1.4
+Stable Tag: 0.1.5
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -393,9 +393,12 @@ There are no FAQs just yet.
 = 0.1.4 =
 * Test with WordPress 6.2. Minor Bug Fixes especially in image_update_callback.php.
 
+= 0.1.5 =
+* Minor Bug Fixes in image_update_callback.php: added the do_action.
+
 == Upgrade Notice ==
 
-Upgrade to 0.1.0 is highly recommended to get rid of the inconsistent update functions. 
+Upgrade to 0.1.5 is highly recommended to get rid of the inconsistent update functions. 
 
 
 == Credits ==

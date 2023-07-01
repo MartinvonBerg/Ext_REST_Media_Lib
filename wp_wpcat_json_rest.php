@@ -9,7 +9,7 @@
  * Plugin Name:       Media Library Extension
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the REST-API to work with Wordpress Media-Library. Organize images in Folders. Add and Update images including Metadata and Posts using the images. Access with Authorization only.
- * Version:           0.1.4
+ * Version:           0.1.5
  * Requires at least: 5.9
  * Requires PHP       7.3
  * Author:            Martin von Berg
