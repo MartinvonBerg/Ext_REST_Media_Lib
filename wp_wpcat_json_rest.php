@@ -11,7 +11,7 @@
  * Description:       Extend the REST-API to work with Wordpress Media-Library. Organize images in Folders. Add and Update images including Metadata and Posts using the images. Access with Authorization only.
  * Version:           0.1.5
  * Requires at least: 5.9
- * Requires PHP       7.3
+ * Requires PHP:       7.3
  * Author:            Martin von Berg
  * Author URI:        https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
  * License:           GPL-2.0
