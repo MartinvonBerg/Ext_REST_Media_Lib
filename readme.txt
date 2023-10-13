@@ -4,7 +4,7 @@ Contributors: martinvonberg
 Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 5.3
-Tested up to: 6.2
+Tested up to: 6.3
 Requires PHP: 7.3
 Stable Tag: 0.1.5
 License: GPLv2
@@ -12,8 +12,6 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 
 == Description ==
-
-STATUS: The Plugin won't be maintained until End of 09 / 2023. Tests with WordPress 6.3 will be done later.
 
 Extend the REST-API to work with Wordpress Media-Library. Organize images in Folders. Add and Update images including Metadata and Posts using the images. Access with Authorization only.
 This plugin extends the REST-API of Wordpress to directly access the Media-Library for Images. It is intended to be used together with a Lightroom Plugin or as a stand-alone interface for headless WordPress. The new REST-API endpoints (functions) allow to add additional metadata to images, update existing metadata or update images completely without changing the Wordpress-ID. Images may be added to the standard directory hierarchy of wordpress or to an additional folder which allows better organization and searching for images.
@@ -397,7 +395,8 @@ There are no FAQs just yet.
 * Test with WordPress 6.2. Minor Bug Fixes especially in image_update_callback.php.
 
 = 0.1.5 =
-* Minor Bug Fixes in image_update_callback.php: added the do_action.
+* Minor Bug Fixes in image_update_callback.php: added the do_action. This is the event trigger for the Pugin to strip metadata.
+* Test with WordPress 6.3
 
 == Upgrade Notice ==
 
