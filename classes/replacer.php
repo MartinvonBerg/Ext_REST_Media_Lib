@@ -18,7 +18,7 @@ namespace mvbplugins\extmedialib;
 class Replacer
 {
 	protected $post_id;
-
+	
 	// everything source is the attachment being replaced
 	protected $sourceFile; // File Object
 	protected $source_post; // wpPost;
@@ -559,7 +559,6 @@ class Replacer
 							break;
 						case LIBXML_ERR_FATAL:
 							return 0;
-							break;
 					}
 				}
 				//$figures = $dom->getElementsByTagName('figure'); // every image has to be a figure, works only with gutenberg
@@ -623,7 +622,6 @@ class Replacer
 				);
 				$result = wp_update_post( $arg );
 				wp_cache_delete( $post_id, 'posts' );
-				
 		  	}
 		}
 	
@@ -725,11 +723,11 @@ class Replacer
 		$comment_start =  strpos( $post_content, $foundtext ) +1;
 		$comment_end = 0;
 
-		if 		($isWpImage) {
+		if ($isWpImage) {
 			$comment_end = \strpos( $post_content, '/wp:image', $comment_start ) +1;
 			//$comment_length += strlen( '/wp:image' );
 		}
-		elseif	($isWpGallery) {
+		elseif ($isWpGallery) {
 			$comment_end = \strpos( $post_content, '/wp:gallery', $comment_start );
 			$comment_length += strlen( '/wp:gallery' );
 		}
@@ -885,7 +883,6 @@ class Replacer
 		$stop  =  strpos( $html, $patternend, $start + $offset );
 		
 		if ( $start && $stop ) {
-			$alttext = \utf8_decode( substr( $html, $start + $offset, $stop - $start - $offset +1 ) );
 			$alttext2 = ( substr( $html, $start + $offset -1, $stop - $start - $offset +1 ) );
 			$alttext2 = \str_replace( '"', '', $alttext2);
 		} else
@@ -902,7 +899,6 @@ class Replacer
 		$stop  =  strpos( $html, $patternend  );
 		
 		if ( $start && $stop ) {
-			$caption = \utf8_decode( substr( $html, $start +1 , $stop - $start -1  ) );
 			$caption2 = ( substr( $html, $start +1 , $stop - $start -1  ) );
 			$caption2 = \str_replace( '"', '', $caption2);
 		} else
