@@ -8,13 +8,13 @@ add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_res
 /**
  * hook on the finalized REST-response and update the image_meta and the posts using the updated image
  *
- * @param array<string> $result the prepared result
+ * @param array<string>|\stdClass $result the prepared result
  * @param \WP_REST_Server $server the rest server
  * @param \WP_REST_Request $request the request
  * @return array<string> $result the $result to provide via REST-API as http response. The keys $newmeta["image_meta"]['caption'] 
  * and $newmeta["image_meta"]['title'] were changed depending on the result of the meta update
  */
-function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Request $request) {
+function trigger_after_rest( $result, $server, $request) {
 	global $wpdb;
 
 	// alt_text is only available once at 'top-level' of the json - response
