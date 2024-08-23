@@ -4,7 +4,7 @@ Contributors: martinvonberg
 Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 5.3
-Tested up to: 6.4
+Tested up to: 6.6
 Requires PHP: 7.3
 Stable Tag: 0.1.5
 License: GPLv2
@@ -400,6 +400,9 @@ There are no FAQs just yet.
 
 = 0.1.5 =
 * Test with WordPress 6.4. No changes. Detected Issue during test: If image is attached to parent the SQL wpdb->query does not update the post! Detected WordPress-Feature: The Post is not updated if it is open for editing.
+
+= 0.1.5 =
+* Test with WordPress 6.6. No changes.
 
 == Upgrade Notice ==
 
