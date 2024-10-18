@@ -103,7 +103,7 @@ function update_metadata(int $post_id, array $newmeta, string $origin)
 
 		// change the image capture metadata for webp only due to the fact that WP does not write this data to the database.
 		$type = get_post_mime_type($post_id);
-		if ('image/webp' == $type) {
+		if ('image/webp' == $type || 'image/avif' == $type) {
 			array_key_exists('aperture', $newmeta)          ? $meta['image_meta']['aperture']           = \htmlspecialchars($newmeta['aperture']) : '';
 			array_key_exists('camera', $newmeta)            ? $meta['image_meta']['camera']             = \htmlspecialchars($newmeta['camera']) : '';
 			array_key_exists('created_timestamp', $newmeta) ? $meta['image_meta']['created_timestamp']  = \htmlspecialchars($newmeta['created_timestamp']) : '';

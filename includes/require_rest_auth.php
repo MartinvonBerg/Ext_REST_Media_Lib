@@ -1,6 +1,7 @@
 <?php
 //-------------------- AUTH REQUIRED ------------------------------------------------
 // https://developer.wordpress.org/rest-api/frequently-asked-questions/
+// according to https://wordpress.stackexchange.com/questions/403710/permission-callback-to-check-if-user-has-application-password this is fully correct
 // ATTENTION: Do not use username and Password or Application Passwords from WP-AdminPage > Users > Profiles together with basic-auth and with http !!!!!!
 // Only use together with https
 // require the user to be logged in for all REST requests

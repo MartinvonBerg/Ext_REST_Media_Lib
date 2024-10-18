@@ -78,7 +78,7 @@ function post_add_image_from_folder($data)
 		// add $file to media cat
 		$type = wp_check_filetype($file)['type']; //
 		
-		if ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) ) {
+		if ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) || ( 'image/avif' == $type )) {
 			$newfile = $file;
 			$new_file_mime = $type;
 			$ext = pathinfo($newfile)['extension'];

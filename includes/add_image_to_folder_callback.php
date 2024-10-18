@@ -97,7 +97,7 @@ function post_add_image_to_folder($data)
 	$newexists = file_exists($newfile);
 	
 	// add the new image if it is a jpg, png, or gif
-	if ( ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) ) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) && (! $newexists) && $url_to_new_file !== '') {
+	if ( ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) || ( 'image/avif' == $type ) ) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) && (! $newexists) && $url_to_new_file !== '') {
 		$success_new_file_write = file_put_contents($newfile, $image);
 		$new_file_mime = wp_check_filetype($newfile)['type'];
 		$mime_type_ok = $type == $new_file_mime;
