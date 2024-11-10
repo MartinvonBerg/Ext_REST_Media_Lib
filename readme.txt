@@ -6,7 +6,7 @@ Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catal
 Requires at least: 6.2
 Tested up to: 6.6
 Requires PHP: 7.4
-Stable Tag: 1.0.0
+Stable Tag: 1.1.0
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -407,9 +407,17 @@ There are no FAQs just yet.
 = 1.0.0 =
 * Added support for AVIF-Files and tested with WordPress 6.6.2. Minor change of quality for image resizing. Increased minimum versions of WP and PHP.
 
+= 1.1.0 =
+* Added an own class to generate the image-sizes with ImageMagick. This produces smaller files as epxected where AVIF is 0.5 Jpeg-size and -30% of WebP-size.
+* The calculation times are roughly:
+* JPEG : 2.0 s, WEBP : 3.0 s, AVIF : 4.8 s on my local machine. Without my Image_Editor its 2.6s for AVIF only! Tested with 1 image only!
+* Tested with WordPress 6.7-RC4 This class to generate the image-sizes with ImageMagick is used always! For every upload!
+* Added new routes and functions to handle local generated images.
+
+
 == Upgrade Notice ==
 
-Upgrade to 0.1.5 is highly recommended to get rid of the inconsistent update functions. 
+Upgrade to 1.1.0 is not necessary. Only, if  you want to use the new image resizing class for smaller images. 
 
 
 == Credits ==

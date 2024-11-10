@@ -90,11 +90,13 @@ function update_metadata(int $post_id, array $newmeta, string $origin)
 	if (array_key_exists('image_meta', $newmeta)) {
 		$newmeta = $newmeta['image_meta'];
 		// sanitize the keywords
-		foreach ($newmeta['keywords'] as $key => $entry) {
-			$newmeta['keywords'][$key] = \htmlspecialchars( $entry );
-		};
+		if (array_key_exists('keywords', $newmeta)) {
+			foreach ($newmeta['keywords'] as $key => $entry) {
+				$newmeta['keywords'][$key] = \htmlspecialchars( $entry );
+			};
+		}
 
-		// organize metadata. GPS-data is missing. Does matter: is not used in WP. GPS is updated via file-update.
+		// organize metadata. GPS-data is missing. Does not matter: is not used in WP. GPS is updated via file-update.
 		array_key_exists('keywords', $newmeta)  ? $meta['image_meta']['keywords']  = $newmeta['keywords'] : ''; 
 		array_key_exists('credit', $newmeta)    ? $meta['image_meta']['credit']    = \htmlspecialchars($newmeta['credit']) : '';
 		array_key_exists('copyright', $newmeta) ? $meta['image_meta']['copyright'] = \htmlspecialchars($newmeta['copyright']) : '';

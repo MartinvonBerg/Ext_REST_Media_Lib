@@ -9,7 +9,7 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
  * @param object $data is the complete Request data of the REST-api GET
  * @return \WP_REST_Response|\WP_Error REST-response data for the folder if it exists
  */
-function get_add_image_to_folder( $data )
+function get_add_file_to_folder( $data )
 {
 	$dir = wp_upload_dir()['basedir'];
 	$folder = $dir . '/' . $data['folder'];
@@ -24,7 +24,7 @@ function get_add_image_to_folder( $data )
 	}
 
 	$getResp = array(
-		'message' => 'You requested image addition to folder '. $folder . ' with GET-Request. Please use POST Request.',
+		'message' => 'You requested image FILE addition to folder '. $folder . ' with GET-Request. Please use POST Request.',
 		'exists' => $exists,
 	);
 
@@ -41,11 +41,8 @@ function get_add_image_to_folder( $data )
  * @param object $data is the complete Request data of the REST-api POST
  * @return object WP_REST_Response|WP_Error REST-response data for the folder if it exists of Error message
  */
-function post_add_image_to_folder($data)
+function post_add_file_to_folder($data)
 {
-	global $wpdb;
-
-	include_once ABSPATH . 'wp-admin/includes/image.php';
 	$minsize   = MIN_IMAGE_SIZE;
 		
 	// Define folder names, escape slashes (could be done with regex but then it's really hard to read)
@@ -59,11 +56,8 @@ function post_add_image_to_folder($data)
 	$reqfolder = str_replace('\\\\', '/', $reqfolder);
 	$reqfolder = str_replace('//', '/', $reqfolder);
 	
-	// check and create folder. Do not use WP-standard-folder in media-cat
-	$standard_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // check if WP-standard-folder (e.g. ../2020/12)
-	if ($standard_folder != false) {
-		return new \WP_Error('not_allowed', 'Do not add image to WP standard media directory', array( 'status' => 400 ));
-	}
+	// check and create folder. Also use WP-standard-folder in media-cat
+	#$standard_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // check if WP-standard-folder (e.g. ../2020/12)
 	if (! is_dir($folder)) {
 		wp_mkdir_p($folder); // TBD : sanitize this? htmlspecialchars did not work
 	}
@@ -99,57 +93,23 @@ function post_add_image_to_folder($data)
 	if (empty($image)) {
 		return new \WP_Error('error', 'File in Body is empty or missing', array( 'status' => 400 ));
 	}
-	$newexists = file_exists($newfile);
+	// check if file exists
+	$newexists = file_exists($newfile) && !array_key_exists("overwrite", $_GET);
 	
-	// add the new image if it is a jpg, png, or gif
+	// add the new image if it is a jpg, png, gif, webp or avif
 	if ( ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) || ( 'image/avif' == $type ) ) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) && (! $newexists) && $url_to_new_file !== '') {
 		$success_new_file_write = file_put_contents($newfile, $image);
 		$new_file_mime = wp_check_filetype($newfile)['type'];
 		$mime_type_ok = $type == $new_file_mime;
 		
 		if ($success_new_file_write && $mime_type_ok) {
-			$att_array = array(
-				'guid'           => $url_to_new_file, // // alt: $url_to_new_file works only this way -- use a relative path to ... /uploads/ - folder
-				'post_mime_type' => $new_file_mime, // 'image/jpg'
-				'post_title'     => $title, // this creates the title and the permalink, if post_name is empty
-				'post_content'   => '',
-				'post_status'    => 'inherit',
-				'post_name' => '' , // this is used for Permalink :  https://example.com/title-88/, (if empty post_title is used)
-			);
-			
-			$upload_id = wp_insert_attachment( $att_array, $newfile, 0, true, true ); 
-
-			if (is_wp_error( $upload_id )) {
-				// something went wrong: delete file and return
-				unlink($newfile);
-				return new \WP_Error('error', 'Could not generate attachment for file ' . $cont, array( 'status' => 400 ));
-			}
-
-			$success_subsizes = wp_create_image_subsizes( $newfile, $upload_id ) ;
-			
-			if ( \strpos( $success_subsizes["file"], EXT_SCALED) != \false ) 
-				$correct_new_filename = str_replace( '.' . $ext, '-'. EXT_SCALED . '.' . $ext, $cont);
-			else
-				$correct_new_filename = $cont;
-
-			$attfile = $reqfolder . '/' . $correct_new_filename; 
-			
-			update_post_meta($upload_id, 'gallery', $reqfolder);
-			update_post_meta($upload_id, '_wp_attached_file', $attfile); // korrigiert den Dateinamen
-
-			// update post doesn't update GUID on updates. guid has to be the full url to the file
-			$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $upload_id) );
-			
+			// everything ok
 			$getResp = array(
-				'id' => $upload_id,
-				'message' => 'You requested image addition to folder '. $folder . ' with POST-Request. Done.',
+				'message' => 'You requested image File addition to folder '. $folder . ' with POST-Request. Done.',
 				'new_file_name' => $cont,
 				'gallery' => $reqfolder,
 				'Bytes written' => $success_new_file_write,
 			);
-			// do_action after successful upload
-			//global $wp_filter; $a = serialize($wp_filter[ 'wp_rest_mediacat_upload' ]->callbacks); error_log( $a );
-			\do_action( 'wp_rest_mediacat_upload', $upload_id, 'context-rest-upload');
 
 		} elseif (! $success_new_file_write) {
 			// something went wrong // delete file

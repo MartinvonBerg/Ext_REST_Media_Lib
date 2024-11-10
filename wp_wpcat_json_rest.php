@@ -9,7 +9,7 @@
  * Plugin Name:       Media Library Extension
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the REST-API to work with Wordpress Media-Library. Organize images in Folders. Add and Update images including Metadata and Posts using the images. Access with Authorization only.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.2
  * Requires PHP:      7.4
  * Tested up to:      6.6
@@ -26,17 +26,8 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
 // ----------------- global Definitions and settings ---------------------------------
 const MIN_IMAGE_SIZE = 100;   // minimal file size in bytes to upload.
 const MAX_IMAGE_SIZE = 2560;  // value for resize to ...-scaled.jpg TODO: big_image_size_threshold : read from WP settings. But where?
-const RESIZE_QUALITY = 86;    // quality for jpeg image resizing in percent.
-const WEBP_QUALITY   = 45;	  // quality for webp image resizing in percent. Used for avif, too
 const REST_NAMESPACE = 'extmedialib/v1'; // namespace for REST-API.
 const EXT_SCALED     = 'scaled';    // filename extension for scaled images as constant. Maybe WP will change this in future.
-
-\add_filter('jpeg_quality', function () { return RESIZE_QUALITY; });
-\apply_filters( 'jpeg_quality', RESIZE_QUALITY, 'image/jpeg');
-
-\add_filter( 'wp_editor_set_quality', function () { return WEBP_QUALITY; });
-\apply_filters( 'wp_editor_set_quality', WEBP_QUALITY, 'image/webp' );
-\apply_filters( 'wp_editor_set_quality', WEBP_QUALITY, 'image/avif' ); // see: https://github.com/WordPress/wordpress-develop/pull/7004
 
 add_action('rest_api_init', '\mvbplugins\extmedialib\register_md5_original');
 
@@ -44,6 +35,7 @@ add_action('rest_api_init', '\mvbplugins\extmedialib\register_md5_original');
 require_once __DIR__ . '/includes/rest_api_functions.php';
 require_once __DIR__ . '/classes/replacer.php';
 require_once __DIR__ . '/classes/emrFile.php';
+require_once __DIR__ . '/classes/class_image_editor.php';
 
 require_once __DIR__ . '/includes/require_rest_auth.php';
 require_once __DIR__ . '/includes/trigger_after_rest.php';
@@ -53,7 +45,9 @@ require_once __DIR__ . '/includes/meta_update_callback.php';
 require_once __DIR__ . '/includes/add_image_to_folder_callback.php';
 require_once __DIR__ . '/includes/add_image_from_folder_callback.php';
 require_once __DIR__ . '/includes/rest_register_functions.php';
-
+require_once __DIR__ . '/includes/image_subsizes_callback.php';
+require_once __DIR__ . '/includes/add_file_to_folder_callback.php';
+require_once __DIR__ . '/includes/handle_subsizes_in_db.php';
 
 // REST-API-EXTENSION FOR WP MEDIA Library---------------------------------------------------------
 $field = 'gallery';
@@ -129,7 +123,7 @@ $args = array(
 		'required' => true,
 		),
 );
-$route = 'addtofolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)';	// 'addtofolder/', ==> REQ = ...addtofolder/?folder=<foldername>
+$route = 'addtofolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)';	// 'addtofolder/', ==> REQ = ...addtofolder/<folder>
 $function = 'add_image_to_folder';
 
 add_rest_route( $args, $route, $function);
@@ -152,5 +146,35 @@ $args = array(
 );
 $route = 'addfromfolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)';
 $function = 'add_image_from_folder';
+
+add_rest_route( $args, $route, $function);
+
+//--------------------------------------------------------------------
+// REST-API Endpoint to get the registered image subsizes.
+$args = array(
+	'folder' => array(
+		'validate_callback' => function ($param, $request, $key) {
+			return empty($param);
+		},
+		'required' => false,
+		),
+);
+$route = 'imagesubsizes';	// 'addtofolder/', ==> REQ = ...addtofolder/<folder>
+$function = 'registered_image_subsizes';
+
+add_rest_route( $args, $route, $function);
+
+//--------------------------------------------------------------------
+// REST-API Endpoint to add an image file to a folder in the WP-Media-Catalog including the standard WP-Media-Folders
+$args = array(
+	'folder' => array(
+		'validate_callback' => function ($param, $request, $key) {
+			return is_string($param);
+		},
+		'required' => true,
+		),
+);
+$route = 'filetofolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)';	// 'filetofolder/', ==> REQ = ...addtofolder/<folder>
+$function = 'add_file_to_folder';
 
 add_rest_route( $args, $route, $function);

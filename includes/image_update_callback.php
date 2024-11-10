@@ -220,6 +220,8 @@ function post_image_update( $data )
 			
 			// update the attachment = image with standard methods of WP
 			wp_insert_attachment( $att_array, $gallerydir . '/' . $new_File_Name . $new_File_Extension, $oldParent, true, false ); // Dieser ändert den slug und den permalink
+			// calls filter 'intermediate_image_sizes_advanced' at the end of this function and then _wp_make_subsizes()
+			// the filter calls image_subsizes_filter() from this plugin in handle_subsizes_in_db.php
 			$success_subsizes = wp_create_image_subsizes( $path_to_new_file, $post_id ); // nach dieser Funktion ist der Dateiname falsch! Nur dann wenn größer als big-image-size!
 		
 			// write data for description->rendered, full->file (only basename . ext is used) full->source_url, source_url, 
