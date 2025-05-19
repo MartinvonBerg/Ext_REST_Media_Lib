@@ -4,7 +4,7 @@ Contributors: martinvonberg
 Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 6.2
-Tested up to: 6.7
+Tested up to: 6.8
 Requires PHP: 7.4
 Stable Tag: 1.1.0
 License: GPLv2
@@ -408,12 +408,15 @@ There are no FAQs just yet.
 * Added support for AVIF-Files and tested with WordPress 6.6.2. Minor change of quality for image resizing. Increased minimum versions of WP and PHP.
 
 = 1.1.0 =
+* EXPERIMENTAL !!!
 * Added an own class to generate the image-sizes with ImageMagick. This produces smaller files as epxected where AVIF is 0.5 Jpeg-size and -30% of WebP-size.
 * The calculation times are roughly:
 * JPEG : 2.0 s, WEBP : 3.0 s, AVIF : 4.8 s on my local machine. Without my Image_Editor its 2.6s for AVIF only! Tested with 1 image only!
 * Tested with WordPress 6.7-RC4 This class to generate the image-sizes with ImageMagick is used always! For every upload!
 * Added new routes and functions to handle local generated images.
 
+= 1.1.0 =
+* Test with WordPress 6.8. No changes.
 
 == Upgrade Notice ==
 

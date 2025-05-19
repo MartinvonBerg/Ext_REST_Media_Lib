@@ -1,22 +1,17 @@
 <?php
 /**
- *
- * @link              https://github.com/MartinvonBerg/Ext_REST_Media_Lib
- * @since             5.3.0
- * @package           Ext_REST_Media_Lib
- *
- * @wordpress-plugin
  * Plugin Name:       Media Library Extension
  * Plugin URI:        https://github.com/MartinvonBerg/Ext_REST_Media_Lib
  * Description:       Extend the REST-API to work with Wordpress Media-Library. Organize images in Folders. Add and Update images including Metadata and Posts using the images. Access with Authorization only.
  * Version:           1.1.0
  * Requires at least: 6.2
  * Requires PHP:      7.4
- * Tested up to:      6.7
  * Author:            Martin von Berg
  * Author URI:        https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
  * License:           GPL-2.0
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
+ * 
+ * @package           Ext_REST_Media_Lib
  */
 
 namespace mvbplugins\extmedialib;
