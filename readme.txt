@@ -429,4 +429,4 @@ This plugin uses the great work from:
 - wordpress for coding hints: https://de.wordpress.org/
 - authorization hints: https://developer.wordpress.org/rest-api/frequently-asked-questions/
 - Enable Media Replacer: https://de.wordpress.org/plugins/enable-media-replace/ I'm using two classes of this great plugin to handle the link updates.
-- PHPunit and BrainMonkey for Testing
+- PHPunit and BrainMonkey for Testing.
