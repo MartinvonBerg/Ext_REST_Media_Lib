@@ -1,0 +1,17 @@
+{
+    "require-dev": {
+        "phpstan/phpstan": "^1.12",
+        "szepeviktor/phpstan-wordpress": "^1",
+        "phpstan/extension-installer": "^1",
+        "phpcompatibility/php-compatibility": "*",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "phpunit/phpunit": "9.6",
+        "brain/monkey": "^2.6"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": false,
+            "phpstan/extension-installer": false
+        }
+    }
+}

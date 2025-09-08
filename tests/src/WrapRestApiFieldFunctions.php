@@ -1,7 +1,7 @@
 <?php
 namespace mvbplugins\extmedialib;
 
-include_once 'C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\includes\rest_api_field_functions.php';
+include_once PLUGIN_DIR . '\includes\rest_api_field_functions.php';
 
 /**
  * wrapper class for functions in file ..\wp-wpcat-json-rest\includes\rest_api_field_functions.php

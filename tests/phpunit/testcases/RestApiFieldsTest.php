@@ -21,7 +21,7 @@ final class RestApiFieldsTest extends TestCase {
      * @dataProvider FieldsProvider
      */
     public function test_update_field( $ret1, $oldValue, $value, $post, $field, $expected) {
-		include_once 'C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\tests\src\WrapRestApiFieldFunctions.php';
+		include_once PLUGIN_DIR . '\tests\src\WrapRestApiFieldFunctions.php';
 		
         expect( 'get_post_meta')
             ->times(1)
@@ -32,7 +32,7 @@ final class RestApiFieldsTest extends TestCase {
             ->andReturn( $ret1 );
 
         $tested = new mvbplugins\extmedialib\WrapRestApiFieldFunctions();
-        $result = $tested::cbUpdateField( $value, $post, $field );
+        $result = $tested->cbUpdateField( $value, $post, $field );
         $this->assertEquals( $result, $expected );
 	}
 
@@ -54,7 +54,7 @@ final class RestApiFieldsTest extends TestCase {
      * @dataProvider md5Provider
      */
     public function test_cb_get_md5( $data, $expected) {
-		include_once 'C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\tests\src\WrapRestApiFieldFunctions.php';
+		include_once PLUGIN_DIR . '\tests\src\WrapRestApiFieldFunctions.php';
 		
         expect( 'wp_get_original_image_path' )
             ->with( 0 )
@@ -63,7 +63,7 @@ final class RestApiFieldsTest extends TestCase {
             ->andReturn( 'test.jpg' );
        
         $tested = new mvbplugins\extmedialib\WrapRestApiFieldFunctions();
-        $result = $tested::cbGetMd5( $data );
+        $result = $tested->cbGetMd5( $data );
         $this->assertEquals( $result, $expected );
 	}
 
@@ -73,7 +73,7 @@ final class RestApiFieldsTest extends TestCase {
             [ ['id' => 0], array(
                             'MD5' => '0',
                             'size' => 0,
-                            'file' => $original_filename,
+                            'file' => $original_filename, // this variable is not defined
                             ) ],
             [ ['id' => 1], array(
                             'MD5' => '0',
@@ -85,9 +85,9 @@ final class RestApiFieldsTest extends TestCase {
     }
 
     public function test_cb_get_md5_2() {
-		include_once 'C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\tests\src\WrapRestApiFieldFunctions.php';
+		include_once PLUGIN_DIR . '\tests\src\WrapRestApiFieldFunctions.php';
 		
-        $file = 'C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata\DSC_1722.webp';
+        $file = PLUGIN_DIR . '\test\testdata\DSC_1722.webp';
 
         expect( 'wp_get_original_image_path' )
             ->with( 1 )
@@ -100,7 +100,7 @@ final class RestApiFieldsTest extends TestCase {
         );
 
         $tested = new mvbplugins\extmedialib\WrapRestApiFieldFunctions();
-        $result = $tested::cbGetMd5( $data );
+        $result = $tested->cbGetMd5( $data );
         $this->assertEquals( $result, $expected );
 	}
 

@@ -571,7 +571,7 @@ class Replacer
 				// every image has to be in a html comment , works only with gutenberg
 				//$index = 0;
 				foreach ( $comments as $c ) { 
-					$text = $c->data;
+					$text = $c->nodeValue;
 					$pos = \strpos( $text, strval($this->post_id) );
 
 					// Check whether the comment defines an Image, Gallery, or Media-with-Text. Find only the start, therefore include '{'

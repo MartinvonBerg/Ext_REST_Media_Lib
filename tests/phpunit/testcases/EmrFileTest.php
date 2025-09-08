@@ -7,7 +7,7 @@ use function Brain\Monkey\Functions\expect;
 use function Brain\Monkey\Actions\expectDone;
 use function Brain\Monkey\Filters\expectApplied;
 
-include_once 'C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\classes\emrFile.php';
+include_once PLUGIN_DIR . '\classes\emrFile.php';
 
 final class EmrFileTest extends TestCase {
 	public function setUp(): void {
@@ -35,7 +35,7 @@ final class EmrFileTest extends TestCase {
 
     public function test_emrFileClass_2 () {
 
-        $path = 'C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata';
+        $path = PLUGIN_DIR . '\test\testdata';
         $filename =  'DSC_1722.webp';
         $file = $path . '/' . $filename;
 
@@ -79,7 +79,7 @@ final class EmrFileTest extends TestCase {
 
     public function test_emrFileClass_3 () {
 
-        $path = 'C:\Bitnami\wordpress-5.2.2-0\apps\wordpress\htdocs\wp-content\plugins\wp-wpcat-json-rest\test\testdata';
+        $path = PLUGIN_DIR . '\test\testdata';
         $filename =  'DSC_1722.webp';
         $file = $path . '/' . $filename;
 
