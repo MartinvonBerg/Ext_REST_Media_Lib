@@ -21,22 +21,8 @@
                 "max_data": 1024,
                 "max_depth": 5
             }
-        },
-        {
-            "name": "Launch currently open script",
-            "type": "php",
-            "request": "launch",
-            "program": "${file}",
-            "cwd": "${fileDirname}",
-            "port": 9000
-        },
-        {
-            "name": "Python: Aktuelle Datei",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "cwd": "${fileDirname}"
         }
+       
+       
     ]
 }

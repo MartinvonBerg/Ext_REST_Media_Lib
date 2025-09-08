@@ -1,5 +1,6 @@
 ##################
-# 
+# NOTE: This Testsuite does NO LONGER WORK !!!
+##################
 # Testing the extendend REST-API with python and pytest
 # 08 / 2021 by Martin von Berg, mail@mvb1.de
 #
@@ -26,7 +27,8 @@
 from genericpath import isfile
 import requests
 import json
-from distutils.version import StrictVersion
+# from distutils.version import StrictVersion
+from packaging.version import Version as StrictVersion
 import os, sys, magic, re, pprint, difflib
 from shutil import copyfile 
 import datetime, pytest, base64, hashlib, time, warnings
@@ -50,9 +52,9 @@ from helper_functions import find_plugin_in_json_resp_body, remove_html_tags, ge
 #    "password" : "password", # the application password you created for the test
 #    "testfolder" : "test" # no leading and trailing slash, use whatever you like
 # }
-path = os.path.join(SCRIPT_DIR, 'app', 'wp_site1.json')
+path = os.path.join(SCRIPT_DIR, 'app', 'wp_site7.json')
 if not isfile(path):
-     path = os.path.join(SCRIPT_DIR, 'wp_site6.json') # use here the filename that you defined before
+     path = os.path.join(SCRIPT_DIR, 'wp_site7.json') # use here the filename that you defined before
 
 f = open( path )
 wp_site = json.load(f)
@@ -118,10 +120,10 @@ def get_qm_errors(header):
                error = json.loads(header['x-qm-php_errors-error-' + add][1])
                if (error['component'] == 'Plugin: wp-wpcat-json-rest') or (wp.showallPHPerrors == True):
                     mywarn = '--- !!! ' + error['component'] +' PHP ' + error['type'] + ' in File  ' + error['file'] + '  in line ' + str(error['line']) +'\n'
-                    mywarn = mywarn + '--- Message: ', error['message']
+                    mywarn = mywarn + '--- Message: '+ error['message']
                     print( mywarn )
                     myerrors += 1
-                    warnings.warn( mywarn  )
+                    warnings.warn( mywarn )
 
 # --------------- basic tests --------------------------------------------
 @pytest.mark.basic
@@ -232,7 +234,9 @@ def test_rest_api_request_plugin_status():
           print('             Version ', pi['version'], ' is ', pi['status'])
           #print('------------- Description:', pi['description']['rendered'] )
              
-     assert ( StrictVersion( wp.tested_plugin_version ) >= wp.tested_plugin_min_version ) == True
+     # assert ( StrictVersion( wp.tested_plugin_version ) >= wp.tested_plugin_min_version ) == True
+     assert StrictVersion(wp.tested_plugin_version) >= StrictVersion(wp.tested_plugin_min_version)
+
 
      if wp.isqmactive == True:
           print('--- Query Monitor is installed and active.')    
@@ -260,7 +264,8 @@ def test_rest_api_request_active_theme():
 
      assert pi_index >= 0
      assert resp_body[pi_index]['status'] == 'active'
-     assert ( StrictVersion( resp_body[pi_index]['version'] ) >= '0.0.1' ) == True
+     #assert ( StrictVersion( resp_body[pi_index]['version'] ) >= '0.0.1' ) == True
+     assert StrictVersion(resp_body[pi_index]['version']) >= StrictVersion('0.0.1')
 
 
 # --------------- extbasic tests: ext rest api --------------------------------
@@ -421,7 +426,7 @@ def test_rest_api_addtofolder_with_valid_folder_file_exists_wrong_mimetype():
      response = requests.post(geturl, headers=header, data=data )
      resp_body.update( json.loads( response.text) )
      result = resp_body
-     header = response.headers._store
+     header = response.headers._store # type: ignore
      get_qm_errors(header)
 
      assert result['data']['status'] == 400, 'Will fail if the upload was not possible.'
@@ -446,9 +451,9 @@ def test_upload_one_image_to_standard_folder():
      print('--- Uploading file: ', image_file, ' to standard folder.')
      result=wp.add_media( image_file, 'first_testfile' + ext )
 
-     print('--- ', result['message'])
+     print('--- ', result['message']) # type: ignore
      # check the upload status. 
-     assert result['httpstatus'] == 201
+     assert result['httpstatus'] == 201 # type: ignore
 
      # Do not delete the image. keep in library.
      #id = result['id']
@@ -520,7 +525,7 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      result = wp.get_post_content( wp.media['maxid'], 'media' )
      # store the rest response to /media/id to wp.created_images
      if result['httpstatus'] == 200:
-          wp.created_images[n]['post'] =  result
+          wp.created_images[n]['post'] =  result # type: ignore
      
      # check wordpress site uses complete url. check with the uploaded image, because older images could be different.
      print('--- guid for decision: ', result['guid']['rendered'])
@@ -585,7 +590,7 @@ def test_image_upload_to_folder_with_ext_rest_api( image_file ):
      
      pos = wp.baseurl.find('127.0.0.1')
      if pos == -1:
-          assert result['media_details']['file'] == wp.dictall['mediaDetailsFile'] # This one can't be checked for my local site because it uses the local path bei locasl
+          assert result['media_details']['file'] == wp.dictall['mediaDetailsFile'] # This one can't be checked for my local site because it uses the local path
           # for the remote site this check is OK
      if wp.img_isscaled:
           assert result['media_details']['original_image'] == wp.dictall['mediaDetailsoriginalFile'] 
@@ -1507,7 +1512,7 @@ def test_updated_post_with_gallery():
                print('--- Found gallery ', postid, ' Now comparing with content.')
 
      # get the post data
-     result = wp.get_post_content( postid, 'posts' )
+     result = wp.get_post_content( postid, 'posts' ) # type: ignore
      assert result['httpstatus'] == 200
      content = result['content']['rendered']
      print(content)
@@ -1537,7 +1542,7 @@ def test_updated_post_with_gallery():
           wp.generate_dictall()
 
           # get the image data
-          result = wp.get_post_content( id, 'media' )
+          result = wp.get_post_content( id, 'media' ) # type: ignore
           assert result['httpstatus'] == 200
           imgcaption = get_caption_from_html( result['caption']['rendered'] )
           imgalt = result['alt_text']
@@ -1650,7 +1655,7 @@ def test_updated_post_with_gallery_after_change_of_mime_type():
 
      # get the post data
      time.sleep(3)
-     result = wp.get_post_content( postid, 'posts' )
+     result = wp.get_post_content( postid, 'posts' ) # type: ignore
      assert result['httpstatus'] == 200
      content = result['content']['rendered']
      print(content)
@@ -1683,7 +1688,7 @@ def test_updated_post_with_gallery_after_change_of_mime_type():
           wp.generate_dictall()
 
           # get the image data
-          result = wp.get_post_content( id, 'media' )
+          result = wp.get_post_content( id, 'media' ) # type: ignore
           assert result['httpstatus'] == 200
           imgcaption = get_caption_from_html( result['caption']['rendered'] )
           imgalt = result['alt_text']
@@ -1753,7 +1758,7 @@ if __name__ == '__main__':
      #test_update_image_with_changed_image_but_same_filename('NZ_Ausw_1L_61_sw-1.jpg')
      #test_upload_one_image_to_standard_folder()
      #d = show_diff('https://www.mvb1.de/DSC_1972/', 'https://www.mvb1.de/DSC_1972-2/')
-     str = '<p>caption7373_1644595907</p>\n<div class="read-more"><a href="http://127.0.0.1/wordpress/dsc_1722/">Weiterlesen &#8250;</a></div>\n<p><!-- end of .read-more --></p>\n'
-     cap = get_caption_from_html(str)
+     my_str = '<p>caption7373_1644595907</p>\n<div class="read-more"><a href="http://127.0.0.1/wordpress/dsc_1722/">Weiterlesen &#8250;</a></div>\n<p><!-- end of .read-more --></p>\n'
+     cap = get_caption_from_html(my_str)
      print('done')
    

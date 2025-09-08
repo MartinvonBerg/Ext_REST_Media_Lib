@@ -826,7 +826,7 @@ class WP_EXT_REST_API( WP_REST_API ):
         isfile = os.path.isfile( imagefile )
         if not isfile:
             path = os.getcwd()
-            fname = os.path.join(path, 'testdata', imagefile)
+            fname = os.path.join(path, 'test/testdata', imagefile)
             print('Upload File: ', fname)
             isfile = os.path.isfile( fname )
             if not isfile:
