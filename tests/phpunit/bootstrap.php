@@ -22,3 +22,29 @@ define ( 'PLUGIN_DIR', 'C:\wamp64\www\wordpress\wp-content\plugins\wp-wpcat-json
 
 
 require_once PLUGIN_DIR . '/vendor/autoload.php';
+
+
+// --- Mini-Polyfills für WP-Funktionen, die du im SUT nutzt ---
+
+if (!function_exists('wp_normalize_path')) {
+    function wp_normalize_path(string $path): string {
+        $path = str_replace('\\', '/', $path);
+        // Mehrfache Slashes zu einem Slash reduzieren
+        $path = preg_replace('#/+#', '/', $path);
+        return $path;
+    }
+}
+
+if (!function_exists('untrailingslashit')) {
+    function untrailingslashit(string $value): string {
+        return rtrim($value, '/');
+    }
+}
+
+if (!function_exists('path_join')) {
+    function path_join(string $base, string $path): string {
+        $base = untrailingslashit(wp_normalize_path($base));
+        $path = trim(wp_normalize_path($path), '/');
+        return $path === '' ? $base : ($base . '/' . $path);
+    }
+}

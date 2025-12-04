@@ -130,21 +130,13 @@ function update_metadata(int $post_id, array $newmeta, string $origin)
 /**
  * Get the upload URL/path in right way (works with SSL).
  *
- * @return string the base appended with subfolder
+ * @return string the base url
  */
-function get_upload_url()
-{
-	$param = 'baseurl';
-	$subfolder = '';
-
-	$upload_dir = wp_get_upload_dir();
-	$url = $upload_dir[$param];
-
-	if ($param === 'baseurl' && is_ssl()) {
-		$url = str_replace('http://', 'https://', $url);
-	}
-
-	return $url . $subfolder;
+function get_upload_url(): string {
+	$ud   = wp_get_upload_dir();
+	$url  = isset($ud['baseurl']) ? $ud['baseurl'] : '';
+	$url  = set_url_scheme( $url );
+	return untrailingslashit( $url );
 }
 
 /**
@@ -218,4 +210,159 @@ function implode_all( $glue, $arr ) {
   
 	// Not array
 	return $arr;
+}
+
+/**
+ * Extrahiert einen Dateinamen aus dem Content-Disposition-Header.
+ * - Bevorzugt RFC 5987: filename*=
+ * - Fällt zurück auf filename=
+ * - Akzeptiert Whitespaces um '=' und ';'
+ * - Entfernt Quotes um den Wert
+ * - Schneidet Pfadanteile ab (Basename)
+ * - Sanitiset den Dateinamen (spaces → '-', unsichere Zeichen raus)
+ *
+ * Beispiele:
+ *  attachment;   filename =  "space name.txt"   -> "space-name.txt"
+ *  attachment; filename*=UTF-8''f%C3%BCnf%20%C3%9Cberraschungen.jpg -> "fuenf-ueberraschungen.jpg" (je nach WP remove_accents)
+ *
+ * @param string|null $cd Content-Disposition-Header
+ * @return string cleaned and sanitized filename from the header
+ */
+function extract_filename_from_content_disposition(?string $cd): string
+{
+    if ($cd === null) {
+        return '';
+    }
+
+    // Normalisieren
+    $cd = trim($cd);
+    if ($cd === '') {
+        return '';
+    }
+
+    // In Parameter zerlegen (Semikolon als Trenner, unterschiedliche Whitespaces zulassen)
+    $parts = array_map('trim', explode(';', $cd));
+
+    $filename = '';
+    $filenameStar = '';
+
+    foreach ($parts as $part) {
+        if ($part === '') {
+            continue;
+        }
+
+        // Robust gegen Whitespaces um '='
+        // Beispiel: 'filename =  "space name.txt"'
+        if (preg_match('/^filename\*\s*=\s*(.+)$/i', $part, $m)) {
+            // RFC 5987: <charset>''<lang
+            $value = trim($m[1]);
+            $value = trim($value, "\"' \t\n\r\0\x0B");
+
+            $pos = strpos($value, "''");
+            if ($pos !== false) {
+                $charset = substr($value, 0, $pos);
+                $encoded = substr($value, $pos + 2);
+                $decoded = rawurldecode($encoded);
+
+                if ($charset && strcasecmp($charset, 'utf-8') !== 0 && function_exists('mb_convert_encoding')) {
+                    $decoded = @mb_convert_encoding($decoded, 'UTF-8', $charset);
+                }
+                $filenameStar = $decoded;
+            } else {
+                // Kaputte/vereinfachte Variante: kein '' enthalten
+                $filenameStar = rawurldecode($value);
+            }
+            continue;
+        }
+
+        if (preg_match('/^filename\s*=\s*(.+)$/i', $part, $m)) {
+            $value = trim($m[1]);
+            // Quotes entfernen
+            $value = trim($value, "\"' \t\n\r\0\x0B");
+            $filename = $value;
+            continue;
+        }
+    }
+
+    // Priorität: filename* > filename
+    $out = $filenameStar !== '' ? $filenameStar : $filename;
+
+    if ($out === '') {
+        return '';
+    }
+
+    // Nur den letzten Pfadteil (Traversal-Prävention)
+    $out = basename(str_replace('\\', '/', $out));
+
+    // Jetzt sanitizen, damit Test "space-name.txt" erfüllt ist
+    if (function_exists('sanitize_file_name')) {
+        $out = sanitize_file_name($out);
+    }
+
+    return $out;
+}
+
+/**
+ * Kanonisiert eine Slash-getrennte Pfadliste segmentweise:
+ * - vereinheitlicht Backslashes zu '/'
+ * - trimmt führende/abschließende Slashes/Whitespace
+ * - entfernt leere Segmente
+ * - entfernt '.' und löst '..' aus (Stack-Prinzip)
+ * Rückgabe: Array der sauberen Segmente
+ */
+function normalize_path_segments(string $input): array {
+    $input = trim(str_replace('\\', '/', $input), "/ \t\n\r\0\x0B");
+    if ($input === '') {
+        return [];
+    }
+    $raw = explode('/', $input);
+    $stack = [];
+    foreach ($raw as $seg) {
+        if ($seg === '' || $seg === '.') {
+            continue;
+        }
+        if ($seg === '..') {
+            // Nur aus dem Stack poppen, nicht über die Wurzel hinaus
+            if (!empty($stack)) {
+                array_pop($stack);
+            }
+            continue;
+        }
+        $stack[] = $seg;
+    }
+    return $stack;
+}
+
+/**
+ * Normalisiert einen Unterordner (aus Request) für Filesystem und URL.
+ * Rückgabe:
+ *  - 'folder_fs'  absoluter Filesystempfad unterhalb $basedir (ohne trailing slash)
+ *  - 'reqfolder'  URL-Pfad relativ (ohne leading/trailing slash)
+ */
+function normalize_target_folder(string $requestFolder, string $basedir): array {
+    // 1) Segmente kanonisieren (wir verwenden die gleiche Logik für FS & URL)
+    $segs = normalize_path_segments($requestFolder);
+
+    // 2) Filesystempfad bauen
+    //    - join per '/' (wir haben bereits Segmente bereinigt)
+    //    - an basedir anhängen
+    //    - am Ende sauber normalisieren und ohne trailing slash zurückgeben
+    $basedir = untrailingslashit(wp_normalize_path($basedir));
+    $suffix  = implode('/', $segs);
+
+    if ($suffix === '') {
+        $folder_fs = $basedir;
+    } else {
+        // path_join hilft gegen Doppel-Slashes; wp_normalize_path vereinheitlicht
+        $folder_fs = wp_normalize_path(path_join($basedir, $suffix));
+        $folder_fs = untrailingslashit($folder_fs);
+    }
+
+    // 3) URL-Teil (reqfolder) zurückgeben – ohne leading/trailing slash
+    $reqfolder = $suffix; // bereits segmentbereinigt, Slashes als Trenner
+
+    return [
+        'folder_fs' => $folder_fs,
+        'reqfolder' => $reqfolder,
+    ];
 }

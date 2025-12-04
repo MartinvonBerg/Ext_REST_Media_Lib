@@ -90,7 +90,7 @@ function post_add_image_to_folder($data)
 		$title = basename($cont, '.' . $ext);
 		$searchinstring = ['\\', '\s', '/'];
 		$title = str_replace($searchinstring, '-', $title);
-		$newfile = $folder . '/' . $cont; // TODO : sanitize this? htmlspecialchars did not work
+		$newfile = $folder . '/' . $cont; // TODO : sanitize this? htmlspecialchars did not work and sync with add_file_to_folder
 		// update post doesn't update GUID on updates. guid has to be the full url to the file
 		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont; // TBD : sanitize this? htmlspecialchars did not work
 	} else {

@@ -47,15 +47,10 @@ function post_add_file_to_folder($data)
 		
 	// Define folder names, escape slashes (could be done with regex but then it's really hard to read)
 	$dir = wp_upload_dir()['basedir'];
-	$folder = $dir . '/' . $data['folder'];
-	$folder = str_replace('\\', '/', $folder );
-	$folder = str_replace('\\\\', '/', $folder);
-	$folder = str_replace('//', '/', $folder);
-	$reqfolder = $data['folder'];
-	$reqfolder = str_replace('\\', '/', $reqfolder);
-	$reqfolder = str_replace('\\\\', '/', $reqfolder);
-	$reqfolder = str_replace('//', '/', $reqfolder);
-	
+	$norm     = normalize_target_folder( (string)$data['folder'], $dir );
+	$folder   = $norm['folder_fs'];
+	$reqfolder= $norm['reqfolder'];
+
 	// check and create folder. Also use WP-standard-folder in media-cat
 	#$standard_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // check if WP-standard-folder (e.g. ../2020/12)
 	if (! is_dir($folder)) {
@@ -69,24 +64,18 @@ function post_add_file_to_folder($data)
 		$type = ''; 
 	}
 	 
-	$image = $data->get_body(); 
-	$cont = $data->get_header('Content-Disposition');
+	$image = $data->get_body();  // required body: the image file with identical mime-type!
+	$cont = $data->get_header('Content-Disposition'); //required https Header Paramater: Content-Disposition = attachment; filename=example.jpg
+	$cont = extract_filename_from_content_disposition($cont);
 	$newfile = '';
 	$url_to_new_file = '';
-	$title = '';
-	$ext = '';
 	
 	// define filename
 	if (! empty($cont) ) {
-		$cont = explode(';', $cont)[1];
-		$cont = explode('=', $cont)[1]; // TBD : sanitize this? htmlspecialchars did not work
-		$ext = pathinfo($cont)['extension'];
-		$title = basename($cont, '.' . $ext);
-		$searchinstring = ['\\', '\s', '/'];
-		$title = str_replace($searchinstring, '-', $title);
-		$newfile = $folder . '/' . $cont; // TODO : sanitize this? htmlspecialchars did not work
+		$newfile = \path_join( $folder , $cont );
+		
 		// update post doesn't update GUID on updates. guid has to be the full url to the file
-		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont; // TBD : sanitize this? htmlspecialchars did not work
+		$url_to_new_file = get_upload_url() . '/' . $reqfolder . '/' . $cont;
 	} else {
 		return new \WP_Error('error', 'Content-Disposition is missing', array( 'status' => 400 ));
 	}

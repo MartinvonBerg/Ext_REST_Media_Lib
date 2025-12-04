@@ -4,9 +4,9 @@ Contributors: martinvonberg
 Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 6.2
-Tested up to: 6.8
+Tested up to: 6.9
 Requires PHP: 7.4
-Stable Tag: 1.1.0
+Stable Tag: 1.2.0
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -418,9 +418,11 @@ There are no FAQs just yet.
 = 1.1.0 =
 * Test with WordPress 6.8. No changes.
 
-== Upgrade Notice ==
+= 1.2.0 =
+* Test with WordPress 6.9. No changes for that. Minor Update of PHP-Function post_add_file_to_folder() for better folder name generation. Added PHPUnit Tests for the new PHP-functions.
 
-Upgrade to 1.1.0 is not necessary. Only, if  you want to use the new image resizing class for smaller images. 
+== Upgrade Notice ==
+Upgrade to 1.2.0 is not necessary. Only, if  you want to use the new image resizing class for smaller images. 
 
 
 == Credits ==
