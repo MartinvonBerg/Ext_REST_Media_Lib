@@ -61,7 +61,7 @@ function post_add_image_to_folder($data)
 	
 	// check and create folder. Do not use WP-standard-folder in media-cat
 	$standard_folder = preg_match_all('/[0-9]+\/[0-9]+/', $folder); // check if WP-standard-folder (e.g. ../2020/12)
-	if ($standard_folder != false) {
+	if ($standard_folder !== 0 && $standard_folder !== false) {
 		return new \WP_Error('not_allowed', 'Do not add image to WP standard media directory', array( 'status' => 400 ));
 	}
 	if (! is_dir($folder)) {
@@ -84,8 +84,15 @@ function post_add_image_to_folder($data)
 	
 	// define filename
 	if (! empty($cont) ) {
-		$cont = explode(';', $cont)[1];
-		$cont = explode('=', $cont)[1]; // TBD : sanitize this? htmlspecialchars did not work
+		$parts1 = explode(';', $cont);
+		if (!isset($parts1[1])) {
+			return new \WP_Error('error', 'Invalid Content-Disposition header format', array( 'status' => 400 ));
+		}
+		$parts2 = explode('=', $parts1[1]);
+		if (!isset($parts2[1])) {
+			return new \WP_Error('error', 'Invalid Content-Disposition header format', array( 'status' => 400 ));
+		}
+		$cont = $parts2[1];
 		$ext = pathinfo($cont)['extension'];
 		$title = basename($cont, '.' . $ext);
 		$searchinstring = ['\\', '\s', '/'];
@@ -105,7 +112,7 @@ function post_add_image_to_folder($data)
 	if ( ( ( 'image/jpeg' == $type ) || ( 'image/png' == $type ) || ( 'image/gif' == $type ) || ( 'image/webp' == $type ) || ( 'image/avif' == $type ) ) && (strlen($image) > $minsize) && (strlen($image) < wp_max_upload_size()) && (! $newexists) && $url_to_new_file !== '') {
 		$success_new_file_write = file_put_contents($newfile, $image);
 		$new_file_mime = wp_check_filetype($newfile)['type'];
-		$mime_type_ok = $type == $new_file_mime;
+		$mime_type_ok = $type === $new_file_mime;
 		
 		if ($success_new_file_write && $mime_type_ok) {
 			$att_array = array(
@@ -127,7 +134,7 @@ function post_add_image_to_folder($data)
 
 			$success_subsizes = wp_create_image_subsizes( $newfile, $upload_id ) ;
 			
-			if ( \strpos( $success_subsizes["file"], EXT_SCALED) != \false ) 
+			if ( \strpos( $success_subsizes["file"], EXT_SCALED) !== false ) 
 				$correct_new_filename = str_replace( '.' . $ext, '-'. EXT_SCALED . '.' . $ext, $cont);
 			else
 				$correct_new_filename = $cont;

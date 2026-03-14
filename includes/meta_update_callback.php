@@ -40,10 +40,10 @@ function post_meta_update($data)
 	}
 	$newmeta = $data->get_body(); // body e.g. as JSON with new metadata as string of POST-Request
 	$isJSON = bodyIsJSON( $newmeta );
-	$newmeta = json_decode($newmeta, $assoc=true);
+	$newmeta = json_decode($newmeta, true); // TODO: check this
 	$origin = 'mvbplugin';
 
-	if ( ($att) && ( 'application/json' == $type ) && ($newmeta != null) && $isJSON ) {
+	if ( ($att) && ( 'application/json' === $type ) && ($newmeta !== null) && $isJSON ) {
 
 		// update metadata
 		$success = \mvbplugins\extmedialib\update_metadata( $post_id, $newmeta, $origin );
@@ -51,7 +51,7 @@ function post_meta_update($data)
 		$mime = \get_post_mime_type( $post_id );
 		
 		$note = __('NOT changed') . ': title, caption';
-		if ( 'image/jpeg' == $mime)
+		if ( 'image/jpeg' === $mime)
 			$note = $note . ', aperture, camera, created_timestamp, focal_length, iso, shutter_speed, orientation';
 			
 		$getResp = array(
@@ -60,7 +60,7 @@ function post_meta_update($data)
 			#'Bytes written' => (string)$success,
 		);
 
-	} elseif (($att) && (($type!='application/json') || ($newmeta == null))) {
+	} elseif (($att) && (($type!=='application/json') || ($newmeta === null))) {
 		return new \WP_Error('wrong_data', 'Invalid JSON-Data in body', array( 'status' => 400 ));
 
 	} else {

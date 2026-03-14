@@ -15,7 +15,7 @@ function get_image_update( $data )
 	$isAttchmnt = wp_attachment_is_image($post_id);
 	$resized = wp_get_attachment_image_src($post_id, 'original');
 
-	if ( 'array' == \gettype( $resized ) )
+	if ( is_array( $resized ) )
 		$resized = $resized[3];
 		
 	if ($isAttchmnt && (! $resized)) {
@@ -66,7 +66,8 @@ function post_image_update( $data )
 	$image = $data->get_body(); // body as string (=jpg/webp-image) of POST-Request
 
 	if ( \array_key_exists('content_disposition', $data->get_headers()) ) {
-		$postRequestFileName = explode( ';', $data->get_headers()['content_disposition'][0] )[1];
+		$parts = explode( ';', $data->get_headers()['content_disposition'][0] );
+		$postRequestFileName = isset( $parts[1] ) ? $parts[1] : '';
 		$postRequestFileName = trim( \str_replace('filename=', '', $postRequestFileName) );
 		$postRequestFileName = \sanitize_file_name( $postRequestFileName );
 	} else {
@@ -185,7 +186,7 @@ function post_image_update( $data )
 		$new_File_Extension = pathinfo( $path_to_new_file )['extension'];
 		$wp_allowed_mimes = \get_allowed_mime_types();
 		$wp_allowed_ext = array_search( $newfile_mime, $wp_allowed_mimes, false);
-		$new_ext_matches_mime = stripos( $wp_allowed_ext, $new_File_Extension)>-1 ? true : false;
+		$new_ext_matches_mime = stripos( $wp_allowed_ext, $new_File_Extension) !== false;
 		$new_File_Extension = '.' . $new_File_Extension;
 		$new_File_Name  = pathinfo( $path_to_new_file )['filename'];
 

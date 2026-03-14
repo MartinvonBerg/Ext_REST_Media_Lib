@@ -30,7 +30,7 @@ function cb_update_field( string $value, object $post, string $field ) :bool
 	$ret = update_post_meta( $post->ID, $field, $value );
 
 	// check the return-value here as this is also false if the value remains unchanged.
-	if ( (($ret == false) && ($old == $value)) || is_int( $ret) ) 
+	if ( (($ret === false) && ($old === $value)) || is_int( $ret) )
 		$ret = true;
 	
 	return $ret;

@@ -164,8 +164,8 @@ function bodyIsJSON($content)
 	if (is_array($content) || is_object($content))
 		return false; // can never be.
 
-	$json = json_decode($content);
-	return $json && $json != $content;
+	$json = json_decode($content); // TODO: check this
+	return $json !== null && $json !== $content;
 }
 
 /**

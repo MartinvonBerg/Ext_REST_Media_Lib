@@ -2,7 +2,7 @@
 /**
  * Class for the replacment of images in a post. Taken from plugin enable_media_replace.
  *
- * PHP version 7.2.0 - 8.0.0
+ * PHP version 8.0.0 - 8.5.0
  *
  * @category   Rest_Api_Functions
  * @package    Rest_Api_Functions
@@ -189,7 +189,7 @@ class Replacer
 			return;
 		}
 
-		if (strlen(trim($base_url)) == 0) {
+		if (strlen(trim($base_url)) === 0) {
 			//Log::addError('Current Base URL emtpy - ' . $base_url);
 			//Notices::addError(__('Fail Safe :: Source Location returned empty string. Not replacing content','enable-media-replace'));
 			return;
@@ -363,7 +363,7 @@ class Replacer
 
 	/**
 	 * search for $base_url in the database and replace the search_urls with replace_urls
-	 *
+	 * TODO: Update this according to doMetaReplaceQuery() or combine the two functions
 	 * @param string $base_url
 	 * @param array $search_urls
 	 * @param array $replace_urls
@@ -382,7 +382,7 @@ class Replacer
 		$number_of_updates = 0;
 	
 		if ( ! empty( $rs ) ) {
-		  foreach ( $rs AS $rows ) {
+		  foreach ( $rs as $rows ) {
 			$number_of_updates = $number_of_updates + 1;
 	
 			// replace old URLs with new URLs.
@@ -405,7 +405,7 @@ class Replacer
 				{
 					//Notice::addError('Something went wrong while replacing' .  $result->get_error_message() );
 					//Log::addError('WP-Error during post update', $result);
-					return 0;
+					continue;
 				}
 			}
 
@@ -428,111 +428,14 @@ class Replacer
 
 	/**
 	 * search for $base_url in the database and replace metadata 'alt' and 'caption' in the code of the post
-	 *
+	 * it was already preselected that this post contains the image in the possible gutenberg blocks.
 	 * @param string $base_url
 	 * @return int $number_of_updates
-	 */	  
-	private function doMetaReplaceQuery( $base_url )
+	 */
+	private function doMetaReplaceQuery( string $base_url ): int
 	{
-		/*
-		Strukturen in wp-posts, in den alt und caption ersetzt werden kann:
-			<!-- wp:media-text {"mediaId":6027, 
-				"mediaLink":"https://www.mvb1.de/franz-alpen-2015-08-133-bearbeitet-bearbeitet-2/", "mediaType":"image","mediaWidth":56,"verticalAlignment":"center","imageFill":true,"focalPoint":{"x":"0.63","y":"0.41"}} -->
-			<figure class="wp-block-media-text__media" 
-				style="background-image:url(http://www.mvb1.de/smrtzl/uploads/Alben_Website/Bike-Tete-de-Viraysse/Franz_Alpen_2015_08-133-Bearbeitet-Bearbeitet-2.jpg);background-position:63% 41%">
-				<img src="http://www.mvb1.de/smrtzl/uploads/Alben_Website/Bike-Tete-de-Viraysse/Franz_Alpen_2015_08-133-Bearbeitet-Bearbeitet-2.jpg" 
-				alt="" class="wp-image-6027 size-full"/>
-			</figure>
-			... weiterer code 
-			<!-- /wp:media-text -->
-
-			<!-- wp:image {"align":"center","id":6262,"width":-3,"height":-2,"sizeSlug":"medium","linkDestination":"none","className":"is-style-rounded"} -->
-			<div class="wp-block-image is-style-rounded">
-			<figure class="aligncenter size-medium is-resized">
-				<img src="https://www.mvb1.de/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-25-450x300.jpg" 
-				alt="Der Autor auf dem Gipfel der Serra del Prete" class="wp-image-6262" width="-3" height="-2"/>
-				<figcaption>Der Autor auf dem Gipfel der Serra del Prete</figcaption>
-			</figure>
-			</div>
-			<!-- /wp:image -->
-
-			<!-- wp:gallery {"ids":[6265,6264,6209,6260,6201,6202,6199,6598],"columns":2,"linkTo":"none","block_id":"add99315"} -->
-				<figure class="wp-block-gallery columns-2 is-cropped">
-				<ul class="blocks-gallery-grid">
-					<li class="blocks-gallery-item">
-						<figure>
-							<img src="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Italien_2018_12-1091.jpg"
-								alt="Schöne Abendstimmung am Schlafplatz" data-id="6265"
-								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Italien_2018_12-1091.jpg"
-								data-link="https://www.mvb1.de/italien-2018-12-1091/" class="wp-image-6265" />
-							<figcaption class="blocks-gallery-item__caption">Abendstimmung am Schlafplatz</figcaption>
-						</figure>
-					</li>
-					<li class="blocks-gallery-item">
-						<figure>
-							<img src="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-50.jpg" alt=""
-								data-id="6264"
-								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-50.jpg"
-								data-link="https://www.mvb1.de/hike-serra-del-prete-50/" class="wp-image-6264" />
-							<figcaption class="blocks-gallery-item__caption">Aussicht nach Nordwesten</figcaption>
-						</figure>
-					</li>
-					<li class="blocks-gallery-item">
-						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-949.jpg" alt=""
-								data-id="6209"
-								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-949.jpg"
-								data-link="https://www.mvb1.de/italien-2018-12-949/" class="wp-image-6209" />
-							<figcaption class="blocks-gallery-item__caption">Blick in die Schlucht</figcaption>
-						</figure>
-					</li>
-					<li class="blocks-gallery-item">
-						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-47.jpg"
-								alt="" data-id="6260"
-								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Serra-del-Prete/Hike-Serra-del-Prete-47.jpg"
-								data-link="https://www.mvb1.de/hike-serra-del-prete-47/" class="wp-image-6260" />
-							<figcaption class="blocks-gallery-item__caption">Höhenzug der Serra del Prete</figcaption>
-						</figure>
-					</li>
-					<li class="blocks-gallery-item">
-						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-1001.jpg"
-								alt="" data-id="6201"
-								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-1001.jpg"
-								data-link="https://www.mvb1.de/italien-2018-12-1001/" class="wp-image-6201" />
-							<figcaption class="blocks-gallery-item__caption">Winterlicher Wald bei Civita</figcaption>
-						</figure>
-					</li>
-					<li class="blocks-gallery-item">
-						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-997.jpg" alt=""
-								data-id="6202"
-								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-997.jpg"
-								data-link="https://www.mvb1.de/italien-2018-12-997/" class="wp-image-6202" />
-							<figcaption class="blocks-gallery-item__caption">Aufstieg von der Teufelsbrücke</figcaption>
-						</figure>
-					</li>
-					<li class="blocks-gallery-item">
-						<figure><img src="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-1009.jpg"
-								alt="" data-id="6199"
-								data-full-url="/smrtzl/uploads/Alben_Website/Wanderung-Gole-del-Raganello/Italien_2018_12-1009.jpg"
-								data-link="https://www.mvb1.de/italien-2018-12-1009/" class="wp-image-6199" />
-							<figcaption class="blocks-gallery-item__caption">Picknickplatz mit schöner Aussicht</figcaption>
-						</figure>
-					</li>
-					<li class="blocks-gallery-item">
-						<figure><img src="/smrtzl/uploads/2021/08/DSC_1667.webp" alt="Weltkugel am Hauptplatz in Wittenberg"
-								data-id="6598" data-full-url="/smrtzl/uploads/2021/08/DSC_1667.webp"
-								data-link="https://www.mvb1.de/dsc_1667/" class="wp-image-6598" />
-							<figcaption class="blocks-gallery-item__caption">Hauptplatz in Wittenberg</figcaption>
-						</figure>
-					</li>
-				</ul>
-			</figure>
-			<!-- /wp:gallery -->
-
-		*/
-
 		global $wpdb;
 		/* Search and replace in WP_POSTS */
-		// Removed $wpdb->remove_placeholder_escape from here, not compatible with WP 4.8
 		$posts_sql = $wpdb->prepare(
 		  "SELECT ID, post_content FROM $wpdb->posts WHERE post_status = 'publish' AND post_content LIKE %s",
 		  '%' . $base_url . '%');
@@ -540,92 +443,90 @@ class Replacer
 		$rs = $wpdb->get_results( $posts_sql, ARRAY_A );
 		$number_of_updates = 0;
 	
-		if ( ! empty( $rs ) ) {
-			foreach ( $rs AS $rows ) {
-				$post_content = $rows["post_content"];
-				$replaced_content = $post_content;
-				$post_id = $rows['ID'];
+		foreach ( $rs as $row ) {
+			$post_content = $row['post_content'];
+			$replaced_content = $post_content;
+			$post_id = (int) $row['ID'];
+			// TODO : use this:
+			//$blocks = parse_blocks($post_content);
+			// --- start replace content
+			// get all the figures in the post_content
+			$previous = libxml_use_internal_errors(true);
+			$dom = new \DOMDocument;
+			$dom->loadHTML($post_content);
+			$loaded = $dom->loadHTML( $post_content );
+			$errors = libxml_get_errors();
+			libxml_clear_errors();
+			libxml_use_internal_errors($previous);
 
-				// get all the figures in the post_content
-				$dom=new \domDocument;
-				libxml_use_internal_errors(true);
-				$dom->loadHTML($post_content);
-				$errors = libxml_get_errors();
-				foreach ($errors as $error) {
-					switch ($error->level) {
-						case LIBXML_ERR_WARNING:
-							break;
-						 case LIBXML_ERR_ERROR:
-							break;
-						case LIBXML_ERR_FATAL:
-							return 0;
-					}
+			if ( $loaded === false ) {
+				continue;
+			}
+
+			foreach ($errors as $error) {
+				if ( $error->level === LIBXML_ERR_FATAL ) {
+					continue 2; // skip the rest of the loop for $row, so the current post.
 				}
-				//$figures = $dom->getElementsByTagName('figure'); // every image has to be a figure, works only with gutenberg
+			}
 
-				// get all the comments in the post_content
-				$xpath = new \DOMXpath($dom);
-				$comments = $xpath->query("//comment()");
+			// get all the comments in the post_content
+			$xpath = new \DOMXPath($dom);
+			$comments = $xpath->query("//comment()");
 
-				// find all the html comments that contain gutenberg code and replace the metadata
-				// every image has to be in a html comment , works only with gutenberg
-				//$index = 0;
-				foreach ( $comments as $c ) { 
-					$text = $c->nodeValue;
-					$pos = \strpos( $text, strval($this->post_id) );
+			// find all the html comments that contain gutenberg code and replace the metadata
+			// every image has to be in a html comment , works only with gutenberg	
+			foreach ( $comments as $c ) { 
+				$text = $c->nodeValue;
+				$pos = \strpos( $text, \strval($this->post_id) ); // TODO: Damit wird geprüft, ob die ID zufälligerweise irgendwo als Ziffernfolge im Kommentar vorkommt. Änderung zusammen mit parse_blocks!
 
-					// Check whether the comment defines an Image, Gallery, or Media-with-Text. Find only the start, therefore include '{'
-					$isWpImage = 	 \strpos( $text, 'wp:image {' ) > 0 ? true : false; // Attention: works only if there is a space before 'wp:...'! Otherwise the result would be = 0
-					$isWpGallery = 	 \strpos( $text, 'wp:gallery {' ) > 0 ? true : false;
-					$isWpMediatext = \strpos( $text, 'wp:media-text {' ) > 0 ? true : false;
-					
-					// the wp-comment contains the post-id of the image, so do the replacement
-					if ( false !== $pos && ( $isWpImage || $isWpGallery || $isWpMediatext) ) {
-						$number_of_updates = $number_of_updates + 1;
-						//$found = $index;
-						//$foundtext = $text;
-						
-						// do the replacement here, because images could be used more than once in the post.
-						$replaced_content = $this->replaceMetaInContent( $base_url, $replaced_content, $text, $isWpImage, $isWpGallery, $isWpMediatext );
-					}
-
-					// increment the counter for the figures in the post, assumes that every type includes one figure
-					//if ( $isWpImage || $isWpGallery || $isWpMediatext)
-					//	$index += 1;
-					
+				// Check whether the comment defines an Image, Gallery, or Media-with-Text. Find only the start, therefore include '{'
+				$isWpImage = 	 \strpos( $text, 'wp:image {' ) !== false;
+				$isWpGallery = 	 \strpos( $text, 'wp:gallery {' ) !== false;
+				$isWpMediatext = \strpos( $text, 'wp:media-text {' ) !== false;
+				
+				// the wp-comment contains the post-id of the image, so do the replacement
+				if ( false !== $pos && ( $isWpImage || $isWpGallery || $isWpMediatext) ) {
+					// do the replacement here, because images could be used more than once in the post.
+					// TODO: This replaces only the first occurence of the image. replace this function that corrects all occurences.
+					// should replace alt, caption (only with docaption) for the relevant blocks in post / pages
+					// this->post_id is the ID of the image that is currently beeing replaced.
+					$replaced_content = $this->replaceMetaInContent( $base_url, $replaced_content, $text, $isWpImage, $isWpGallery, $isWpMediatext );
 				}
-
-				// update the post in the database with the new content
-				if ($replaced_content !== $post_content)
+			}
+			// -- end replace content
+			// update the post in the database with the new content
+			if ( $replaced_content !== $post_content )
+			{
+				$sql = 'UPDATE ' . $wpdb->posts . ' SET post_content = %s WHERE ID = %d';
+				$sql = $wpdb->prepare($sql, $replaced_content, $post_id);
+				$result = $wpdb->query($sql);
+	
+				if ($result === false)
 				{
-					$sql = 'UPDATE ' . $wpdb->posts . ' SET post_content = %s WHERE ID = %d';
-					$sql = $wpdb->prepare($sql, $replaced_content, $post_id);
-
-					$result = $wpdb->query($sql);
-		
-					if ($result === false)
-					{
-						//Notice::addError('Something went wrong while replacing' .  $result->get_error_message() );
-						//Log::addError('WP-Error during post update', $result);
-						return 0;
-					}
-				} else {
-					return 0;
+					//Notice::addError('Something went wrong while replacing' .  $result->get_error_message() );
+					//Log::addError('WP-Error during post update', $result);
+					continue;
 				}
 
 				// Change the post date on a post with a status other than 'draft', 'pending' or 'auto-draft'
-				// We do this always, event if the content of the post was not changed, but maybe the image-file was changed. 
-				$arg = array(
+				// OUTDATED COMMENT: Was it intentional? We do this always, event if the content of the post was not changed, but maybe the image-file was changed. 
+				$arg = [
 					'ID'            => $post_id,
-					//'post_date'     => $this->datetime, // this changed the published date, too, so keep it commented out.
+					//'post_date'     => $this->datetime, // this changes the initial post published date, too. commented out so keep it.
 					'post_modified_gmt' => get_gmt_from_date( $this->datetime ), // was before 'post_date_gmt' : changed the published date.
-				);
-				$result = wp_update_post( $arg );
+					];
+				
+				$result = wp_update_post( $arg, true );
 				wp_cache_delete( $post_id, 'posts' );
-		  	}
+
+				if ( !is_wp_error( $result ) ) {
+					//Notice::addError('Something went wrong while replacing' .  $result->get_error_message() );
+					//Log::addError('WP-Error during post update', $result);
+					$number_of_updates +=1;
+				}
+			}
 		}
 	
-		//$number_of_updates += $this->handleMetaData($base_url, $search_urls, $replace_urls);
 		return $number_of_updates;
 	}
 	  

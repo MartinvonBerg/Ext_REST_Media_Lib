@@ -21,8 +21,24 @@
                 "max_data": 1024,
                 "max_depth": 5
             }
+        },
+        {
+            "name": "Run PHPUnit (with Xdebug)",
+            "type": "php",
+            "request": "launch",
+            "runtimeExecutable": "C:/PHP/php.exe",
+            "program": "${workspaceFolder}/vendor/bin/phpunit",
+            "args": [
+                "${workspaceFolder}/tests/phpunit/testcases/ReplacerClassTest.php"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "XDEBUG_MODE": "debug",
+                "XDEBUG_TRIGGER": "1"
+            },
+            "port": 9003,
+            "stopOnEntry": false,
+            "log": true
         }
-       
-       
     ]
 }

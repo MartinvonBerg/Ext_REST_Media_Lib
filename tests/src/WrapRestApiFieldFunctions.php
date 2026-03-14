@@ -18,3 +18,10 @@ class WrapRestApiFieldFunctions {
         return \mvbplugins\extmedialib\cb_get_md5( $data );
     }
 }
+
+// Minimal stub for emrFile class used by the Replacer constructor.
+class emrFile {
+    private $file;
+    public function __construct($file) { $this->file = $file; }
+    public function getFileName() { return basename($this->file); }
+}
