@@ -5,8 +5,8 @@ Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 6.2
 Tested up to: 6.9
-Requires PHP: 7.4
-Stable Tag: 1.2.0
+Requires PHP: 8.0
+Stable Tag: 2.0.0
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -421,8 +421,13 @@ There are no FAQs just yet.
 = 1.2.0 =
 * Test with WordPress 6.9. No changes for that. Minor Update of PHP-Function post_add_file_to_folder() for better folder name generation. Added PHPUnit Tests for the new PHP-functions.
 
+= 2.0.0 =
+* Updated minimum PHP-Version to 8.0 (8.3 would be even better)
+* Updated method doMetaReplaceQuery() in replacer.php as start of update to new WP and PHP principles. (Old code works but is very old fashioned)
+
+
 == Upgrade Notice ==
-Upgrade to 1.2.0 is not necessary. Only, if  you want to use the new image resizing class for smaller images. 
+Upgrade to 2.0.0 is not necessary. Only, if  you want to use the new image resizing class for smaller images. 
 
 
 == Credits ==
