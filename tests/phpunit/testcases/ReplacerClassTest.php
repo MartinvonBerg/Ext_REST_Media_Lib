@@ -3,9 +3,6 @@ use PHPUnit\Framework\TestCase;
 use function Brain\Monkey\setUp;
 use function Brain\Monkey\tearDown;
 use function Brain\Monkey\Functions\stubs;
-use function Brain\Monkey\Functions\expect;
-use function Brain\Monkey\Actions\expectDone;
-use function Brain\Monkey\Filters\expectApplied;
 
 // Define WordPress result constants used by wpdb (namespaced code falls back to these)
 if (!defined('ARRAY_A')) define('ARRAY_A', 'ARRAY_A');
@@ -30,6 +27,18 @@ final class ReplacerClassTest extends TestCase {
             'apply_filters' => function($tag, $value) { return $value; },
         ]);
         include_once PLUGIN_DIR . '\tests\src\WrapRestApiFieldFunctions.php';
+        
+        if ( ! class_exists( 'WP_HTML_Tag_Processor' && defined('WP_ROOT') ) ) {
+            //require_once WP_ROOT . '/wp-includes/html-api/class-wp-html-span.php';
+            //require_once WP_ROOT . '/wp-includes/html-api/class-wp-html-text-replacement.php';
+            //require_once WP_ROOT . '/wp-includes/html-api/class-wp-html-attribute-token.php';
+            //require_once WP_ROOT .'\wp-includes/html-api/class-wp-html-decoder.php';
+	        //require_once WP_ROOT .'\wp-includes/html-api/class-wp-html-tag-processor.php';
+            require_once WP_ROOT . '/wp-includes/class-wp-block-parser.php';
+            require_once WP_ROOT . '/wp-includes/class-wp-block-parser-block.php';
+            require_once WP_ROOT . '/wp-includes/blocks.php';
+        }
+
     }
 
     public function tearDown(): void {
@@ -74,7 +83,7 @@ final class ReplacerClassTest extends TestCase {
         $this->assertIsArray($value);
     }
 
-    public function test_replacer_doMetaReplaceQuery() {
+    public function test_replacer_doMetaReplaceQuery_1() {
         $tested = new mvbplugins\extmedialib\Replacer('1111');
 
         $ref = new \ReflectionClass($tested);
@@ -131,6 +140,263 @@ final class ReplacerClassTest extends TestCase {
         $this->assertStringContainsString('UPDATE', $GLOBALS['wpdb']->last_query);
     }
 
+    public function test_replacer_doMetaReplaceQuery_2() {
+        $tested = new mvbplugins\extmedialib\Replacer('2829');
+
+        $ref = new \ReflectionClass($tested);
+        // prepare a post_content that contains a gutenberg image comment with the image ID
+        $post_content = '<!-- wp:image {"id":2829,"sizeSlug":"large","linkDestination":"none"} -->
+                <figure class="wp-block-image size-large"><img src="http://localhost/wordpress/wp-content/uploads/zeichnungen/DSC_2533-DxO-1-1024x683.webp" 
+                alt="Blumen im botanischen Garten München" class="wp-image-2829"/><figcaption class="wp-element-caption">test19</figcaption></figure>
+                <!-- /wp:image -->';
+
+        // Minimal wpdb stub to satisfy queries
+        $wpdb_stub = new class($post_content) {
+            public $posts = 'wp_posts';
+            private $post_content;
+            public $last_query;
+            public function __construct($post_content) { $this->post_content = $post_content; }
+            public function prepare($query /*, ...$args */) { return $query; }
+            public function get_results($sql, $output = null) { return [['ID' => 123, 'post_content' => $this->post_content]]; }
+            public function query($sql) { $this->last_query = $sql; return 1; }
+        };
+
+        $GLOBALS['wpdb'] = $wpdb_stub;
+
+        // define minimal WP helpers used in the method
+        if (!function_exists('wp_update_post')) {
+            function wp_update_post($arg, $silent = false) { return $arg['ID']; }
+        }
+        if (!function_exists('is_wp_error')) {
+            function is_wp_error($v) { return false; }
+        }
+        if (!function_exists('wp_cache_delete')) {
+            function wp_cache_delete($id, $group = null) { return true; }
+        }
+        if (!function_exists('get_gmt_from_date')) {
+            function get_gmt_from_date($date) { return $date; }
+        }
+
+        // prepare replacer internal state: target metadata and docaption
+        $prop = $ref->getProperty('target_metadata');
+        $prop->setAccessible(true);
+        $prop->setValue($tested, [
+            'image_meta' => ['alt_text' => 'newalt', 'caption' => 'newcap'],
+            'file' => 'image.jpg',
+            'sizes' => []
+        ]);
+
+        $prop = $ref->getProperty('docaption');
+        $prop->setAccessible(true);
+        $prop->setValue($tested, true);
+
+        // invoke private method doMetaReplaceQuery
+        $method = $ref->getMethod('doMetaReplaceQuery');
+        $method->setAccessible(true);
+        $updated = $method->invoke($tested, '/uploads/image');
+
+        $this->assertEquals(1, $updated);
+        $this->assertStringContainsString('UPDATE', $GLOBALS['wpdb']->last_query);
+    }
+
+    public function test_replacer_NEW_doMetaReplaceQuery_1() {
+        $tested = new mvbplugins\extmedialib\Replacer('2829');
+
+        $ref = new \ReflectionClass($tested);
+        // prepare a post_content that contains a gutenberg image comment with the image ID
+        $post_content = '<!-- wp:image {"id":2829,"sizeSlug":"large","linkDestination":"none"} -->
+                <figure class="wp-block-image size-large"><img src="http://localhost/wordpress/wp-content/uploads/zeichnungen/DSC_2533-DxO-1-1024x683.webp" 
+                alt="Blumen im botanischen Garten München" class="wp-image-2829"/><figcaption class="wp-element-caption">test19</figcaption></figure>
+                <!-- /wp:image -->';
+
+        // Minimal wpdb stub to satisfy queries
+        $wpdb_stub = new class($post_content) {
+            public $posts = 'wp_posts';
+            private $post_content;
+            public $last_query;
+            public function __construct($post_content) { $this->post_content = $post_content; }
+            public function prepare($query /*, ...$args */) { return $query; }
+            public function get_results($sql, $output = null) { return [['ID' => 123, 'post_content' => $this->post_content]]; }
+            public function query($sql) { $this->last_query = $sql; return 1; }
+        };
+
+        $GLOBALS['wpdb'] = $wpdb_stub;
+
+        // define minimal WP helpers used in the method
+        if (!function_exists('wp_update_post')) {
+            function wp_update_post($arg, $silent = false) { return $arg['ID']; }
+        }
+        if (!function_exists('is_wp_error')) {
+            function is_wp_error($v) { return false; }
+        }
+        if (!function_exists('wp_cache_delete')) {
+            function wp_cache_delete($id, $group = null) { return true; }
+        }
+        if (!function_exists('get_gmt_from_date')) {
+            function get_gmt_from_date($date) { return $date; }
+        }
+
+        // prepare replacer internal state: target metadata and docaption
+        $prop = $ref->getProperty('target_metadata');
+        $prop->setAccessible(true);
+        $prop->setValue($tested, [
+            'image_meta' => ['alt_text' => 'newalt', 'caption' => 'newcap'],
+            'file' => 'image.jpg',
+            'sizes' => []
+        ]);
+
+        $prop = $ref->getProperty('docaption');
+        $prop->setAccessible(true);
+        $prop->setValue($tested, true);
+
+        // invoke private method doMetaReplaceQuery
+        $method = $ref->getMethod('doMetaReplaceQuery');
+        $method->setAccessible(true);
+        $updated = $method->invoke($tested, '/uploads/image');
+        
+        $this->assertEquals(1, $updated);
+        $this->assertStringContainsString('UPDATE', $GLOBALS['wpdb']->last_query);
+    }
+
+    public function test_replacer_NEW_doMetaReplaceQuery_2() {
+        $tested = new mvbplugins\extmedialib\Replacer('2829');
+
+        $ref = new \ReflectionClass($tested);
+        // prepare a post_content that contains a gutenberg image comment with the image ID
+        $post_content = '<!-- wp:paragraph -->
+            <p>nun folgt ein gutenberg gallerie block</p>
+            <!-- /wp:paragraph -->
+
+            <!-- wp:gallery {"linkTo":"none"} -->
+            <figure class="wp-block-gallery has-nested-images columns-default is-cropped">
+            
+            <!-- wp:image {"id":2829,"sizeSlug":"large","linkDestination":"none"} -->
+            <figure class="wp-block-image size-large"><img src="http://localhost/wordpress/wp-content/uploads/zeichnungen/DSC_2533-DxO-1-1024x683.webp" 
+            alt="oldalt" class="wp-image-2829"/><figcaption class="wp-element-caption">oldcap</figcaption></figure>
+            <!-- /wp:image -->
+
+            <!-- wp:image {"id":2751,"sizeSlug":"large","linkDestination":"none"} -->
+            <figure class="wp-block-image size-large"><img src="http://localhost/wordpress/wp-content/uploads/S-Satz/Kira-Sprung-1024x683.jpg" alt="" class="wp-image-2751"/></figure>
+            <!-- /wp:image -->
+
+            <!-- wp:image {"id":2744,"sizeSlug":"large","linkDestination":"none"} -->
+            <figure class="wp-block-image size-large"><img src="http://localhost/wordpress/wp-content/uploads/test/Elba-014-2560-18-1024x683.avif" alt="" class="wp-image-2744"/></figure>
+            <!-- /wp:image -->
+
+            <!-- wp:image {"id":2733,"sizeSlug":"large","linkDestination":"none"} -->
+            <figure class="wp-block-image size-large"><img src="http://localhost/wordpress/wp-content/uploads/2023/02/PXL_20230129_101132675-1024x771.jpg" alt="" class="wp-image-2733"/></figure>
+            <!-- /wp:image --></figure>
+            <!-- /wp:gallery -->';
+
+        // Minimal wpdb stub to satisfy queries
+        $wpdb_stub = new class($post_content) {
+            public $posts = 'wp_posts';
+            private $post_content;
+            public $last_query;
+            public function __construct($post_content) { $this->post_content = $post_content; }
+            public function prepare($query /*, ...$args */) { return $query; }
+            public function get_results($sql, $output = null) { return [['ID' => 123, 'post_content' => $this->post_content]]; }
+            public function query($sql) { $this->last_query = $sql; return 1; }
+        };
+
+        $GLOBALS['wpdb'] = $wpdb_stub;
+
+        // define minimal WP helpers used in the method
+        if (!function_exists('wp_update_post')) {
+            function wp_update_post($arg, $silent = false) { return $arg['ID']; }
+        }
+        if (!function_exists('is_wp_error')) {
+            function is_wp_error($v) { return false; }
+        }
+        if (!function_exists('wp_cache_delete')) {
+            function wp_cache_delete($id, $group = null) { return true; }
+        }
+        if (!function_exists('get_gmt_from_date')) {
+            function get_gmt_from_date($date) { return $date; }
+        }
+
+        // prepare replacer internal state: target metadata and docaption
+        $prop = $ref->getProperty('target_metadata');
+        $prop->setAccessible(true);
+        $prop->setValue($tested, [
+            'image_meta' => ['alt_text' => 'newalt', 'caption' => 'newcap'],
+            'file' => 'image.jpg',
+            'sizes' => []
+        ]);
+
+        $prop = $ref->getProperty('docaption');
+        $prop->setAccessible(true);
+        $prop->setValue($tested, true);
+
+        // invoke private method doMetaReplaceQuery
+        $method = $ref->getMethod('doMetaReplaceQuery');
+        $method->setAccessible(true);
+        $updated = $method->invoke($tested, '/uploads/image');
+        
+        $this->assertEquals(1, $updated);
+        $this->assertStringContainsString('UPDATE', $GLOBALS['wpdb']->last_query);
+    }
+
+    public function test_replacer_NEW_doMetaReplaceQuery_3() {
+        $tested = new mvbplugins\extmedialib\Replacer('2829');
+
+        $ref = new \ReflectionClass($tested);
+
+        $post_content = '<!-- wp:media-text {"mediaPosition":"right","mediaId":2829,"mediaLink":"http://localhost/wordpress/blumen-im-botanischen-garten-m%c3%bcnchen/","linkDestination":"none","mediaType":"image"} -->
+        <div class="wp-block-media-text has-media-on-the-right is-stacked-on-mobile"><div class="wp-block-media-text__content"><!-- wp:paragraph {"placeholder":"Content…"} -->
+        <p>Dss ist ein Bild mit Blumen.</p>
+        <!-- /wp:paragraph --></div><figure class="wp-block-media-text__media"><img src="http://localhost/wordpress/wp-content/uploads/zeichnungen/DSC_2533-DxO-1-1024x683.webp" alt="Blumen im botanischen Garten München" class="wp-image-2829 size-full"/></figure></div>
+        <!-- /wp:media-text -->';
+
+        // Minimal wpdb stub to satisfy queries
+        $wpdb_stub = new class($post_content) {
+            public $posts = 'wp_posts';
+            private $post_content;
+            public $last_query;
+            public function __construct($post_content) { $this->post_content = $post_content; }
+            public function prepare($query /*, ...$args */) { return $query; }
+            public function get_results($sql, $output = null) { return [['ID' => 123, 'post_content' => $this->post_content]]; }
+            public function query($sql) { $this->last_query = $sql; return 1; }
+        };
+
+        $GLOBALS['wpdb'] = $wpdb_stub;
+
+        // define minimal WP helpers used in the method
+        if (!function_exists('wp_update_post')) {
+            function wp_update_post($arg, $silent = false) { return $arg['ID']; }
+        }
+        if (!function_exists('is_wp_error')) {
+            function is_wp_error($v) { return false; }
+        }
+        if (!function_exists('wp_cache_delete')) {
+            function wp_cache_delete($id, $group = null) { return true; }
+        }
+        if (!function_exists('get_gmt_from_date')) {
+            function get_gmt_from_date($date) { return $date; }
+        }
+
+        // prepare replacer internal state: target metadata and docaption
+        $prop = $ref->getProperty('target_metadata');
+        $prop->setAccessible(true);
+        $prop->setValue($tested, [
+            'image_meta' => ['alt_text' => 'newalt', 'caption' => 'newcap'],
+            'file' => 'image.jpg',
+            'sizes' => []
+        ]);
+
+        $prop = $ref->getProperty('docaption');
+        $prop->setAccessible(true);
+        $prop->setValue($tested, true);
+
+        // invoke private method doMetaReplaceQuery
+        $method = $ref->getMethod('doMetaReplaceQuery');
+        $method->setAccessible(true);
+        $updated = $method->invoke($tested, '/uploads/image');
+        
+        $this->assertEquals(1, $updated);
+        $this->assertStringContainsString('UPDATE', $GLOBALS['wpdb']->last_query);
+    }
+    /*
     public function test_replaceMetaInContent_variants() {
         $tested = new mvbplugins\extmedialib\Replacer('1111');
         $ref = new \ReflectionClass($tested);
@@ -165,7 +431,7 @@ final class ReplacerClassTest extends TestCase {
                 alt="Blumen im botanischen Garten München" class="wp-image-2829"/><figcaption class="wp-element-caption">test19</figcaption></figure>
                 <!-- /wp:image -->';
 
-        $out = $method->invoke($tested, '/uploads/image', $image_block, 'wp:image {"id":2829}', true, false, false);
+        $out = $method->invoke($tested, '/uploads/image', $image_block, 'wp:image {"id":2829', true, false, false);
         $this->assertStringContainsString('alt="newalt"', $out);
         $this->assertStringContainsString('newcap', $out);
 
@@ -230,6 +496,53 @@ final class ReplacerClassTest extends TestCase {
 
         $out = $method->invoke($tested, '/uploads/image', $mediatext, 'wp:media-text {"id":2928}', false, false, true);
         $this->assertStringContainsString('alt="newalt"', $out);
+    }
+    */
+    public function test_getAltCaption() {
+        $tested = new mvbplugins\extmedialib\Replacer('1111');
+        $ref = new \ReflectionClass($tested);
+
+        $method = $ref->getMethod('getAltCaption');
+        $method->setAccessible(true);
+
+        $post_content = '<!-- wp:image {"id":2829,"sizeSlug":"large","linkDestination":"none"} -->
+                <figure class="wp-block-image size-large"><img src="http://localhost/wordpress/wp-content/uploads/zeichnungen/DSC_2533-DxO-1-1024x683.webp" 
+                alt="Blumen im botanischen Garten München" class="wp-image-2829"/><figcaption class="wp-element-caption">test19</figcaption></figure>
+                <!-- /wp:image -->';
+
+        $out = $method->invoke($tested, $post_content);
+        $this->assertEquals('Blumen im botanischen Garten München', $out['alt_text']);
+        $this->assertEquals('test19', $out['caption']);
+
+        $post_content = '<!-- wp:image {"id":1111} --><figure class="wp-block-image">'
+            . '<img src="/uploads/image.jpg" alt = "oldalt" /><figcaption>oldcap</figcaption></figure><!-- /wp:image -->';
+
+        $out = $method->invoke($tested, $post_content);
+        $this->assertEquals('oldalt', $out['alt_text']);
+        $this->assertEquals('oldcap', $out['caption']);
+
+        $post_content = '<!-- wp:image {"id":1111} --><figure class="wp-block-image">'
+            . '<img src="/uploads/image.jpg" alt = "oldalt" /><figcaption>oldcap</figcaption></figure alt="2.oldalt"><!-- /wp:image -->';
+
+        $out = $method->invoke($tested, $post_content);
+        $this->assertEquals(null, $out['alt_text']);
+        $this->assertEquals('oldcap', $out['caption']);
+
+        // add a test for escaped Quotes in the alt-Text
+        $post_content = '<!-- wp:image {"id":1111} --><figure class="wp-block-image">'
+            . '<img src="/uploads/image.jpg" alt="old&#38;alt" /><figcaption>oldcap</figcaption></figure><!-- /wp:image -->';
+
+        $out = $method->invoke($tested, $post_content);
+        $this->assertEquals('old&#38;alt', $out['alt_text']);
+        $this->assertEquals('oldcap', $out['caption']);
+
+        // test with html in figcaption
+        $post_content = '<!-- wp:image {"id":1111} --><figure class="wp-block-image">'
+            . '<img src="/uploads/image.jpg" alt="old&#38;alt" /><figcaption>Zweite <strong>Caption</strong></figcaption></figure><!-- /wp:image -->';
+
+        $out = $method->invoke($tested, $post_content);
+        $this->assertEquals('old&#38;alt', $out['alt_text']);
+        $this->assertEquals('Zweite <strong>Caption</strong>', $out['caption']);
     }
 
 }

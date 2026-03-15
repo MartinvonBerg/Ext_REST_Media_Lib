@@ -20,6 +20,7 @@ if ( ! defined( 'PLUGIN_ABSPATH' ) ) {
 define ( 'PLUGIN_DIR', 'C:\wamp64\www\wordpress\wp-content\plugins\wp-wpcat-json-rest' );
 // C:\wamp64\www\wordpress\wp-content\plugins\wp-wpcat-json-rest\vendor\autoload.php
 
+define( 'WP_ROOT', 'C:\wamp64\www\wordpress' );
 
 require_once PLUGIN_DIR . '/vendor/autoload.php';
 

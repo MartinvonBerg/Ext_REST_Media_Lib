@@ -427,8 +427,10 @@ class Replacer
 	}
 
 	/**
-	 * search for $base_url in the database and replace metadata 'alt' and 'caption' in the code of the post
-	 * it was already preselected that this post contains the image in the possible gutenberg blocks.
+	 * search for $base_url in the database and replace metadata 'alt' and 'caption' in the code of the post.
+	 * This updates the metadata of the image in the possible gutenberg blocks only! It is not working for general HTML using the image tag!
+	 * Note: It was already preselected that this post contains the image in the possible gutenberg blocks.
+	 * 
 	 * @param string $base_url
 	 * @return int $number_of_updates
 	 */
@@ -442,60 +444,129 @@ class Replacer
 	
 		$rs = $wpdb->get_results( $posts_sql, ARRAY_A );
 		$number_of_updates = 0;
+
+		// get the target alt and caption
+		$target_alt_caption = [
+			'alt_text' => $this->target_metadata['image_meta']['alt_text'],
+			'caption' => $this->target_metadata['image_meta']['caption'],
+		];
 	
 		foreach ( $rs as $row ) {
 			$post_content = $row['post_content'];
 			$replaced_content = $post_content;
 			$post_id = (int) $row['ID'];
-			// TODO : use this:
-			//$blocks = parse_blocks($post_content);
+			$blocks = parse_blocks($post_content);
 			// --- start replace content
-			// get all the figures in the post_content
-			$previous = libxml_use_internal_errors(true);
-			$dom = new \DOMDocument;
-			$dom->loadHTML($post_content);
-			$loaded = $dom->loadHTML( $post_content );
-			$errors = libxml_get_errors();
-			libxml_clear_errors();
-			libxml_use_internal_errors($previous);
 
-			if ( $loaded === false ) {
-				continue;
-			}
+			foreach ($blocks as &$block) { // Das '&' ist wichtig, damit die Änderungen auch im Array $blocks vorgenommen werden.
 
-			foreach ($errors as $error) {
-				if ( $error->level === LIBXML_ERR_FATAL ) {
-					continue 2; // skip the rest of the loop for $row, so the current post.
+				if ($block['blockName'] === 'core/image') {
+
+					if ( $block['attrs']['id'] === intval($this->post_id) ) {
+						$source_alt_caption = $this->getAltCaption( $block['innerHTML'] );
+
+						// do the replacement for the wp:image 
+						$newhtml = $block['innerHTML'];
+
+						if ( ( $target_alt_caption['alt_text'] !== '' ) )
+							$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $newhtml);
+						
+						if ( ( $target_alt_caption['caption'] !== '' ) && $this->docaption )
+							$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $newhtml);
+						
+						// update the innerHTML and innerContent of the block.
+						// check if the innerContent exists in [0]
+						if ( isset($block['innerContent'][0]) && !empty($block['innerContent'][0]) && $block['innerContent'][0] === $block['innerHTML'] ) {
+							$block['innerContent'][0] = $newhtml;
+						}
+						$block['innerHTML'] = $newhtml;
+						
+						// do only if attr alt and caption is set already in the block
+						if ( \array_key_exists( 'alt', $block['attrs']) ) {
+							$block['attrs']['alt'] = $this->target_metadata['image_meta']['alt_text'];
+						}
+						
+						if ( $this->docaption && \array_key_exists( 'caption', $block['attrs']) ) {
+								$block['attrs']['caption'] = $this->target_metadata['image_meta']['caption'];
+						}
+					} 
 				}
-			}
-
-			// get all the comments in the post_content
-			$xpath = new \DOMXPath($dom);
-			$comments = $xpath->query("//comment()");
-
-			// find all the html comments that contain gutenberg code and replace the metadata
-			// every image has to be in a html comment , works only with gutenberg	
-			foreach ( $comments as $c ) { 
-				$text = $c->nodeValue;
-				$pos = \strpos( $text, \strval($this->post_id) ); // TODO: Damit wird geprüft, ob die ID zufälligerweise irgendwo als Ziffernfolge im Kommentar vorkommt. Änderung zusammen mit parse_blocks!
-
-				// Check whether the comment defines an Image, Gallery, or Media-with-Text. Find only the start, therefore include '{'
-				$isWpImage = 	 \strpos( $text, 'wp:image {' ) !== false;
-				$isWpGallery = 	 \strpos( $text, 'wp:gallery {' ) !== false;
-				$isWpMediatext = \strpos( $text, 'wp:media-text {' ) !== false;
 				
-				// the wp-comment contains the post-id of the image, so do the replacement
-				if ( false !== $pos && ( $isWpImage || $isWpGallery || $isWpMediatext) ) {
-					// do the replacement here, because images could be used more than once in the post.
-					// TODO: This replaces only the first occurence of the image. replace this function that corrects all occurences.
-					// should replace alt, caption (only with docaption) for the relevant blocks in post / pages
-					// this->post_id is the ID of the image that is currently beeing replaced.
-					$replaced_content = $this->replaceMetaInContent( $base_url, $replaced_content, $text, $isWpImage, $isWpGallery, $isWpMediatext );
+				if ($block['blockName'] === 'core/gallery') {
+
+					// loop through all images in innerBlocks in the gallery. These are 'core/image' blocks
+					foreach ($block['innerBlocks'] as &$innerBlock) {
+
+						if ($innerBlock['blockName'] === 'core/image') {
+							if ( $innerBlock['attrs']['id'] === intval($this->post_id) ) {
+								$source_alt_caption = $this->getAltCaption( $innerBlock['innerHTML'] );
+								
+								// do the replacement for the wp:image 
+								$newhtml = $innerBlock['innerHTML'];
+
+								if ( ( $target_alt_caption['alt_text'] !== '' ) )
+									$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $newhtml);
+								
+								if ( ( $target_alt_caption['caption'] !== '' ) && $this->docaption )
+									$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $newhtml);
+								
+								// update the innerHTML and innerContent of the block.
+								// check if the innerContent exists in [0]
+								if ( isset($innerBlock['innerContent'][0]) && !empty($innerBlock['innerContent'][0]) && $innerBlock['innerContent'][0] === $innerBlock['innerHTML'] ) {
+									$innerBlock['innerContent'][0] = $newhtml;
+								}
+								$innerBlock['innerHTML'] = $newhtml;
+								
+
+								// do only if attr alt and caption is set already in the block
+								if ( \array_key_exists( 'alt', $innerBlock['attrs']) ) {
+									$innerBlock['attrs']['alt'] = $this->target_metadata['image_meta']['alt_text'];
+								}
+								
+								if ( $this->docaption && \array_key_exists( 'caption', $innerBlock['attrs']) ) {
+										$innerBlock['attrs']['caption'] = $this->target_metadata['image_meta']['caption'];
+								}
+							}
+						}	
+					}
 				}
+
+				if ($block['blockName'] === 'core/media-text') {
+
+					if ( $block['attrs']['mediaId'] === intval($this->post_id) && $block['attrs']['mediaType'] === 'image' ) {
+						$source_alt_caption = $this->getAltCaption( $block['innerHTML'] );
+						// get the target alt and caption
+						
+						// do the replacement for the wp:image 
+						$newhtml = $block['innerHTML'];
+
+						if ( ( $target_alt_caption['alt_text'] !== '' ) )
+							$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $newhtml);
+						
+						// update the innerHTML and innerContent of the block.
+						foreach ($block['innerContent'] as &$innerContent) {
+							if ( !empty($innerContent) && \str_contains($innerContent, 'img') ) {
+								$innerContent = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $innerContent);
+							}
+						}
+							
+						$block['innerHTML'] = $newhtml;
+
+						// do only if attr alt and caption is set already in the block
+						if ( \array_key_exists( 'alt', $block['attrs']) ) {
+							$block['attrs']['alt'] = $this->target_metadata['image_meta']['alt_text'];
+						}
+					}
+				}
+				
 			}
+
+			$replaced_content = serialize_blocks($blocks);
 			// -- end replace content
+
 			// update the post in the database with the new content
-			if ( $replaced_content !== $post_content )
+
+			if ( $replaced_content !== $post_content ) 
 			{
 				$sql = 'UPDATE ' . $wpdb->posts . ' SET post_content = %s WHERE ID = %d';
 				$sql = $wpdb->prepare($sql, $replaced_content, $post_id);
@@ -503,25 +574,20 @@ class Replacer
 	
 				if ($result === false)
 				{
-					//Notice::addError('Something went wrong while replacing' .  $result->get_error_message() );
-					//Log::addError('WP-Error during post update', $result);
 					continue;
 				}
 
 				// Change the post date on a post with a status other than 'draft', 'pending' or 'auto-draft'
-				// OUTDATED COMMENT: Was it intentional? We do this always, event if the content of the post was not changed, but maybe the image-file was changed. 
 				$arg = [
-					'ID'            => $post_id,
-					//'post_date'     => $this->datetime, // this changes the initial post published date, too. commented out so keep it.
+					'ID'                => $post_id,
 					'post_modified_gmt' => get_gmt_from_date( $this->datetime ), // was before 'post_date_gmt' : changed the published date.
 					];
 				
 				$result = wp_update_post( $arg, true );
 				wp_cache_delete( $post_id, 'posts' );
 
-				if ( !is_wp_error( $result ) ) {
-					//Notice::addError('Something went wrong while replacing' .  $result->get_error_message() );
-					//Log::addError('WP-Error during post update', $result);
+				if ( !is_wp_error( $result ) ) 
+				{
 					$number_of_updates +=1;
 				}
 			}
@@ -609,82 +675,7 @@ class Replacer
 			$content = maybe_serialize($content);
 
 		return $content;
-  	}
-
-	private function replaceMetaInContent( $base_url, $post_content, $foundtext, $isWpImage, $isWpGallery, $isWpMediatext ) {
-	
-		// get the target alt and caption
-		$target_alt_caption = array(
-			'alt_text' => $this->target_metadata['image_meta']['alt_text'],
-			'caption' => $this->target_metadata['image_meta']['caption'],
-		);
-
-		// get the original gutenberg-html in html-comments of the figure tag
-		$comment_length = strlen( $foundtext );
-		$comment_start =  strpos( $post_content, $foundtext ) +1;
-		$comment_end = 0;
-
-		if ($isWpImage) {
-			$comment_end = \strpos( $post_content, '/wp:image', $comment_start ) +1;
-			//$comment_length += strlen( '/wp:image' );
-		}
-		elseif ($isWpGallery) {
-			$comment_end = \strpos( $post_content, '/wp:gallery', $comment_start );
-			$comment_length += strlen( '/wp:gallery' );
-		}
-		elseif	($isWpMediatext) {
-			$comment_end = \strpos( $post_content, '/wp:media-text', $comment_start );
-			//$comment_length += strlen( '/wp:media-text' );
-		}
-	
-		$innerhtml = substr( $post_content, $comment_start + $comment_length, $comment_end-$comment_start - $comment_length );
-		$newhtml = $innerhtml;
-
-		// get the target alt and caption
-		$source_alt_caption = $this->getAltCaption( $innerhtml );
-
-		// and correct if for the gallery
-		if ( $isWpGallery ) {
-			$start = strpos( $innerhtml, $base_url);
-			$altstart = strpos( $innerhtml, 'alt="', $start + strlen( $base_url) );
-			$altend = strpos( $innerhtml, '"', $altstart+6);
-			$source_alt_caption['alt_text'] = substr( $innerhtml, $altstart +5 , $altend - $altstart - 5);
-			$figures = explode( '<figure>', $innerhtml);
-
-			foreach ($figures as $f ) {
-				$pos = \strpos( $f, $this->post_id );
-				if ($pos > 0) {
-					$source_alt_caption = $this->getAltCaption( $f );
-					$innerhtml = $f;
-					break;
-				}
-			}
-			// do the replacement for the wp:gallery
-			if ( ( $target_alt_caption['caption'] != '' ) && $this->docaption )
-				$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $innerhtml);
-			if ( ( $target_alt_caption['alt_text'] != '' ) )
-				$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $newhtml);
-		}
-
-		// do the replacement
-		if ( ($target_alt_caption['alt_text'] != '' ) && ( ! $isWpGallery ) )
-			$newhtml = \str_replace( 'alt="' . $source_alt_caption['alt_text'] . '"', 'alt="' . $target_alt_caption['alt_text'] . '"', $innerhtml);
-			
-		if ( ( $target_alt_caption['caption'] != '' ) && $isWpImage && $this->docaption ) {
-			if ( strlen($source_alt_caption['caption']) > 0 ) {
-				$newhtml = \str_replace( $source_alt_caption['caption'] . '</figcaption>', $target_alt_caption['caption'] . '</figcaption>', $newhtml);
-			} else {
-				$newcaption = '<figcaption>' . $target_alt_caption['caption'] . '</figcaption></figure>'; 
-				$newhtml = \str_replace( '</figure>', $newcaption, $newhtml);
-			}
-		}
-
-		
-	
-		// finally replace the figure content		
-		$replaced_content = str_replace( $innerhtml, $newhtml, $post_content); 
-		return $replaced_content;
-	}  
+  	}  
 
   	/* Check if given content is JSON format. */
 	private function isJSON($content) {
@@ -769,41 +760,31 @@ class Replacer
 	} // function  
 
 	/**
-	 * Take the html-object and extract alt_text and caption of the figure tag
+	 * Take the html-string and extract alt_text and caption of the figure tag where we assume that alt and caption only exists once!
+	 * If not found or more than once, return null for alt_text or caption. HTML Tags of the figcaption are NOT removed.
 	 *
 	 * @param string $html html-string representation of the html-code using the wp image from the Mediacatalog
 	 * @return array array with the current alt_text and caption of the post with the image
 	 */
 	private function getAltCaption ( string $html ) {
 		// find the alt attribute content, assuming that there is only one.
-		$patternstart = 'alt="';
-		$patternend   = '" ';
-		$offset = 5;
+		$alttext2 = null;
+		$caption2 = null;
 
-		$start =  strpos( $html, $patternstart );
-		$stop  =  strpos( $html, $patternend, $start + $offset );
+		// --- ALT via regex ---
+		preg_match_all('/alt\s*=\s*["\']([^"\']*)["\']/i', $html, $matches);
+		// set only if there is exactly one match
+		if ( count($matches) > 0 && count($matches[1]) === 1 ) {
+			$alttext2 = $matches[1][0];
+		}
 		
-		if ( $start && $stop ) {
-			$alttext2 = ( substr( $html, $start + $offset -1, $stop - $start - $offset +1 ) );
-			$alttext2 = \str_replace( '"', '', $alttext2);
-		} else
-			$alttext2 = null;
-		
-		// ----------------------------------------------------
-		$patternstart = '<figcaption';
-		$patternend   = '</figcaption>';
-		$offset = 13;
-
-		$start =  strpos( $html, $patternstart );
-		if ( $start )
-			$start =  strpos( $html, '>', $start );
-		$stop  =  strpos( $html, $patternend  );
-		
-		if ( $start && $stop ) {
-			$caption2 = ( substr( $html, $start +1 , $stop - $start -1  ) );
-			$caption2 = \str_replace( '"', '', $caption2);
-		} else
-			$caption2 = null;
+		// --- CAPTION via regex ---
+		preg_match_all('/<figcaption\b[^>]*>(.*?)<\/figcaption>/is', $html, $matches);
+		// set only if there is exactly one match
+		if ( count($matches) > 0 && count($matches[1]) === 1 ) {
+			$caption2 = $matches[1][0];
+			//$caption2 = trim( wp_strip_all_tags( html_entity_decode( $caption2, ENT_QUOTES | ENT_HTML5 ) ) );
+		}
 
 		return array(
 			'alt_text' => $alttext2,

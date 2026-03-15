@@ -37,8 +37,7 @@
                 "XDEBUG_TRIGGER": "1"
             },
             "port": 9003,
-            "stopOnEntry": false,
-            "log": true
+            "stopOnEntry": false
         }
     ]
 }
