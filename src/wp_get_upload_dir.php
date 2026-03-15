@@ -3,7 +3,7 @@
 namespace mvbplugins\helpers;
 
 // Prevent direct access
-defined('ABSPATH') or die('Are you ok?');
+\defined('ABSPATH') or die('Are you ok?');
 
 /**
  * Get the upload URL/path in right way (works with SSL).
@@ -19,7 +19,7 @@ function gpxview_get_upload_dir($param, $subfolder = '') {
     $upload_dir = wp_get_upload_dir();
 
     // Validate the param to prevent accessing undefined keys
-    if (!in_array($param, ['basedir', 'baseurl'], true)) {
+    if (! \in_array($param, ['basedir', 'baseurl'], true)) {
         return '';
     }
 
