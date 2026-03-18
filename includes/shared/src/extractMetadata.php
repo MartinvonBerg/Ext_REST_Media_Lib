@@ -33,7 +33,7 @@ const EXIF_OFFSET = 8;
  * This function checks the MIME type using the PHP built-in mime_content_type function.
  * If the MIME type is not found or is 'application/octet-stream', it tries to determine the MIME type based on the file extension.
  * If the file extension is 'avif', the function returns 'image/avif' as the MIME type.
- * Converning AVIF-files, this function relies on the assumption that the file extension is correctly set to avif.
+ * Concerning AVIF-files, this function relies on the assumption that the file extension is correctly set to avif.
  * 
  * @param string $file The path to the file for which the MIME type needs to be determined.
  * @return string The determined MIME type of the file.
@@ -339,48 +339,9 @@ function extractMetadataFromChunks( array $chunks, string $filename ) :array
 				if ( isset( $meta['camera']) && isset( $meta['lens']) ) {$meta['camera'] = $meta['camera'] . ' + ' . $meta['lens'];}
 				break;
 			case 'XMP ':
-				$xmp2 = file_get_contents( $filename, false, null, $chunk['start']+8, $chunk['start']+$chunk['size'] );
-				$p = xml_parser_create();
-				xml_parser_set_option($p,XML_OPTION_SKIP_WHITE,1);
-				xml_parse_into_struct($p, $xmp2, $vals, $index);
-				xml_parser_free($p);
-				
-				$title = '';
-
-				if ( isset( $index["DC:TITLE"] ) ) {
-					$nr = (int) ($index["DC:TITLE"][1] + $index["DC:TITLE"][0]) / 2;
-					$title = $vals[ $nr ]["value"];
-				}
-				$title != '' ? $meta[ 'title' ] = $title : $meta[ 'title' ] = 'notitle';
-
-				if ( isset( $index["DC:DESCRIPTION"] ) ) {
-					$nr = (int) ($index["DC:DESCRIPTION"][1] + $index["DC:DESCRIPTION"][0]) / 2;
-					$caption = $vals[ $nr ]["value"];
-					$meta[ 'caption' ] = $caption;
-				}
-				//$caption != '' ? $meta[ 'caption' ] = $caption : $meta[ 'caption' ] = '';
-				/*
-				if ( isset( $vals[2]["attributes"]["AUX:LENS"] ) ) {
-					$lens = $vals[2]["attributes"]["AUX:LENS"];
-					$meta[ 'camera' ] = $meta[ 'camera' ] . ' + ' . $lens;
-				} else {
-					$meta[ 'camera' ] = '---';
-				}
-				*/
-				$tags = [];
-
-				if ( isset( $index["RDF:BAG"] ) ) {
-					$tagstart = $index["RDF:BAG"][0] +1;
-					$tagend   = $index["RDF:BAG"][1] -1;
-					while ( $tagstart <= $tagend ) {
-						$tag = $vals[ $tagstart ]["value"];
-						$tagstart += 1;
-						$tags[] = $tag;
-					}
-				}
-
-				$meta[ 'keywords' ] = $tags; 
-
+				$xmpmeta = readXmpMetadata( $filename, $chunk['start'], $chunk['size'] ); 
+				// append XMP metadata to meta array
+				$meta = array_merge( $meta, $xmpmeta );
 				break;
 		}
 	}
@@ -1011,4 +972,77 @@ function binrevert (string $binary) :string
 			return '0x00';
 			
 	}
+}
+
+function readXmpMetadata(string $filename, int $start, int $size): array
+{
+    $meta = [
+        'title'    => 'notitle',
+        'caption'  => '',
+        'keywords' => [],
+    ];
+
+    // Korrekt: Länge ist $size, nicht $start + $size
+    $xmp = file_get_contents($filename, false, null, $start + 8, $size);
+    if ($xmp === false || trim($xmp) === '') {
+        return $meta;
+    }
+
+    // XML-Fehler intern sammeln statt Warnings ins Frontend zu werfen
+    $prevUseInternalErrors = libxml_use_internal_errors(true);
+
+    try {
+        $xml = simplexml_load_string($xmp, \SimpleXMLElement::class, LIBXML_NOCDATA);
+        if ($xml === false) {
+            return $meta;
+        }
+
+        // Namespaces registrieren
+        $namespaces = $xml->getNamespaces(true);
+        foreach ($namespaces as $prefix => $uri) {
+            $xml->registerXPathNamespace($prefix, $uri);
+        }
+
+        // Fallbacks, falls Präfixe fehlen oder anders heißen
+        $xml->registerXPathNamespace('rdf', 'http://www.w3.org/1999/02/22-rdf-syntax-ns#');
+        $xml->registerXPathNamespace('dc',  'http://purl.org/dc/elements/1.1/');
+
+        // Titel: typischerweise dc:title/rdf:Alt/rdf:li
+        $titleNodes = $xml->xpath('//dc:title/rdf:Alt/rdf:li[@xml:lang="x-default"]');
+        if (!$titleNodes) {
+            $titleNodes = $xml->xpath('//dc:title/rdf:Alt/rdf:li');
+        }
+        if ($titleNodes && isset($titleNodes[0])) {
+            $title = trim((string)$titleNodes[0]);
+            if ($title !== '') {
+                $meta['title'] = $title;
+            }
+        }
+
+        // Beschreibung / Caption
+        $descNodes = $xml->xpath('//dc:description/rdf:Alt/rdf:li[@xml:lang="x-default"]');
+        if (!$descNodes) {
+            $descNodes = $xml->xpath('//dc:description/rdf:Alt/rdf:li');
+        }
+        if ($descNodes && isset($descNodes[0])) {
+            $meta['caption'] = trim((string)$descNodes[0]);
+        }
+
+        // Keywords: meist dc:subject/rdf:Bag/rdf:li
+        $keywordNodes = $xml->xpath('//dc:subject/rdf:Bag/rdf:li');
+        if ($keywordNodes) {
+            foreach ($keywordNodes as $node) {
+                $keyword = trim((string)$node);
+                if ($keyword !== '') {
+                    $meta['keywords'][] = $keyword;
+                }
+            }
+            $meta['keywords'] = array_values(array_unique($meta['keywords']));
+        }
+
+        return $meta;
+    } finally {
+        libxml_clear_errors();
+        libxml_use_internal_errors($prevUseInternalErrors);
+    }
 }

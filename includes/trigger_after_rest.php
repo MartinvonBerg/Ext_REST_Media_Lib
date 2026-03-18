@@ -1,6 +1,8 @@
 <?php
 namespace mvbplugins\extmedialib;
 
+require_once __DIR__ . '/shared/src/extractMetadata.php';
+
 // ------------------- Hook on REST response ----------------------------------------
 // Filter to catch every REST Request and do action relevant for this plugin
 add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_rest', 10, 3 );
@@ -80,4 +82,56 @@ function trigger_after_rest( $result, $server, $request) {
 	}
 
 	return $result;
+}
+
+add_filter( 'wp_generate_attachment_metadata', '\mvbplugins\extmedialib\trigger_after_image_upload', 10, 3 );
+
+function trigger_after_image_upload( $meta, $attachment_id, $context ) {
+    if ( 'create' !== $context ) {
+        return $meta;
+    }
+
+    $file = get_attached_file( $attachment_id );
+
+	// get the mime type
+	$mime = get_post_mime_type( $attachment_id );
+	$imagemeta = $meta;
+
+	// check if the file is an image
+	if ( !\str_contains( $mime, 'webp' ) && !\str_contains( $mime, 'avif' ) ) {
+		return $meta;
+	// TODO: extract XMP metadata correctly from the file
+	} else if ( \str_contains( $mime, 'webp' ) ) {
+		$imagemeta['image_meta'] = \mvbplugins\helpers\getWebpMetadata( $file );
+	} else if ( \str_contains( $mime, 'avif' ) ) {
+		$imagemeta['image_meta'] = \mvbplugins\helpers\getAvifMetadata( $file );
+	}
+	// remove software, GPS, DateTimeOriginal, meta_version, exposure_time = shutter_speed
+	unset( $imagemeta['image_meta']['software'] );
+	unset( $imagemeta['image_meta']['GPS'] );
+	unset( $imagemeta['image_meta']['DateTimeOriginal'] );
+	unset( $imagemeta['image_meta']['meta_version'] );
+	$imagemeta['image_meta']['shutter_speed'] = $imagemeta['image_meta']['exposure_time'] ?? '';
+	unset( $imagemeta['image_meta']['exposure_time'] );
+
+	// remove empty keywords from the array, 
+	if ( array_key_exists( 'keywords', $imagemeta['image_meta'] ) ) {
+		$imagemeta['image_meta']['keywords'] = \array_filter( $imagemeta['image_meta']['keywords'] );
+	}
+
+	// TODO : update post title, caption, description
+	wp_update_post([
+		'ID'           => $attachment_id,
+		'post_title'   => $imagemeta['image_meta']['title'] ?? '',
+		'post_excerpt' => 'nocaption', //$imagemeta['image_meta']['caption'] ?? 'nocaption',
+		'post_content' => $imagemeta['image_meta']['description'] ?? 'nodescription',
+	]);
+
+	update_post_meta(
+		$attachment_id,
+		'_wp_attachment_image_alt',
+		$imagemeta['image_meta']['alt_text'] ?? 'no_alt_text_found'
+	);
+
+    return $imagemeta;
 }
