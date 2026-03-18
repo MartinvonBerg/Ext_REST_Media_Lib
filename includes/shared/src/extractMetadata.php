@@ -17,7 +17,6 @@
 
 namespace mvbplugins\helpers;
 
-const BROKEN_FILE = false; // value to store in img_metadata if error during extracting metadata.
 const MINIMUM_CHUNK_HEADER_LENGTH = 18;
 const WEBP_VERSION = '0.0.1';
 const VP8X_ICC = 32;
@@ -178,13 +177,15 @@ function getJpgMetadata( string $filename ) :array
  */
 function getWebpMetadata( string $filename ) 
 {
-	// TODO: Vereinfachung möglich mit $image->getImageProperies()
+	// Vereinfachung möglich mit $image->getImageProperies(). Aber nur mit aktuellen Versionen!
 	$parsedWebPData = extractMetadata( $filename );
 	if ( ! $parsedWebPData ) {
-		//return BROKEN_FILE;
 		return [];
 	}
-
+	// check if parsedWebPData is an Array 
+	if ( ! is_array( $parsedWebPData ) ) {
+		return [];
+	}
 	$parsedWebPData['meta_version'] = WEBP_VERSION;
 	return $parsedWebPData;
 }
