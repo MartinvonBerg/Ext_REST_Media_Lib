@@ -1,7 +1,7 @@
 <?php
 namespace mvbplugins\extmedialib;
 
-require_once __DIR__ . '/shared/src/extractMetadata.php';
+require_once __DIR__ . '/shared/autoload.php';
 
 // ------------------- Hook on REST response ----------------------------------------
 // Filter to catch every REST Request and do action relevant for this plugin
@@ -98,39 +98,36 @@ function trigger_after_image_upload( $meta, $attachment_id, $context ) {
 	$imagemeta = $meta;
 
 	// check if the file is an image
-	if ( !\str_contains( $mime, 'webp' ) && !\str_contains( $mime, 'avif' ) ) {
+	if ( !\str_contains( $mime, 'webp' ) && !\str_contains( $mime, 'avif' ) && !\str_contains( $mime, 'jpeg' ) ) {
 		return $meta;
-	// TODO: extract XMP metadata correctly from the file
-	} else if ( \str_contains( $mime, 'webp' ) ) {
-		$imagemeta['image_meta'] = \mvbplugins\helpers\getWebpMetadata( $file );
-	} else if ( \str_contains( $mime, 'avif' ) ) {
-		$imagemeta['image_meta'] = \mvbplugins\helpers\getAvifMetadata( $file );
-	}
-	// remove software, GPS, DateTimeOriginal, meta_version, exposure_time = shutter_speed
-	unset( $imagemeta['image_meta']['software'] );
-	unset( $imagemeta['image_meta']['GPS'] );
-	unset( $imagemeta['image_meta']['DateTimeOriginal'] );
-	unset( $imagemeta['image_meta']['meta_version'] );
-	$imagemeta['image_meta']['shutter_speed'] = $imagemeta['image_meta']['exposure_time'] ?? '';
-	unset( $imagemeta['image_meta']['exposure_time'] );
+	} 
 
-	// remove empty keywords from the array, 
-	if ( array_key_exists( 'keywords', $imagemeta['image_meta'] ) ) {
+	// TODO: wie kann beim pull der /tests ordner ausgelassen werden 
+	$extractor = new \mvbplugins\Extractors\MetadataExtractor();
+    $imagemeta['image_meta'] = $extractor->getMetadata( $file, 'wordpress' );
+
+
+	// remove empty keywords from the array, and set to an empty array if not existing.
+	if ( \array_key_exists( 'keywords', $imagemeta['image_meta'] ) ) {
 		$imagemeta['image_meta']['keywords'] = \array_filter( $imagemeta['image_meta']['keywords'] );
+	} else {
+		$imagemeta['image_meta']['keywords'] = [];
 	}
-
-	// TODO : update post title, caption, description
+	// use a usefull mapping for SEO.
+	// permalink is not changed or handled here: It es better to use a expressive filename for SEO and not change the permalink with every title change.
 	wp_update_post([
 		'ID'           => $attachment_id,
-		'post_title'   => $imagemeta['image_meta']['title'] ?? '',
-		'post_excerpt' => 'nocaption', //$imagemeta['image_meta']['caption'] ?? 'nocaption',
-		'post_content' => $imagemeta['image_meta']['description'] ?? 'nodescription',
+		'post_title'   => $imagemeta['image_meta']['title'] ?? '', // post_title -> Titel des Attachments / Attachment-Page-Titel
+		'post_excerpt' => $imagemeta['image_meta']['title'] ?? '', // post_excerpt -> Bildunterschrift. Verwende den XMP-Titel als Vorbelegung
+		'post_content' => $imagemeta['image_meta']['caption'] ?? '', //b post_content -> Beschreibung des Attachments / Attachment-Page-Inhalt 
 	]);
 
 	update_post_meta(
 		$attachment_id,
-		'_wp_attachment_image_alt',
-		$imagemeta['image_meta']['alt_text'] ?? 'no_alt_text_found'
+		'_wp_attachment_image_alt', // -> alt im <img> Tag
+		//$imagemeta['image_meta']['alt_text'] // alt_text gibt es in XMP-Metadaten nicht
+		$imagemeta['image_meta']['caption'] ?? '' // use description as alt text. 
+		// TODO: User Documentation: Requires that description is a SEO-useful functional description of the image!
 	);
 
     return $imagemeta;
