@@ -8,7 +8,6 @@ use mvbplugins\Abstracts\AbstractMetadataExtractor;
 use mvbplugins\Extractors\AvifExifLocator;
 use mvbplugins\Extractors\XmpExtractor;
 require_once __DIR__ . '/../extractMetadata.php';
-// TODO: add the autoload here and make it work and test it. or work with spl_autoload_register?
 // TODO: use this https://github.com/magicsunday/imagemeta/tree/main after migration to PHP>= 8.4.0
 
 final class MetadataExtractor extends AbstractMetadataExtractor

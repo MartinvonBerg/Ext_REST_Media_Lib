@@ -102,7 +102,6 @@ function trigger_after_image_upload( $meta, $attachment_id, $context ) {
 		return $meta;
 	} 
 
-	// TODO: wie kann beim pull der /tests ordner ausgelassen werden 
 	$extractor = new \mvbplugins\Extractors\MetadataExtractor();
     $imagemeta['image_meta'] = $extractor->getMetadata( $file, 'wordpress' );
 
