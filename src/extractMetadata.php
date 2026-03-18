@@ -17,7 +17,6 @@
 
 namespace mvbplugins\helpers;
 
-const BROKEN_FILE = false; // value to store in img_metadata if error during extracting metadata.
 const MINIMUM_CHUNK_HEADER_LENGTH = 18;
 const WEBP_VERSION = '0.0.1';
 const VP8X_ICC = 32;
@@ -178,13 +177,15 @@ function getJpgMetadata( string $filename ) :array
  */
 function getWebpMetadata( string $filename ) 
 {
-	// TODO: Vereinfachung möglich mit $image->getImageProperies()
+	// Vereinfachung möglich mit $image->getImageProperies(). Aber nur mit aktuellen Versionen!
 	$parsedWebPData = extractMetadata( $filename );
 	if ( ! $parsedWebPData ) {
-		//return BROKEN_FILE;
 		return [];
 	}
-
+	// check if parsedWebPData is an Array 
+	if ( ! is_array( $parsedWebPData ) ) {
+		return [];
+	}
 	$parsedWebPData['meta_version'] = WEBP_VERSION;
 	return $parsedWebPData;
 }
@@ -340,47 +341,8 @@ function extractMetadataFromChunks( array $chunks, string $filename ) :array
 				break;
 			case 'XMP ':
 				$xmp2 = file_get_contents( $filename, false, null, $chunk['start']+8, $chunk['start']+$chunk['size'] );
-				$p = xml_parser_create();
-				xml_parser_set_option($p,XML_OPTION_SKIP_WHITE,1);
-				xml_parse_into_struct($p, $xmp2, $vals, $index);
-				xml_parser_free($p);
-				
-				$title = '';
-
-				if ( isset( $index["DC:TITLE"] ) ) {
-					$nr = (int) ($index["DC:TITLE"][1] + $index["DC:TITLE"][0]) / 2;
-					$title = $vals[ $nr ]["value"];
-				}
-				$title != '' ? $meta[ 'title' ] = $title : $meta[ 'title' ] = 'notitle';
-
-				if ( isset( $index["DC:DESCRIPTION"] ) ) {
-					$nr = (int) ($index["DC:DESCRIPTION"][1] + $index["DC:DESCRIPTION"][0]) / 2;
-					$caption = $vals[ $nr ]["value"];
-					$meta[ 'caption' ] = $caption;
-				}
-				//$caption != '' ? $meta[ 'caption' ] = $caption : $meta[ 'caption' ] = '';
-				/*
-				if ( isset( $vals[2]["attributes"]["AUX:LENS"] ) ) {
-					$lens = $vals[2]["attributes"]["AUX:LENS"];
-					$meta[ 'camera' ] = $meta[ 'camera' ] . ' + ' . $lens;
-				} else {
-					$meta[ 'camera' ] = '---';
-				}
-				*/
-				$tags = [];
-
-				if ( isset( $index["RDF:BAG"] ) ) {
-					$tagstart = $index["RDF:BAG"][0] +1;
-					$tagend   = $index["RDF:BAG"][1] -1;
-					while ( $tagstart <= $tagend ) {
-						$tag = $vals[ $tagstart ]["value"];
-						$tagstart += 1;
-						$tags[] = $tag;
-					}
-				}
-
-				$meta[ 'keywords' ] = $tags; 
-
+				$xmpmeta = get_meta_from_xmp( $xmp2 );
+				$meta = [ ...$meta, ...$xmpmeta ];
 				break;
 		}
 	}
@@ -1011,4 +973,62 @@ function binrevert (string $binary) :string
 			return '0x00';
 			
 	}
+}
+
+function get_meta_from_xmp(string $xmp2) {
+	$meta = [];
+	$index = [];
+	$vals = [];
+
+	$p = xml_parser_create();
+	xml_parser_set_option($p,XML_OPTION_SKIP_WHITE,1);
+	xml_parse_into_struct($p, $xmp2, $vals, $index);
+	xml_parser_free($p);
+	
+	$title = '';
+
+	if ( isset( $index["DC:TITLE"] ) ) {
+		$nr = (int) ($index["DC:TITLE"][1] + $index["DC:TITLE"][0]) / 2;
+		$title = $vals[ $nr ]["value"];
+	}
+	$title != '' ? $meta[ 'title' ] = $title : $meta[ 'title' ] = 'notitle';
+
+	if ( isset( $index["DC:DESCRIPTION"] ) ) {
+		$nr = (int) ($index["DC:DESCRIPTION"][1] + $index["DC:DESCRIPTION"][0]) / 2;
+		$caption = $vals[ $nr ]["value"];
+		$meta[ 'caption' ] = $caption;
+	}
+	//$caption != '' ? $meta[ 'caption' ] = $caption : $meta[ 'caption' ] = '';
+	/*
+	if ( isset( $vals[2]["attributes"]["AUX:LENS"] ) ) {
+		$lens = $vals[2]["attributes"]["AUX:LENS"];
+		$meta[ 'camera' ] = $meta[ 'camera' ] . ' + ' . $lens;
+	} else {
+		$meta[ 'camera' ] = '---';
+	}
+	*/
+	$tags = [];
+
+	if ( isset($index['RDF:BAG']) ) {
+
+		for ($b = 0; $b < count($index['RDF:BAG']); $b += 2) {
+
+			$tagstart = $index['RDF:BAG'][$b] + 1;
+			$tagend   = $index['RDF:BAG'][$b+1] - 1;
+
+			for ($i = $tagstart; $i <= $tagend; $i++) {
+
+				if (
+					isset($vals[$i]['tag']) &&
+					$vals[$i]['tag'] === 'RDF:LI' &&
+					isset($vals[$i]['value'])
+				) {
+					$tags[] = $vals[$i]['value'];
+				}
+			}
+		}
+	}
+	$meta['keywords'] = $tags;
+
+	return $meta;
 }
