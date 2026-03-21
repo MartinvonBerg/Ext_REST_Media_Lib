@@ -2,7 +2,7 @@
 
 namespace mvbplugins\Extractors;
 
-final class AvifExifLocator
+final class AvifExifExtractor
 {
     public function locate(string $blob): ?string
     {
@@ -64,7 +64,7 @@ final class AvifExifLocator
             return null;
         }
 
-        $tiffOffset = unpack('N', substr($payload, 0, 4))[1];
+        $tiffOffset = unpack('N', substr($payload, 0, 4))[1] ?? null;
 
         if ($tiffOffset > strlen($payload) - 4) {
             return null;
@@ -78,6 +78,13 @@ final class AvifExifLocator
         return null;
     }
 
+    /**
+     * Summary of readItemPayload
+     * @param string $fileBlob
+     * @param array<string, mixed> $loc
+     * @param string|null $idatData
+     * @return string|null
+     */
     private function readItemPayload(string $fileBlob, array $loc, ?string $idatData): ?string
     {
         $baseOffset = $loc['base_offset'];
@@ -112,6 +119,11 @@ final class AvifExifLocator
         return $out === '' ? null : $out;
     }
 
+    /**
+     * Summary of extractExifItemIdsFromIinf
+     * @param string $data
+     * @return array<int>
+     */
     private function extractExifItemIdsFromIinf(string $data): array
     {
         if (strlen($data) < 4) {
@@ -125,13 +137,13 @@ final class AvifExifLocator
             if (strlen($data) < $offset + 2) {
                 return [];
             }
-            $entryCount = unpack('n', substr($data, $offset, 2))[1];
+            $entryCount = unpack('n', substr($data, $offset, 2))[1] ?? null;
             $offset += 2;
         } else {
             if (strlen($data) < $offset + 4) {
                 return [];
             }
-            $entryCount = unpack('N', substr($data, $offset, 4))[1];
+            $entryCount = unpack('N', substr($data, $offset, 4))[1] ?? null;
             $offset += 4;
         }
 
@@ -166,7 +178,7 @@ final class AvifExifLocator
                 return null;
             }
 
-            $itemId = unpack('n', substr($data, $offset, 2))[1];
+            $itemId = unpack('n', substr($data, $offset, 2))[1] ?? null;
             $offset += 2;
 
             $offset += 2; // item_protection_index
@@ -181,7 +193,7 @@ final class AvifExifLocator
                 return null;
             }
 
-            $itemId = unpack('N', substr($data, $offset, 4))[1];
+            $itemId = unpack('N', substr($data, $offset, 4))[1] ?? null;
             $offset += 4;
 
             $offset += 2; // item_protection_index
@@ -194,36 +206,46 @@ final class AvifExifLocator
         return null;
     }
 
+    /**
+     * Summary of parseIloc
+     * @param string $data
+     * @return array<int, array{
+     *      construction_method: int,
+     *      base_offset: int,
+     *      extents: list<array{
+     *          extent_offset: int,
+     *          extent_length: int
+     *      }>
+     * }>
+     */
     private function parseIloc(string $data): array
     {
-        if (strlen($data) < 8) {
+        if ( \strlen($data) < 8) {
             return [];
         }
 
-        $version = ord($data[0]);
+        $version = \ord($data[0]);
         $offset = 4; // FullBox header
 
-        $tmp = ord($data[$offset]);
+        $tmp = \ord($data[$offset]);
         $offsetSize = ($tmp >> 4) & 0x0F;
         $lengthSize = $tmp & 0x0F;
         $offset++;
 
-        $tmp = ord($data[$offset]);
+        $tmp = \ord($data[$offset]);
         $baseOffsetSize = ($tmp >> 4) & 0x0F;
         $indexSize = ($version === 1 || $version === 2) ? ($tmp & 0x0F) : 0;
         $offset++;
 
         if ($version < 2) {
-            if (strlen($data) < $offset + 2) {
-                return [];
-            }
-            $itemCount = unpack('n', substr($data, $offset, 2))[1];
+            
+            $itemCount = unpack('n', substr($data, $offset, 2))[1] ?? null;
             $offset += 2;
         } else {
             if (strlen($data) < $offset + 4) {
                 return [];
             }
-            $itemCount = unpack('N', substr($data, $offset, 4))[1];
+            $itemCount = unpack('N', substr($data, $offset, 4))[1] ?? null;
             $offset += 4;
         }
 
@@ -234,13 +256,13 @@ final class AvifExifLocator
                 if (strlen($data) < $offset + 2) {
                     return [];
                 }
-                $itemId = unpack('n', substr($data, $offset, 2))[1];
+                $itemId = unpack('n', substr($data, $offset, 2))[1] ?? null;
                 $offset += 2;
             } else {
                 if (strlen($data) < $offset + 4) {
                     return [];
                 }
-                $itemId = unpack('N', substr($data, $offset, 4))[1];
+                $itemId = unpack('N', substr($data, $offset, 4))[1] ?? null;
                 $offset += 4;
             }
 
@@ -249,7 +271,7 @@ final class AvifExifLocator
                 if (strlen($data) < $offset + 2) {
                     return [];
                 }
-                $tmp = unpack('n', substr($data, $offset, 2))[1];
+                $tmp = unpack('n', substr($data, $offset, 2))[1] ?? null;
                 $constructionMethod = $tmp & 0x000F;
                 $offset += 2;
             }
@@ -268,7 +290,10 @@ final class AvifExifLocator
             if (strlen($data) < $offset + 2) {
                 return [];
             }
-            $extentCount = unpack('n', substr($data, $offset, 2))[1];
+            $extentCount = unpack('n', substr($data, $offset, 2))[1] ?? null;
+            if ($extentCount === null) {
+                return [];
+            }
             $offset += 2;
 
             $extents = [];
@@ -328,6 +353,14 @@ final class AvifExifLocator
         return $v;
     }
 
+    /**
+     * Summary of parseBoxes
+     * @param string $blob
+     * @param int $start
+     * @param int $end
+     * @return list<array{type: string, start: (float|int), end: (float|int), data: string}>
+     *  
+     */
     private function parseBoxes(string $blob, int $start, int $end): array
     {
         $boxes = [];
@@ -335,7 +368,7 @@ final class AvifExifLocator
 
         while ($offset + 8 <= $end) {
             $boxStart = $offset;
-            $size32 = unpack('N', substr($blob, $offset, 4))[1];
+            $size32 = unpack('N', substr($blob, $offset, 4))[1] ?? null;
             $type = substr($blob, $offset + 4, 4);
             $offset += 8;
 
@@ -378,6 +411,13 @@ final class AvifExifLocator
         return $boxes;
     }
 
+    /**
+     * Summary of findFirstBox
+     * @param list<array{type: string, start: (float|int), end: (float|int), data: string}> $boxes
+     * @param string $type
+     * @return array{type: string, start: (float|int), end: (float|int), data: string}|null
+     *
+     */
     private function findFirstBox(array $boxes, string $type): ?array
     {
         foreach ($boxes as $box) {
@@ -391,7 +431,15 @@ final class AvifExifLocator
     private function readUInt64(string $bytes): int
     {
         $parts = unpack('Nhi/Nlo', $bytes);
-        return ($parts['hi'] << 32) | $parts['lo'];
+
+        if ($parts === false) {
+            return 0;
+        }
+
+        $hi = $parts['hi'] ?? 0;
+        $lo = $parts['lo'] ?? 0;
+
+        return ($hi << 32) | $lo;
     }
 
     private function looksLikeTiffHeader(string $data): bool
