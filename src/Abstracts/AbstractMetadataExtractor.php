@@ -55,5 +55,5 @@ abstract class AbstractMetadataExtractor implements MetadataExtractorInterface
         return $finfo->file($file) ?: null;
     }
 
-    abstract public function getMetadata(string $file): array;
+    abstract public function getMetadata(string $file, ?string $filter): array;
 }

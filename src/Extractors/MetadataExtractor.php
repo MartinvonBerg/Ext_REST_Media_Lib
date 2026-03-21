@@ -5,16 +5,20 @@ declare(strict_types=1);
 namespace mvbplugins\Extractors;
 
 use mvbplugins\Abstracts\AbstractMetadataExtractor;
-use mvbplugins\Extractors\AvifExifLocator;
+use mvbplugins\Extractors\AvifExifExtractor;
 use mvbplugins\Extractors\XmpExtractor;
-require_once __DIR__ . '/../extractMetadata.php';
-// TODO: add the autoload here and make it work and test it. or work with spl_autoload_register?
+use mvbplugins\Extractors\BinaryExifExtractor;
+
 // TODO: use this https://github.com/magicsunday/imagemeta/tree/main after migration to PHP>= 8.4.0
 
+/**
+ * @phpstan-import-type WpFilteredImageMeta from \mvbplugins\Interfaces\MetadataExtractorInterface
+ * @phpstan-import-type WpRawMetadata from \mvbplugins\Interfaces\MetadataExtractorInterface
+ */
 final class MetadataExtractor extends AbstractMetadataExtractor
 {
     // ---- INTERFACE
-    public function getMetadata(string $file, $filter=null): array
+    public function getMetadata(string $file, ?string $filter = null): array
     {
         // check if file is supported by this extractor
         if (!$this->isFileSupported($file)) {
@@ -29,10 +33,6 @@ final class MetadataExtractor extends AbstractMetadataExtractor
 
         // get file extension and mime type
         $meta['ext'] = $this->getFileExtension($file);
-        $mime_type = $this->getMimeType($file);
-        if ($mime_type !== null) {
-            $meta['mime'] = $mime_type;
-        }
         
         // metadata extraction (XMP > IPTC > EXIF) with swith case for extensions 
         switch ($meta['ext']) {
@@ -51,16 +51,22 @@ final class MetadataExtractor extends AbstractMetadataExtractor
         }
 
         // filter the metadata
-        if ($filter !== null && \is_string($filter)) {
+        if ($filter !== null) {
             $meta = $this->filterMetadata($meta, $filter);
         }
 
         return $meta;
     }
     // ------------- FILE TYPES: 1. Level of metadata extraction for different file types
-    private function getAllTypeMetadata(string $file, $type=null): array
+    /**
+     * Summary of getAllTypeMetadata
+     * @param string $file the full path to the file to extract the metadata from
+     * @param string $type the type of the file, currently only 'Jpeg', 'Webp' and 'Avif' are supported. Return empty array otherwise.
+     * @return array<string, mixed> the extracted metadata as an associative array with string keys and mixed values. 
+     */ 
+    private function getAllTypeMetadata(string $file, string $type): array
     {
-        if ($type === null) {
+        if ($type === '') {
             return [];
         }
         
@@ -92,16 +98,10 @@ final class MetadataExtractor extends AbstractMetadataExtractor
                     $exifBinary = preg_replace('/^Exif/', 'Exif45', $exifBinary, 1);
                 }
 
-                // In PEL einlesen:
-                /*
-                $data = new PelDataWindow($exifBinary);
-                $exif = new PelExif();
-                $exif->load($data);
-                $tiff = $exif->getTiff();
-                $ifd0 = $tiff->getIfd();
-                $result = $this->mapIfd0ToArray($ifd0);
-                */
-                $result = \mvbplugins\helpers\get_exif_meta($exifBinary);
+                
+                $exifExtractor = new BinaryExifExtractor();
+                $result = $exifExtractor->get_exif_meta($exifBinary);
+
                 // copy exposure_time to shutter_speed if existing
                 if (isset($result['exposure_time'])) {
                     $result['shutter_speed'] = $result['exposure_time'];
@@ -122,25 +122,12 @@ final class MetadataExtractor extends AbstractMetadataExtractor
 
     /**
      * Filter the raw metadata for WordPress to have in the same format and types as wp_read_image_metadata($file).
-     * @param array $meta : see MetadataExtractorInterface::getMetadata() for the raw metadata format
+     * @param array<string, mixed> $meta : see MetadataExtractorInterface::getMetadata() for the raw metadata format
      * @param string $filter : the filter to apply, currently only 'wp' or 'wordpress' is supported for WordPress metadata format. Return the unfiltered meta otherwise.
      * 
-     * @return array{
-     *      aperture: float, // like 4.5 or 2.8
-     *      camera: string, 
-     *      caption: string, 
-     *      copyright: string, 
-     *      created_timestamp: int, // unix timestamp, like 1680000000.
-     *      credit: string, 
-     *      focal_length: float, // like 35.0 or 50.0
-     *      iso: int, 
-     *      keywords: array, 
-     *      orientation: int, 
-     *      shutter_speed: float, // like 0.005 or 0.01
-     *      title: string
-     *      }
+     * @return WpFilteredImageMeta|WpRawMetadata the filtered metadata as an associative array with string keys and mixed values. The format depends on the filter applied. See interface definition for details.
      */
-    private function filterMetadata(array $meta, $filter): array
+    private function filterMetadata(array $meta, string $filter): array
     {
         // filter according to the WordPress metadata keys if the filter is 'wp' or 'wordpress'.
         // note : IPTC is not supported and skipped therefore
@@ -159,7 +146,7 @@ final class MetadataExtractor extends AbstractMetadataExtractor
                 'title'             => '', // (string) see below
                 'orientation'       => 0,  // (int) Set to the EXIF Orientation field.
                 'keywords'          => [], // (array) missing WP documentation. We Use XMP-Keywords.
-        ];
+            ];
 
             $filtered_meta = array_intersect_key($meta, $wp_supported_meta);
 
@@ -206,6 +193,7 @@ final class MetadataExtractor extends AbstractMetadataExtractor
                 }
             }
             // Feld 'created_timestamp' konvertieren von EXIF DateTimeDigitized (string) zu unix timestamp (int)
+            /*
             if (!empty($meta['datetime_digitized'])) {
                 $timestamp = $meta['datetime_digitized'];
                 if ($timestamp !== false) {
@@ -214,7 +202,7 @@ final class MetadataExtractor extends AbstractMetadataExtractor
                     $filtered_meta['created_timestamp'] = 0;
                 }
             }
-
+            */
             return $filtered_meta;
         }
 
@@ -250,7 +238,11 @@ final class MetadataExtractor extends AbstractMetadataExtractor
                 }
 
                 $fourCC = substr($chunkHeader, 0, 4);
-                $size   = unpack('V', substr($chunkHeader, 4, 4))[1];
+                $size   = unpack('V', substr($chunkHeader, 4, 4))[1] ?? null;
+
+                if ($size === null) {
+                    return null;
+                }
 
                 if ($fourCC === 'XMP ') {
                     $xmp = ($size > 0) ? fread($fh, $size) : '';
@@ -410,10 +402,10 @@ final class MetadataExtractor extends AbstractMetadataExtractor
                 return null;
             }
 
-            $segmentLength = unpack('n', substr($blob, $offset, 2))[1];
+            $segmentLength = unpack('n', substr($blob, $offset, 2))[1] ?? null;
             $offset += 2;
 
-            if ($segmentLength < 2) {
+            if ($segmentLength === null || $segmentLength < 2) {
                 return null;
             }
 
@@ -462,8 +454,11 @@ final class MetadataExtractor extends AbstractMetadataExtractor
 
         while ($offset + 8 <= $len) {
             $chunkId = substr($blob, $offset, 4);
-            $chunkSize = unpack('V', substr($blob, $offset + 4, 4))[1];
+            $chunkSize = unpack('V', substr($blob, $offset + 4, 4))[1] ?? null;
             $offset += 8;
+            if ($chunkSize === null) {
+                return null;
+            }
 
             if ($offset + $chunkSize > $len) {
                 return null;
@@ -483,7 +478,7 @@ final class MetadataExtractor extends AbstractMetadataExtractor
 
     private function getAvifExifBinary(string $blob): ?string
     {
-        $exifBinary = (new AvifExifLocator())->locate($blob);
+        $exifBinary = (new AvifExifExtractor())->locate($blob);
         return $exifBinary;
     }
     // ------------- HILFSFUNKTIONEN für EXIF-Parsing: TIFF-Header erkennen, IFD0 in Array mappen, Rational-Werte normalisieren, GPS-Koordinaten umrechnen --------------
@@ -494,209 +489,7 @@ final class MetadataExtractor extends AbstractMetadataExtractor
                 strncmp($data, "II\x2A\x00", 4) === 0 ||
                 strncmp($data, "MM\x00\x2A", 4) === 0
             );
-    }
-    /*
-    private function mapIfd0ToArray($ifd0): array
-    {
-        $result = [];
-        
-        $exifIfd = $ifd0->getSubIfd(PelIfd::EXIF);
-        $gpsIfd  = $ifd0->getSubIfd(PelIfd::GPS);        
 
-        // Orientierung
-        $result['orientation'] = $this->getValue($ifd0, PelTag::ORIENTATION);
-
-        // EXIF Daten
-        $result['iso'] = $this->getValue($exifIfd, PelTag::ISO_SPEED_RATINGS);
-        $result['aperture'] = $this->normalizeRational($this->getValue($exifIfd, PelTag::FNUMBER)); //
-        //$result['max_aperture'] = $this->normalizeRational($this->getValue($exifIfd, PelTag::MAX_APERTURE_VALUE)); //
-
-        // Belichtungszeit (kann String sein!)
-        $exposure = $this->getValue($exifIfd, PelTag::EXPOSURE_TIME);
-        $result['shutter_speed'] = $this->normalizeRational($exposure);
-
-        // Datum
-        $date = $this->getValue($exifIfd, PelTag::DATE_TIME_ORIGINAL);
-        $result['datetime_original'] = $date;
-        $result['created_timestamp'] = $date ? strtotime($date) : null;
-        // EXIF field DateTimeDigitized
-        $dateDigitized = $this->getValue($exifIfd, PelTag::DATE_TIME_DIGITIZED);
-        $result['datetime_digitized'] = $dateDigitized;
-
-        // camera and lens info
-        $make  = $this->getValue($ifd0, PelTag::MAKE);
-        $model = $this->getValue($ifd0, PelTag::MODEL);
-
-        $result['make']  = $make;
-        $result['model'] = $model;
-        //$result['camera'] = trim($make . ' ' . $model);
-
-        $result['lens_model'] = $this->getValue($exifIfd, 0xA434)?  : null;
-        $result['lens_make']  = $this->getValue($exifIfd, 0xA433)?  : null;
-
-        $result['focal_length'] = $this->normalizeRational($this->getValue($exifIfd, PelTag::FOCAL_LENGTH)); //
-        $result['focal_length_in_35mm'] = $this->normalizeRational($this->getValue($exifIfd, PelTag::FOCAL_LENGTH_IN_35MM_FILM)); //
-
-        $result['software'] = $this->getValue($ifd0, PelTag::SOFTWARE);
-        $result['artist']   = $this->getValue($ifd0, PelTag::ARTIST);
-        $result['datetime'] = $this->getValue($ifd0, PelTag::DATE_TIME); // letzter Edit
-
-        $result['exposure_program'] = $this->getValue($exifIfd, PelTag::EXPOSURE_PROGRAM);
-        $result['exposure_mode']    = $this->getValue($exifIfd, PelTag::EXPOSURE_MODE);
-
-        $result['metering_mode']    = $this->getValue($exifIfd, PelTag::METERING_MODE);
-        $result['light_source']     = $this->getValue($exifIfd, PelTag::LIGHT_SOURCE);
-
-        $result['flash']            = $this->getValue($exifIfd, PelTag::FLASH);
-
-        $result['white_balance'] = $this->getValue($exifIfd, PelTag::WHITE_BALANCE);
-        $result['color_space']   = $this->getValue($exifIfd, PelTag::COLOR_SPACE);
-
-        $result['contrast']      = $this->getValue($exifIfd, PelTag::CONTRAST);
-        $result['saturation']    = $this->getValue($exifIfd, PelTag::SATURATION);
-        $result['sharpness']     = $this->getValue($exifIfd, PelTag::SHARPNESS);
-        
-        $result['exif_width']  = $this->getValue($exifIfd, PelTag::PIXEL_X_DIMENSION);
-        $result['exif_height'] = $this->getValue($exifIfd, PelTag::PIXEL_Y_DIMENSION);
-
-        // EXIF Title field
-        $result['title'] = $this->getValue($ifd0, PelTag::XP_TITLE);
-        // EXIF ImageDescription field but only if less than 80 characters
-        $result['description'] = $this->getValue($ifd0, PelTag::IMAGE_DESCRIPTION);
-
-        // EXIF UserComment field if [“title”] is unset AND EXIF:ImageDescription is less than 80 characters
-        $result['user_comment'] = $this->getValue($ifd0, PelTag::USER_COMMENT);
-        // EXIF ImageDescription field if [“title”] is set OR EXIF:ImageDescription is more than 80 characters
-        // EXIF Comments field if [“title”] does not equal EXIF:Comments
-        $result['comments'] = $this->getValue($ifd0, PelTag::XP_COMMENT);
-
-        // EXIF Copyright field
-        $result['copyright'] = $this->getValue($ifd0, PelTag::COPYRIGHT);
-
-        // get GPS data if available
-        if ($gpsIfd) {
-            //$result['gps']['gps_timestamp'] = $this->getValue($gpsIfd, PelTag::GPS_TIME_STAMP);
-            //$result['gps']['gps_date']      = $this->getValue($gpsIfd, PelTag::GPS_DATE_STAMP);
-
-            $result['gps']['gps_img_direction'] = $this->normalizeRational($this->getValue($gpsIfd, PelTag::GPS_IMG_DIRECTION));
-            //$result['gps']['gps_latitude']  = $this->getGpsCoordinate($gpsIfd, PelTag::GPS_LATITUDE_REF, PelTag::GPS_LATITUDE);
-            //$result['gps']['gps_longitude'] = $this->getGpsCoordinate($gpsIfd, PelTag::GPS_LONGITUDE_REF, PelTag::GPS_LONGITUDE);
-            $result['gps']['gps_latitude'] = $this->getGpsCoordinate(
-                    $gpsIfd,
-                    PelTag::GPS_LATITUDE_REF,
-                    PelTag::GPS_LATITUDE
-                );
-
-                $result['gps']['gps_longitude'] = $this->getGpsCoordinate(
-                    $gpsIfd,
-                    PelTag::GPS_LONGITUDE_REF,
-                    PelTag::GPS_LONGITUDE
-                );
-            $result['gps']['gps_latitude_ref'] = $this->getValue($gpsIfd, PelTag::GPS_LATITUDE_REF);
-            $result['gps']['gps_longitude_ref'] = $this->getValue($gpsIfd, PelTag::GPS_LONGITUDE_REF);
-            $result['gps']['gps_altitude']  = $this->normalizeRational($this->getValue($gpsIfd, PelTag::GPS_ALTITUDE)); //
-            $result['gps']['gps_altitude_ref'] = $this->getValue($gpsIfd, PelTag::GPS_ALTITUDE_REF);
-        }
-
-        return $result;
-    }
-    */
-    private function getValue($ifd, $tag) {
-        if (!$ifd) return null;
-
-        $entry = $ifd->getEntry($tag);
-        if (!$entry) return null;
-
-        return $entry->getValue();
     }
 
-    private function normalizeRational($value) {
-        if ($value === null) return null;
-
-        // Fall A: Array [num, den]
-        if (is_array($value) && count($value) === 2) {
-            return $value[1] != 0 ? $value[0] / $value[1] : null;
-        }
-
-        // Fall B: PelRational Objekt
-        if (is_object($value) && method_exists($value, 'getNumerator')) {
-            $den = $value->getDenominator();
-            return $den != 0 ? $value->getNumerator() / $den : null;
-        }
-
-        // Fall C: bereits Zahl
-        if (is_numeric($value)) {
-            return (float)$value;
-        }
-
-        return null;
-    }
-
-    private function rationalToFloat(mixed $value): ?float
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        // PEL liefert oft [numerator, denominator]
-        if (is_array($value) && count($value) === 2 && isset($value[0], $value[1])) {
-            $num = (float) $value[0];
-            $den = (float) $value[1];
-
-            return $den != 0.0 ? $num / $den : null;
-        }
-
-        // Falls PEL schon numerisch liefert
-        if (is_numeric($value)) {
-            return (float) $value;
-        }
-
-        // Fallback für Objekte mit Numerator/Denominator
-        if (is_object($value) && method_exists($value, 'getNumerator') && method_exists($value, 'getDenominator')) {
-            $num = (float) $value->getNumerator();
-            $den = (float) $value->getDenominator();
-
-            return $den != 0.0 ? $num / $den : null;
-        }
-
-        return null;
-    }
-
-    private function gpsDmsToDecimal(?string $ref, mixed $coord): ?float
-    {
-        if (!is_array($coord) || count($coord) < 3) {
-            return null;
-        }
-
-        $deg = $this->rationalToFloat($coord[0]);
-        $min = $this->rationalToFloat($coord[1]);
-        $sec = $this->rationalToFloat($coord[2]);
-
-        if ($deg === null || $min === null || $sec === null) {
-            return null;
-        }
-
-        $decimal = $deg + ($min / 60) + ($sec / 3600);
-
-        $ref = strtoupper(trim((string) $ref));
-
-        if ($ref === 'S' || $ref === 'W') {
-            $decimal *= -1;
-        }
-        // round to 6 decimal places to avoid floating point issues and get a more readable output
-        $decimal = round($decimal, 6);
-        return $decimal;
-    }
-    /*
-    private function getGpsCoordinate(?PelIfd $gpsIfd, int $refTag, int $coordTag): ?float
-    {
-        $ref   = $this->getValue($gpsIfd, $refTag);
-        $coord = $this->getValue($gpsIfd, $coordTag);
-
-        return $this->gpsDmsToDecimal(
-            \is_string($ref) ? $ref : null,
-            $coord
-        );
-    }
-    */
 }

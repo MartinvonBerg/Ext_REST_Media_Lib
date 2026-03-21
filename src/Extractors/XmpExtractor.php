@@ -97,12 +97,7 @@ final class XmpExtractor
         // 1. Versuche rdf:RDF per XPath zu finden
         $rdfNodes = $xml->xpath('//rdf:RDF');
 
-        // 2. Fallback: falls Root selbst rdf:RDF ist
-        if (($rdfNodes === false || $rdfNodes === []) && $xml->getName() === 'RDF') {
-            $rdfNodes = [$xml];
-        }
-
-        if ($rdfNodes === false || $rdfNodes === []) {
+        if ($rdfNodes === false || $rdfNodes === [] || $rdfNodes === null) {
             return [];
         }
 
@@ -220,7 +215,7 @@ final class XmpExtractor
 
             $gps = $this->xmp_extract_gps($desc);
             if ($gps !== []) {
-                $meta['gps'] = array_merge($meta['gps'] ?? [], $gps);
+                $meta['gps'] = \array_merge($meta['gps'] ?? [], $gps);
             }
         }
 
@@ -244,12 +239,16 @@ final class XmpExtractor
     }
 
     /**
-     * Setzt String nur, wenn Feld noch leer ist und Wert sinnvoll ist.
+     * Setzt String nur, wenn Feld noch leer ist und Wert ein nicht-leerer String ist.
+     * 
+     * @param array<string, mixed> $meta Referenz auf Metadaten-Array, das implizit gefüllt wird
+     * @param string $key Schlüssel im Metadaten-Array, der mit $value gefüllt werden soll, falls noch nicht gesetzt
+     * @param mixed $value Wert, der verwendet werden soll, wenn $meta[$key] noch nicht gesetzt ist und $value ein nicht-leerer String ist
      */
     private function self_like_add_string(array &$meta, string $key, mixed $value): void
     {
-        if (!isset($meta[$key]) || $meta[$key] === '' || $meta[$key] === null) {
-            if (is_string($value)) {
+        if (!isset($meta[$key]) || $meta[$key] === '') {
+            if ( \is_string($value)) {
                 $value = trim($value);
                 if ($value !== '') {
                     $meta[$key] = $value;
@@ -260,6 +259,9 @@ final class XmpExtractor
 
     /**
      * Setzt Float nur, wenn Feld noch leer ist.
+     * @param array<string, mixed> $meta Referenz auf Metadaten-Array, das implizit gefüllt wird
+     * @param string $key Schlüssel im Metadaten-Array, der mit $value gefüllt werden soll, falls noch nicht gesetzt
+     * @param mixed $value Wert, der verwendet werden soll, wenn $meta[$key] noch nicht gesetzt ist und $value numerisch ist (wird dann als Float konvertiert)
      */
     private function self_like_add_float(array &$meta, string $key, mixed $value): void
     {
@@ -270,6 +272,9 @@ final class XmpExtractor
 
     /**
      * Setzt Int nur, wenn Feld noch leer ist.
+     * @param array<string, mixed> $meta Referenz auf Metadaten-Array, das implizit gefüllt wird
+     * @param string $key Schlüssel im Metadaten-Array, der mit $value gefüllt werden soll, falls noch nicht gesetzt
+     * @param mixed $value Wert, der verwendet werden soll, wenn $meta[$key] noch nicht gesetzt ist und $value numerisch ist (wird dann als Int konvertiert)
      */
     private function self_like_add_int(array &$meta, string $key, mixed $value): void
     {
@@ -333,7 +338,11 @@ final class XmpExtractor
     }
 
     /**
-     * Liest alle Einträge aus rdf:Bag.
+     * Liest alle Einträge aus rdf:Bag. Behandelt auch den Fall, dass kein Bag vorhanden ist und der Wert direkt im Element steht.
+     * @param \SimpleXMLElement $desc Das rdf:Description-Element, in dem gesucht werden soll
+     * @param string $prefix Der Namespace-Präfix, z. B. "dc" oder "photoshop"
+     * @param string $name Der Name des Elements, z. B. "subject" oder "Owner"
+     * @return list<string> Liste der Werte, oder leeres Array, wenn nicht gefunden oder leer
      */
     private function xmp_bag_values(\SimpleXMLElement $desc, string $prefix, string $name): array
     {
@@ -504,7 +513,13 @@ final class XmpExtractor
         $value = trim($value);
         return is_numeric($value) ? (int)$value : null;
     }
-
+    
+    /**
+     * Summary of xmp_first_string_from_candidates
+     * @param \SimpleXMLElement $desc
+     * @param   list<array{0: string, 1: string}> $candidates Array von Kandidaten, jeder Eintrag ist ein Array mit zwei Elementen: [Namespace-Präfix, Elementname]
+     * @return string|null
+     */
     private function xmp_first_string_from_candidates(\SimpleXMLElement $desc, array $candidates): ?string
     {
         foreach ($candidates as [$prefix, $name]) {
@@ -516,6 +531,12 @@ final class XmpExtractor
         return null;
     }
 
+    /**
+     * Summary of xmp_first_int_from_candidates
+     * @param \SimpleXMLElement $desc
+     * @param   list<array{0: string, 1: string}> $candidates Array von Kandidaten, jeder Eintrag ist ein Array mit zwei Elementen: [Namespace-Präfix, Elementname]
+     * @return int|null
+     */
     private function xmp_first_int_from_candidates(\SimpleXMLElement $desc, array $candidates): ?int
     {
         foreach ($candidates as [$prefix, $name]) {
@@ -529,12 +550,13 @@ final class XmpExtractor
     }
 
     /**
-     * GPS-Koordinaten aus XMP/EXIF.
-     * Erwartet häufig Formate wie:
+     * GPS-Koordinaten aus XMP/EXIF. Erwartet häufig Formate wie:
      * - "48,8N"
      * - "48.1371N"
      * - "11,5754E"
      * - "5126.123N" (wird hier bewusst nicht speziell dekodiert)
+     * 
+     * @return array<string, float> Array mit optionalen Schlüsseln 'lat', 'lon' und 'altitude', je nachdem, was gefunden wurde
      */
     private function xmp_extract_gps(\SimpleXMLElement $desc): array
     {
