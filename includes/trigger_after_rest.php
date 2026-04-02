@@ -3,20 +3,53 @@ namespace mvbplugins\extmedialib;
 
 require_once __DIR__ . '/shared/autoload.php';
 
+// get the plugin options for the meta update
+$options = get_option( 'media-lib-extension' );
+
+// Type definitions for phpstan
+/** @phpstan-type AttachmentMeta array{
+ *   width?: int,
+ *   height?: int,
+ *   file?: string,
+ *   sizes?: array<string, array{
+ *     file: string,
+ *     width: int,
+ *     height: int,
+ *     mime-type: string
+ *   }>,
+ *   image_meta?: array{
+ *     aperture?: string,
+ *     credit?: string,
+ *     camera?: string,
+ *     caption?: string,
+ *     created_timestamp?: string,
+ *     copyright?: string,
+ *     focal_length?: string,
+ *     iso?: string,
+ *     shutter_speed?: string,
+ *     title?: string,
+ *     orientation?: string,
+ *     keywords?: array<int, string>
+ *   }
+ * } 
+ */
+
 // ------------------- Hook on REST response ----------------------------------------
 // Filter to catch every REST Request and do action relevant for this plugin
-add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_rest', 10, 3 );
+if ( isset( $options['use_rest_api_extension'] ) && $options['use_rest_api_extension'] === "1" ) {
+	add_filter( 'rest_pre_echo_response', '\mvbplugins\extmedialib\trigger_after_rest', 10, 3 );
+}
 
 /**
  * hook on the finalized REST-response and update the image_meta and the posts using the updated image
  *
- * @param array<string>|\stdClass $result the prepared result
+ * @param array<string, mixed> $result the prepared result
  * @param \WP_REST_Server $server the rest server
- * @param \WP_REST_Request $request the request
- * @return array<string> $result the $result to provide via REST-API as http response. The keys $newmeta["image_meta"]['caption'] 
+ * @param \WP_REST_Request<array<string, mixed>> $request the request
+ * @return array<string, mixed> $result the $result to provide via REST-API as http response. The keys $newmeta["image_meta"]['caption'] 
  * and $newmeta["image_meta"]['title'] were changed depending on the result of the meta update
  */
-function trigger_after_rest( $result, $server, $request) {
+function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Request $request) : array {
 	global $wpdb;
 
 	// alt_text is only available once at 'top-level' of the json - response
@@ -84,27 +117,77 @@ function trigger_after_rest( $result, $server, $request) {
 	return $result;
 }
 
-add_filter( 'wp_generate_attachment_metadata', '\mvbplugins\extmedialib\trigger_after_image_upload', 10, 3 );
+// ------------------- Hook on image upload ----------------------------------------
+// do not activate the filter if it is disable by the plugin settings
+if ( isset( $options['use_media_upload_hook'] ) && $options['use_media_upload_hook'] === "1" ) {
+	add_filter( 'wp_generate_attachment_metadata', '\mvbplugins\extmedialib\trigger_after_image_upload', 10, 3 );
+}
 
-function trigger_after_image_upload( $meta, $attachment_id, $context ) {
+/**
+ * Add the image metadata (mainly for webp and avif) to the attachment metadata after upload and update the post meta and post data of the attachment.
+ * Goal of this function hook is to have the image metadata of webp and avif images idenctical to jpg which is done by WP Standard functionality.
+ * 
+ * @param array<string, mixed> $meta The WordPress metadata array for the attachment.
+ * @param int $attachment_id The ID of the attachment being processed.
+ * @param string $context The context of the metadata generation, typically 'create' for new uploads.
+ * 
+ * @return array<string, mixed> The modified metadata array with added image metadata for webp and avif images.
+ */
+function trigger_after_image_upload( array $meta, int $attachment_id, string $context ) : array {
     if ( 'create' !== $context ) {
         return $meta;
     }
 
     $file = get_attached_file( $attachment_id );
+	if ( $file === false ) {
+		return $meta;
+	}
 
 	// get the mime type
 	$mime = get_post_mime_type( $attachment_id );
-	$imagemeta = $meta;
+	if ( $mime === false ) {
+		return $meta;
+	}
+
+	// get and sanitize the options to check which image types should be processed
+	$options = get_option( 'media-lib-extension' );
+	$process_webp = isset( $options['treat_webp_upload'] ) && $options['treat_webp_upload'] === "1";
+	$process_avif = isset( $options['treat_avif_upload'] ) && $options['treat_avif_upload'] === "1";
+	$process_jpeg = isset( $options['treat_jpg_upload'] ) && $options['treat_jpg_upload'] === "1";
 
 	// check if the file is an image
 	if ( !\str_contains( $mime, 'webp' ) && !\str_contains( $mime, 'avif' ) && !\str_contains( $mime, 'jpeg' ) ) {
 		return $meta;
 	} 
 
+	// check if the image should be processed
+	if ( (!$process_webp && \str_contains( $mime, 'webp' )) || (!$process_avif && \str_contains( $mime, 'avif' )) || (!$process_jpeg && \str_contains( $mime, 'jpeg' )) ) {
+		return $meta;
+	}
+
 	$extractor = new \mvbplugins\Extractors\MetadataExtractor();
+	$imagemeta = $meta;
     $imagemeta['image_meta'] = $extractor->getMetadata( $file, 'wordpress' );
 
+	$image_title = isset( $imagemeta['image_meta']['title'] ) ? (string) $imagemeta['image_meta']['title'] : '';
+	$image_caption = isset( $imagemeta['image_meta']['caption'] ) ? (string) $imagemeta['image_meta']['caption'] : '';
+
+	$post_excerpt_source = isset( $options['fill_post_excerpt_from_xmp'] ) ? (string) $options['fill_post_excerpt_from_xmp'] : '';
+	$alt_source = isset( $options['fill_alt_from_xmp'] ) ? (string) $options['fill_alt_from_xmp'] : '';
+
+	$post_excerpt_value = '';
+	if ( 'xmp_title' === $post_excerpt_source ) {
+		$post_excerpt_value = $image_title;
+	} elseif ( 'xmp_desc' === $post_excerpt_source ) {
+		$post_excerpt_value = $image_caption;
+	}
+
+	$alt_value = '';
+	if ( 'xmp_title' === $alt_source ) {
+		$alt_value = $image_title;
+	} elseif ( 'xmp_desc' === $alt_source ) {
+		$alt_value = $image_caption;
+	}
 
 	// remove empty keywords from the array, and set to an empty array if not existing.
 	if ( \array_key_exists( 'keywords', $imagemeta['image_meta'] ) ) {
@@ -116,17 +199,15 @@ function trigger_after_image_upload( $meta, $attachment_id, $context ) {
 	// permalink is not changed or handled here: It es better to use a expressive filename for SEO and not change the permalink with every title change.
 	wp_update_post([
 		'ID'           => $attachment_id,
-		'post_title'   => $imagemeta['image_meta']['title'] ?? '', // post_title -> Titel des Attachments / Attachment-Page-Titel
-		'post_excerpt' => $imagemeta['image_meta']['title'] ?? '', // post_excerpt -> Bildunterschrift. Verwende den XMP-Titel als Vorbelegung
-		'post_content' => $imagemeta['image_meta']['caption'] ?? '', //b post_content -> Beschreibung des Attachments / Attachment-Page-Inhalt 
+		'post_title'   => $image_title, // post_title -> Titel des Attachments / Attachment-Page-Titel. Der Titel wird im Frontend gar nicht angezeigt.
+		'post_excerpt' => $post_excerpt_value, // post_excerpt is mapped from XMP according to fill_post_excerpt_from_xmp.
+		'post_content' => $image_caption, // post_content -> Beschreibung des Attachments / Attachment-Page-Inhalt. Wird im Frontend nicht verwendet.
 	]);
 
 	update_post_meta(
 		$attachment_id,
 		'_wp_attachment_image_alt', // -> alt im <img> Tag
-		//$imagemeta['image_meta']['alt_text'] // alt_text gibt es in XMP-Metadaten nicht
-		$imagemeta['image_meta']['caption'] ?? '' // use description as alt text. 
-		// TODO: User Documentation: Requires that description is a SEO-useful functional description of the image!
+		$alt_value // alt text is mapped from XMP according to fill_alt_from_xmp.
 	);
 
     return $imagemeta;

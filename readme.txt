@@ -4,9 +4,9 @@ Contributors: martinvonberg
 Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST, API, JSON, image, Media-Library, folder, directory, jpg, Media-Catalog, upload, update, webp, headless
 Requires at least: 6.2
-Tested up to: 6.9
+Tested up to: 7.0
 Requires PHP: 8.0
-Stable Tag: 2.0.0
+Stable Tag: 3.0.0
 License: GPLv2
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,6 +15,7 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 Extend the REST-API to work with Wordpress Media-Library. Organize images in Folders. Add and Update images including Metadata and Posts using the images. Access with Authorization only.
 This plugin extends the REST-API of Wordpress to directly access the Media-Library for Images. It is intended to be used together with a Lightroom Plugin or as a stand-alone interface for headless WordPress. The new REST-API endpoints (functions) allow to add additional metadata to images, update existing metadata or update images completely without changing the Wordpress-ID. Images may be added to the standard directory hierarchy of wordpress or to an additional folder which allows better organization and searching for images.
+NEW FUNCTION : See 3.2
 
 
 == Authorization ==
@@ -130,7 +131,7 @@ provides this response:
 ]
 
 
-2. New REST-API-Endpoints (aka functions)
+2. New REST-API-Endpoints
 
 2.1 extmedialib/v1/update/(?P<id>[\d]+)
 Function to update images. Only integer values will be accepted for the 'id'.
@@ -242,20 +243,50 @@ This method gives information about the folder content. If existing and not empt
 2.4.2 POST-method to extmedialib/v1/addfromfolder/(?P<folder>[a-zA-Z0-9\/\\-_]*)
 With the POST-method all images from the given 'folder' will be added to the media-library. Image-Files that were already added before from THAT dedicated folder will be skipped. The response contains an JSON-array with IDs to be stored in the application (e.g. Lightroom) for later access. Mind that this might be a long running process. If it runs too long it will be stopped by the server and the addition is NOT complete. So, the recommendation is to do this step by step, e.g. 10 images maximum per step.
 
-3. Tests
+3. Hooks
+3.1 Hook: rest_pre_echo_response
 
-3.0 Linting with phpstan
+This hook is applied to the finalized REST API response just before it is sent to the client. At this stage, the image metadata as well as all affected post contents are updated.
+In detail, the following actions are performed:
+    The image metadata is overwritten using the provided parameters (caption, title, alt_text):
+    caption → image caption
+    title → image title
+    alt_text → alt text
+    The attachment slug (post_name) is updated based on the new title. As a result, the image permalink is also updated.
+    (Note: This behavior is intentionally different from the hook described in section 3.2. and the Mapping in the Admin Settings is not used for that.)
+    Finally, all posts that use this image are updated automatically to ensure that the new image data is consistently reflected in the post content.
+
+3.2 Hook: wp_generate_attachment_metadata
+
+This hook is executed after a standard image upload and is used to extend and normalize the attachment metadata. Goal:
+Ensure that metadata handling for WEBP and AVIF images behaves identically to JPG images, as WordPress core provides full metadata support primarily for JPG by default.
+
+How it works:
+    The existing image metadata (image_meta) is evaluated and mapped to the corresponding WordPress attachment fields. This was primarily designed for webp and avif files which prefer XMP-Metadata and do not support IPTC.
+    The mapping is defined as follows:
+    XMP dc:title -> post_title → attachment title (not used in the frontend). The dc:title is not used for the slug.
+    XMP dc:title -> post_excerpt → image caption, so the subtitle shown in the Frontend. Selectable on Admin Page!
+    XMP dc:description -> post_content → attachment description. (rarely used in WordPress)
+    XMP dc:description -> _wp_attachment_image_alt → alt attribute in the <img> tag ( therefore, the dc:description should be SEO-friendly. The check is up to the user.) Selectable on Admin Page!
+    Mind: IPTC is intentionally ignored in favor of XMP as the primary metadata source.
+
+Result:
+After upload, WEBP and AVIF images provide the same metadata structure and behavior as JPG images in standard WordPress, ensuring consistency in handling, display, and downstream processing.
+
+4. Developper Notes
+
+4.0 Linting with phpstan
 Code quality was checked with phpstan and WP extensions 'szepeviktor/phpstan-wordpress' and 'phpstan/extension-installer'. 
 Level 5 is OK except 19 remaining Errors. These were carefully reviewed and regarded as OK. 
 Command: php .\vendor\phpstan\phpstan\phpstan analyse classes inc .\wp_wpcat_json_rest.php --memory-limit 1G
 
-3.1. Unit-Tests
+4.1. Unit-Tests
 Meaningful Unit-Tests are now done with PHPUnit. The files are located in ./tests.
 
-3.2. Integration Test
+4.2. Integration Test
 Well, IMO this is mainly the (de-)installation procedure for the plugins. Tested manually. Works
 
-3.3 System Test
+4.3 System Test
 The plugin is now 'completely' system tested with a new python test suite (PTS). The PTS uses pytest and a bunch of other python modules that have to be installed in the Python environment.
 I tried to reach a 'branch coverage' of 100% concerning the functional branches. It's almost impossible to test the paths that were implemented for very special
 errors on the server (domain of unit tests). The testdata contains *.webp and *.jpg files with different sizes. The use cases are 'upload image file', 'change metadata', 'change mime type',
@@ -263,7 +294,7 @@ errors on the server (domain of unit tests). The testdata contains *.webp and *.
 checked the results of query monitor for every REST-request that uses a function from me. No PHP-errors at all. So, all tests passed. I could not 
 claim a code coverage of 100% or even a test coverage of 100%. That is almost impossible. 
 
-3.3.1 How to repeat the system test
+4.3.1 How to repeat the system test
 - Install an empty, new WP site
 - Install this plugin
 - Install Query Monitor plugin
@@ -425,9 +456,17 @@ There are no FAQs just yet.
 * Updated minimum PHP-Version to 8.0 (8.3 would be even better)
 * Updated method doMetaReplaceQuery() in replacer.php as start of update to new WP and PHP principles. (Old code works but is very old fashioned)
 
+= 3.0.0 =
+* Update method doMetaReplaceQuery in replacer.php
+* added a new hook for the standard media upload to have Metadata for webp and avif identical to jpg. Rework of Metadata Extractor.
+* BREAKING CHANGE: Minimum PHP is now 8.x. Minor Updates in almost all PHP-Files.
+* Added simple Admin Settings page mainly for the new Hook. (AdminSettings.php.)
+* Test with WP 7.0
+
+
 
 == Upgrade Notice ==
-Upgrade to 2.0.0 is not necessary. Only, if  you want to use the new image resizing class for smaller images. 
+Upgrade to 3.0.0 is not necessary. Only, if  you want to use the new image resizing class for smaller images and / or the the new hook method for metadata.
 
 
 == Credits ==

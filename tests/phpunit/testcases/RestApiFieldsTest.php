@@ -73,7 +73,7 @@ final class RestApiFieldsTest extends TestCase {
             [ ['id' => 0], array(
                             'MD5' => '0',
                             'size' => 0,
-                            'file' => $original_filename, // this variable is not defined
+                            'file' => 'original_filename', // this variable is not defined
                             ) ],
             [ ['id' => 1], array(
                             'MD5' => '0',
