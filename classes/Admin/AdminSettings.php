@@ -178,7 +178,7 @@ class AdminSettings {
 		// Register a new section.
 		add_settings_section(
 			'media-lib-hooks-section',
-			__( 'Media Hook Settings', 'change-to-plugin-textdomain' ),
+			__( 'Media Upload Settings', 'change-to-plugin-textdomain' ),
 			[$this, 'render_section'],
 			'media-lib-extension',
 			['before_section' => '<hr>']

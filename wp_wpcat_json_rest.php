@@ -166,7 +166,7 @@ if ( isset( $options['use_rest_api_extension'] ) && $options['use_rest_api_exten
 			'required' => false,
 			),
 	);
-	$route = 'imagesubsizes';	// 'addtofolder/', ==> REQ = ...addtofolder/<folder>
+	$route = 'imagesubsizes';	// 
 	$function = 'registered_image_subsizes';
 
 	add_rest_route( $args, $route, $function);
