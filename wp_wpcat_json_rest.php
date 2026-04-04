@@ -31,6 +31,7 @@ const REST_NAMESPACE = 'extmedialib/v1'; // namespace for REST-API.
 const EXT_SCALED     = 'scaled';    // filename extension for scaled images as constant. Maybe WP will change this in future.
 
 // load the helper functions and classes
+// PRIO TODO: these shall be loaded only if the REST-API is enabled by the plugin settings.
 require_once __DIR__ . '/includes/rest_api_functions.php';
 require_once __DIR__ . '/classes/replacer.php';
 require_once __DIR__ . '/classes/emrFile.php';

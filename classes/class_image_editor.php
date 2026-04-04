@@ -12,6 +12,8 @@
  */   
 namespace mvbplugins\extmedialib;
 
+// PRIO TODO : use a setting for that and if enabled for quality settings.
+
 defined( 'ABSPATH' ) || die( 'Not defined' );
 
 const RESIZE_QUALITY = 85;    // quality for jpeg image resizing in percent.
@@ -29,7 +31,7 @@ const MIN_QUALITY    = 30;	  // minimum quality for image resizing in percent.
 \add_filter( 'wp_image_editors', '\mvbplugins\extmedialib\custom_image_editors' );
 
 function custom_image_editors( $editors ) {
-	// Add a custom image editor add the beginning of the array.
+	// Add a custom image editor add the beginning of the editors array.
 	// check if imagick is installed and is_callable
 	if ( extension_loaded( 'imagick' ) && class_exists( 'Imagick', false ) ) {
 		$editors = array_merge( array( 'custom_editor' => '\mvbplugins\extmedialib\Custom_Image_Editor' ), $editors );

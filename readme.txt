@@ -253,7 +253,7 @@ In detail, the following actions are performed:
     title → image title
     alt_text → alt text
     The attachment slug (post_name) is updated based on the new title. As a result, the image permalink is also updated.
-    (Note: This behavior is intentionally different from the hook described in section 3.2. and the Mapping in the Admin Settings is not used for that.)
+    (Note: This behaviour is intentionally different from the hook described in section 3.2. and the Mapping in the Admin Settings is not used for that.)
     Finally, all posts that use this image are updated automatically to ensure that the new image data is consistently reflected in the post content.
 
 3.2 Hook: wp_generate_attachment_metadata
@@ -268,7 +268,7 @@ How it works:
     XMP dc:title -> post_excerpt → image caption, so the subtitle shown in the Frontend. Selectable on Admin Page!
     XMP dc:description -> post_content → attachment description. (rarely used in WordPress)
     XMP dc:description -> _wp_attachment_image_alt → alt attribute in the <img> tag ( therefore, the dc:description should be SEO-friendly. The check is up to the user.) Selectable on Admin Page!
-    Mind: IPTC is intentionally ignored in favor of XMP as the primary metadata source.
+    Mind: IPTC is intentionally ignored in favour of XMP as the primary metadata source.
 
 Result:
 After upload, WEBP and AVIF images provide the same metadata structure and behavior as JPG images in standard WordPress, ensuring consistency in handling, display, and downstream processing.
@@ -440,7 +440,7 @@ There are no FAQs just yet.
 
 = 1.1.0 =
 * EXPERIMENTAL !!!
-* Added an own class to generate the image-sizes with ImageMagick. This produces smaller files as epxected where AVIF is 0.5 Jpeg-size and -30% of WebP-size.
+* Added an own class to generate the image-sizes with ImageMagick. This produces smaller files as expected where AVIF is 0.5 Jpeg-size and -30% of WebP-size.
 * The calculation times are roughly:
 * JPEG : 2.0 s, WEBP : 3.0 s, AVIF : 4.8 s on my local machine. Without my Image_Editor its 2.6s for AVIF only! Tested with 1 image only!
 * Tested with WordPress 6.7-RC4 This class to generate the image-sizes with ImageMagick is used always! For every upload!
@@ -457,10 +457,11 @@ There are no FAQs just yet.
 * Updated method doMetaReplaceQuery() in replacer.php as start of update to new WP and PHP principles. (Old code works but is very old fashioned)
 
 = 3.0.0 =
-* Update method doMetaReplaceQuery in replacer.php
-* added a new hook for the standard media upload to have Metadata for webp and avif identical to jpg. Rework of Metadata Extractor.
+* Update method doMetaReplaceQuery in replacer.php. Used Copilot to review and update replacer.php for PHPStan Level 8.
+* Added a new hook for the standard media upload to have Metadata for webp and avif identical to jpg. Rework of Metadata Extractor.
+* Rework of 'trigger_after_rest' for PHPStan Level 8 and removed the update of the slug in title change. Implemented the usage of the new setting to update content with caption and title.
 * BREAKING CHANGE: Minimum PHP is now 8.x. Minor Updates in almost all PHP-Files.
-* Added simple Admin Settings page mainly for the new Hook. (AdminSettings.php.)
+* Added simple Admin Settings page mainly for the new Hook (AdminSettings.php.) and some for the existing REST-API.
 * Test with WP 7.0
 
 

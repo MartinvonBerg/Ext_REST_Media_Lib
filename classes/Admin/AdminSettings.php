@@ -49,9 +49,15 @@ class AdminSettings {
 			[
 				'id'          => 'use_rest_api_extension',
 				'label'       => __( 'Use REST API Extension', 'change-to-plugin-textdomain' ),
-				'description' => __( 'Enables the REST API extension for the plugin', 'change-to-plugin-textdomain' ),
+				'description' => __( 'Enables the REST API extension for the plugin (required for all following options)', 'change-to-plugin-textdomain' ),
 				'type'        => 'checkbox',
 			],
+			[
+				'id'          => 'update_post_on_rest_update',
+				'label'       => __( 'Update Post with Caption and alt_text', 'change-to-plugin-textdomain' ),
+				'description' => __( 'Updates the caption and alt_text in the content when they are changed via REST API. Used as an alternative to \'docaption\' in the REST request', 'change-to-plugin-textdomain' ),
+				'type'        => 'checkbox',
+			]
 		];
 
         $this->hookFields = 
@@ -59,7 +65,7 @@ class AdminSettings {
             [
                 'id'          => 'use_media_upload_hook',
                 'label'       => __( 'Use Media Upload Hook', 'change-to-plugin-textdomain' ),
-                'description' => __( 'Adds Metadata to File-Types to be treated like JPG upload', 'change-to-plugin-textdomain' ),
+                'description' => __( 'Adds Metadata to File-Types to be treated like JPG upload (required for all following options)', 'change-to-plugin-textdomain' ),
                 'type'        => 'checkbox',
             ],
 			[

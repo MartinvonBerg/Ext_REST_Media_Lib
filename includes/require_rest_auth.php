@@ -5,6 +5,7 @@
 // ATTENTION: Do not use username and Password or Application Passwords from WP-AdminPage > Users > Profiles together with basic-auth and with http !!!!!!
 // Only use together with https
 // require the user to be logged in for all REST requests
+// PRIO TODO use the settings to disable this.
 add_filter( 'wp_is_application_passwords_available', '__return_true' );
 
 add_filter('rest_authentication_errors', function ( $result ) {

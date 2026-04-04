@@ -17,35 +17,37 @@ namespace mvbplugins\extmedialib;
 // ---------- replacer class ---------------------------
 class Replacer
 {
-	protected $post_id;
+	protected int $post_id;
 	
 	// everything source is the attachment being replaced
-	protected $sourceFile; // File Object
-	protected $source_post; // wpPost;
-	protected $source_is_image;
-	protected $source_metadata;
-	protected $source_url;
+	protected emrFile $sourceFile; // File Object
+	protected ?\WP_Post $source_post; // wpPost;
+	protected bool $source_is_image;
+	/** @var array<string, mixed> */
+	protected array $source_metadata = [];
+	protected string $source_url = '';
 
 	// everything target is what will be. This is set when the image is replaced, the result. Used for replacing.
-	protected $targetFile;
-	protected $targetName;
-	public 	  $target_metadata;
-	public	  $target_url;
-	protected $target_location = false; // option for replacing to another target location
+	protected ?emrFile $targetFile = null;
+	protected string $targetName = '';
+	/** @var array<string, mixed> */
+	public array $target_metadata = [];
+	public string $target_url = '';
+	protected bool $target_location = false; // option for replacing to another target location
 	
 	// old settings moved to class attributes
-	protected $replace_type;
-	protected $do_new_location;
-	public    $new_location_dir;
-	protected $docaption;
-	protected $oldlink;
-	protected $newlink;
+	protected string $replace_type = '';
+	protected bool $do_new_location = false;
+	public string $new_location_dir = '';
+	protected bool $docaption = false;
+	protected string $oldlink = '';
+	protected string $newlink = '';
 
-	protected $replaceMode = 1; // replace if nothing is set
-	protected $timeMode = 1;
-	protected $datetime = null;
+	protected int $replaceMode = 1; // replace if nothing is set
+	protected int $timeMode = 1;
+	protected ?string $datetime = null;
 
-	protected $ThumbnailUpdater; // class
+	protected mixed $ThumbnailUpdater = null; // class
 
 	const MODE_REPLACE = 1;
 	const MODE_SEARCHREPLACE = 2;
@@ -54,17 +56,21 @@ class Replacer
 	const TIME_UPDATEMODIFIED = 2; // keep the date, update only modified
 	const TIME_CUSTOM = 3; // custom time entry
 
-	public function __construct( $post_id ) {
+	public function __construct( int $post_id ) {
 		$this->post_id = $post_id;
 
 		if (function_exists('wp_get_original_image_path')) // WP 5.3+
 		{
 			$source_file = wp_get_original_image_path($post_id);
-			if ($source_file === false) // if it's not an image, returns false, use the old way.
-				$source_file = trim(get_attached_file($post_id, apply_filters( 'wp_handle_replace', true )));
+			if ($source_file === false) { // if it's not an image, returns false, use the old way.
+				$attached_file = get_attached_file($post_id, apply_filters( 'wp_handle_replace', true ));
+				$source_file = is_string( $attached_file ) ? trim( $attached_file ) : '';
+			}
 		}
-		else
-			$source_file = trim(get_attached_file($post_id, apply_filters( 'wp_handle_replace', true )));
+		else {
+			$attached_file = get_attached_file($post_id, apply_filters( 'wp_handle_replace', true ));
+			$source_file = is_string( $attached_file ) ? trim( $attached_file ) : '';
+		}
 
 		/* It happens that the SourceFile returns relative / incomplete when something messes up get_upload_dir with an error something.
 			This case shoudl be detected here and create a non-relative path anyhow..
@@ -80,7 +86,12 @@ class Replacer
 		$this->sourceFile = new emrFile($source_file);
 		$this->source_post = get_post($post_id);
 		$this->source_is_image = wp_attachment_is('image', $this->source_post);
-		$this->source_metadata = wp_get_attachment_metadata( $post_id );
+		$source_metadata = wp_get_attachment_metadata( $post_id );
+		if ( $source_metadata === false ) {
+			$this->source_metadata = [];
+		} else {
+			$this->source_metadata = $source_metadata;
+		}
 
 		if (function_exists('wp_get_original_image_url')) // WP 5.3+
 		{
@@ -88,21 +99,23 @@ class Replacer
 			if ($source_url === false)  // not an image, or borked, try the old way
 				$source_url = wp_get_attachment_url($post_id);
 
-			$this->source_url = $source_url;
+			$this->source_url = is_string( $source_url ) ? $source_url : '';
 		}
-		else
-			$this->source_url = wp_get_attachment_url($post_id);
+		else {
+			$source_url = wp_get_attachment_url($post_id);
+			$this->source_url = is_string( $source_url ) ? $source_url : '';
+		}
   	}
 
-	public function set_oldlink ( $link) {
+	public function set_oldlink ( string $link ) : void {
 		$this->oldlink = $link;
 	}
 
-	public function set_newlink ( $link) {
+	public function set_newlink ( string $link ) : void {
 		$this->newlink = $link;
 	}
 
-	public function API_doSearchReplace () {
+	public function API_doSearchReplace () : void {
 		// settings from upload.php 
 		$this->replace_type = 'replace_and_search';
 		$this->do_new_location = false;
@@ -120,7 +133,16 @@ class Replacer
 		$this->updateDate(); //  
 	}
 
-	public function API_doMetaUpdate( $newmeta, $dothecaption ) {
+	/**
+	 * Summary of API_doMetaUpdate
+	 * @param array $newmeta
+	 * @param bool $dothecaption
+	 * @return int the number of updated posts.
+	 */
+	/**
+	 * @param array<string, mixed> $newmeta
+	 */
+	public function API_doMetaUpdate( array $newmeta, bool $dothecaption ) : int {
 
 		$this->docaption = $dothecaption;
 
@@ -138,8 +160,8 @@ class Replacer
 		array_key_exists('caption',  $newmeta) ? '' : $newmeta['caption'] = '' ;
 		$newmeta['alt_text'] = filter_var( $newmeta['alt_text'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
 		$newmeta['caption'] = filter_var( $newmeta['caption'], FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW );
-		array_key_exists('alt_text', $newmeta) ? $target_meta['alt_text'] = $newmeta['alt_text'] : null ; // Wieso steht hier null?
-		array_key_exists('caption',  $newmeta) ? $target_meta['caption']  = $newmeta['caption']  : $target_meta['caption'] = '' ;
+		$target_meta['alt_text'] = array_key_exists('alt_text', $newmeta) ? (string) $newmeta['alt_text'] : '';
+		$target_meta['caption'] = array_key_exists('caption',  $newmeta) ? (string) $newmeta['caption'] : '';
 		$this->target_metadata['image_meta']['caption'] = $target_meta['caption'];
 		$this->target_metadata['image_meta']['alt_text'] = $target_meta['alt_text'];
 
@@ -167,6 +189,7 @@ class Replacer
 		// EMR comment: "Check this with scaled images." 
 		// This comment is from the original code from enable_media_replacer and tested with scaled images
 		$base_url = parse_url( $this->source_url, PHP_URL_PATH );// emr_get_match_url( $this->source_url);
+		$base_url = is_string( $base_url ) ? $base_url : '';
 		$base_url = str_replace('.' . pathinfo($base_url, PATHINFO_EXTENSION), '', $base_url );
 		
 		// replace-run for the baseurl only
@@ -174,25 +197,29 @@ class Replacer
 		return $updated;	
 	}
 
-	protected function doSearchReplace($args = array()) {
+	/**
+	 * @param array{thumbnails_only: bool} $args
+	 */
+	protected function doSearchReplace( array $args = array( 'thumbnails_only' => false ) ) : int {
 		
 		// Search-and-replace filename in post database
 		// EMR comment: "Check this with scaled images." 
 		// This comment is from the original code from enable_media_replacer and tested with scaled images
 		$base_url = parse_url($this->source_url, PHP_URL_PATH);// emr_get_match_url( $this->source_url);
+		$base_url = is_string( $base_url ) ? $base_url : '';
 		$base_url = str_replace('.' . pathinfo($base_url, PATHINFO_EXTENSION), '', $base_url);
 
 		/** Fail-safe if base_url is a whole directory, don't go search/replace */
 		if (is_dir($base_url)) {
 			//Log::addError('Search Replace tried to replace to directory - ' . $base_url);
 			//Notices::addError(__('Fail Safe :: Source Location seems to be a directory.', 'enable-media-replace'));
-			return;
+			return 0;
 		}
 
 		if (strlen(trim($base_url)) === 0) {
 			//Log::addError('Current Base URL emtpy - ' . $base_url);
 			//Notices::addError(__('Fail Safe :: Source Location returned empty string. Not replacing content','enable-media-replace'));
-			return;
+			return 0;
 		}
 
 		// get relurls of both source and target.
@@ -264,7 +291,7 @@ class Replacer
 	 */
 	protected function updateDate() {
 		global $wpdb;
-		$post_date = $this->datetime;
+		$post_date = $this->datetime ?? current_time('mysql');
 		$post_date_gmt = get_gmt_from_date($post_date);
 	
 		$update_ar = array('ID' => $this->post_id);
@@ -286,17 +313,24 @@ class Replacer
   
 	}
 
-	public function setTimeMode($mode, $datetime = 0)
+	public function setTimeMode( int $mode, int|string $datetime = 0 ) : void
 	{
-		if ($datetime == 0)
-		$datetime = current_time('mysql');
+		if ($datetime == 0) {
+			$datetime = current_time('mysql');
+		}
+		if ( is_int( $datetime ) ) {
+			$datetime = (string) $datetime;
+		}
 
 		$this->datetime = $datetime;
 		$this->timeMode = $mode;
 	}
 
 	// Get REL Urls of both source and target.
-	private function getRelativeURLS()
+	/**
+	 * @return array<string, array<string, string>>
+	 */
+	private function getRelativeURLS() : array
 	{
 		$dataArray = array(
 			'source' => array('url' => $this->source_url, 'metadata' => $this->getFilesFromMetadata($this->source_metadata) ),
@@ -311,6 +345,7 @@ class Replacer
 			$metadata = $item['metadata'];
   
 			$baseurl = parse_url($item['url'], PHP_URL_PATH);
+			$baseurl = is_string( $baseurl ) ? $baseurl : '';
 			$result[$index]['base'] = $baseurl;  // this is the relpath of the mainfile.
 			$baseurl = trailingslashit(str_replace( wp_basename($item['url']), '', $baseurl)); // get the relpath of main file.
   
@@ -323,7 +358,7 @@ class Replacer
 		return $result;
 	}
 
-	private function findNearestSize( $sizeName ) {
+	private function findNearestSize( string $sizeName ) : string|false {
      //Log::addDebug('Find Nearest: '. $sizeName);
 
 		if ( ! isset( $this->source_metadata['sizes'][$sizeName] ) || ! isset( $this->target_metadata['width'] ) ) // This can happen with non-image files like PDF.
@@ -365,11 +400,11 @@ class Replacer
 	 * search for $base_url in the database and replace the search_urls with replace_urls
 	 * TODO: Update this according to doMetaReplaceQuery() or combine the two functions
 	 * @param string $base_url
-	 * @param array $search_urls
-	 * @param array $replace_urls
+	 * @param array<string, string> $search_urls
+	 * @param array<string, string> $replace_urls
 	 * @return int $number_of_updates
-	 */	  
-	private function doReplaceQuery($base_url, $search_urls, $replace_urls)
+	 */
+	private function doReplaceQuery( string $base_url, array $search_urls, array $replace_urls ) : int
 	{
 		global $wpdb;
 		/* Search and replace in WP_POSTS */
@@ -411,10 +446,11 @@ class Replacer
 
 			// Change the post date on a post with a status other than 'draft', 'pending' or 'auto-draft'
 			// We do this always, event if the content of the post was not changed, but maybe the image-file was changed. And we are here after several checks of the REST-API.
+			$post_modified = $this->datetime ?? current_time('mysql');
 			$arg = array(
 				'ID'            => $post_id,
 				//'post_date'     => $this->datetime, // this changed the published date, too, so keep it commented out.
-				'post_modified_gmt' => get_gmt_from_date( $this->datetime ), // was before 'post_date_gmt' : changed the published date.
+				'post_modified_gmt' => get_gmt_from_date( $post_modified ), // was before 'post_date_gmt' : changed the published date.
 			);
 			$result = wp_update_post( $arg );
 			wp_cache_delete( $post_id, 'posts' );
@@ -578,9 +614,10 @@ class Replacer
 				}
 
 				// Change the post date on a post with a status other than 'draft', 'pending' or 'auto-draft'
+				$post_modified = $this->datetime ?? current_time('mysql');
 				$arg = [
 					'ID'                => $post_id,
-					'post_modified_gmt' => get_gmt_from_date( $this->datetime ), // was before 'post_date_gmt' : changed the published date.
+					'post_modified_gmt' => get_gmt_from_date( $post_modified ), // was before 'post_date_gmt' : changed the published date.
 					];
 				
 				$result = wp_update_post( $arg, true );
@@ -596,16 +633,20 @@ class Replacer
 		return $number_of_updates;
 	}
 	  
-	private function getFilesFromMetadata($meta)  {
+	/**
+	 * @param array<string, mixed> $meta
+	 * @return array<string, string>
+	 */
+	private function getFilesFromMetadata( array $meta ) : array {
 			$fileArray = array();
-			if (isset($meta['file']))
+			if (isset($meta['file']) && is_string($meta['file']))
 			  $fileArray['file'] = $meta['file'];
 	
-			if (isset($meta['sizes']))
+			if (isset($meta['sizes']) && is_array($meta['sizes']))
 			{
 			  foreach($meta['sizes'] as $name => $data)
 			  {
-				if (isset($data['file']))
+				if (is_string($name) && is_array($data) && isset($data['file']) && is_string($data['file']))
 				{
 				  $fileArray[$name] = $data['file'];
 				}
@@ -622,7 +663,12 @@ class Replacer
 		* @param bool $in_deep Boolean.  This is use to prevent serialization of sublevels. Only pass back serialized from top.
 		* @return string $content the changed content of the post that uses the image
 	*/
-	private function replaceContent($content, $search, $replace, $in_deep = false) {
+	/**
+	 * @param string|array<string, string> $search
+	 * @param string|array<string, string> $replace
+	 * @return mixed
+	 */
+	private function replaceContent( mixed $content, string|array $search, string|array $replace, bool $in_deep = false ) : mixed {
 		//$is_serial = false;
 		$content = maybe_unserialize($content);
 		$isJson = $this->isJSON($content);
@@ -658,7 +704,7 @@ class Replacer
 		}
 		elseif (is_object($content)) // metadata objects, they exist.
 		{
-			foreach($content as $key => $value)
+			foreach(get_object_vars($content) as $key => $value)
 			{
 				$content->{$key} = $this->replaceContent($value, $search, $replace, true); //str_replace($value, $search, $replace);
 			}
@@ -678,27 +724,33 @@ class Replacer
   	}  
 
   	/* Check if given content is JSON format. */
-	private function isJSON($content) {
-		if (is_array($content) || is_object($content))
+	private function isJSON( mixed $content ) : bool {
+		if ( ! is_string( $content ) )
 			return false; // can never be.
 
 		$json = json_decode($content);
 		return $json && $json != $content;
 	}
 
-	private function change_key($arr, $set) {
-        if (is_array($arr) && is_array($set)) {
-    		$newArr = array();
-    		foreach ($arr as $k => $v) {
-    		    $key = array_key_exists( $k, $set) ? $set[$k] : $k;
-    		    $newArr[$key] = is_array($v) ? $this->change_key($v, $set) : $v;
-    		}
-    		return $newArr;
-    	}
-    	return $arr;
+	/**
+	 * @param array<mixed, mixed> $arr
+	 * @param array<mixed, mixed> $set
+	 * @return array<mixed, mixed>
+	 */
+	private function change_key( array $arr, array $set ) : array {
+		$newArr = array();
+		foreach ($arr as $k => $v) {
+			$key = array_key_exists( $k, $set) ? $set[$k] : $k;
+			$newArr[$key] = is_array($v) ? $this->change_key($v, $set) : $v;
+		}
+		return $newArr;
   	}
 
-	private function handleMetaData($url, $search_urls, $replace_urls) {
+	/**
+	 * @param array<string, string> $search_urls
+	 * @param array<string, string> $replace_urls
+	 */
+	private function handleMetaData( string $url, array $search_urls, array $replace_urls ) : int {
 		global $wpdb;
 	
 		$meta_options = array('post', 'comment', 'term', 'user');
@@ -766,7 +818,10 @@ class Replacer
 	 * @param string $html html-string representation of the html-code using the wp image from the Mediacatalog
 	 * @return array array with the current alt_text and caption of the post with the image
 	 */
-	private function getAltCaption ( string $html ) {
+	/**
+	 * @return array{alt_text: ?string, caption: ?string}
+	 */
+	private function getAltCaption ( string $html ) : array {
 		// find the alt attribute content, assuming that there is only one.
 		$alttext2 = null;
 		$caption2 = null;
@@ -774,16 +829,16 @@ class Replacer
 		// --- ALT via regex ---
 		preg_match_all('/alt\s*=\s*["\']([^"\']*)["\']/i', $html, $matches);
 		// set only if there is exactly one match
-		if ( count($matches) > 0 && count($matches[1]) === 1 ) {
+		if ( \count($matches[1]) === 1 ) {
 			$alttext2 = $matches[1][0];
 		}
 		
 		// --- CAPTION via regex ---
 		preg_match_all('/<figcaption\b[^>]*>(.*?)<\/figcaption>/is', $html, $matches);
 		// set only if there is exactly one match
-		if ( count($matches) > 0 && count($matches[1]) === 1 ) {
+		if ( \count($matches[1]) === 1 ) {
 			$caption2 = $matches[1][0];
-			//$caption2 = trim( wp_strip_all_tags( html_entity_decode( $caption2, ENT_QUOTES | ENT_HTML5 ) ) );
+	
 		}
 
 		return array(

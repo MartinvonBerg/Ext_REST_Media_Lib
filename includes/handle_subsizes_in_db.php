@@ -1,6 +1,8 @@
 <?php
 namespace mvbplugins\extmedialib;
 
+// PRIO TODO : use a setting for that.
+
 defined( 'ABSPATH' ) || die( 'Not defined' );
 
 add_filter('intermediate_image_sizes_advanced', 'mvbplugins\extmedialib\image_subsizes_filter', 10, 3);
@@ -13,7 +15,7 @@ add_filter('intermediate_image_sizes_advanced', 'mvbplugins\extmedialib\image_su
  *
  * @return array $newsizes	if this is empty no subsizes will be created by _wp_make_subsizes()
  */
-function image_subsizes_filter($newsizes, $image_meta, $wp_id) {
+function image_subsizes_filter(array $newsizes, array $image_meta, int $wp_id) : array {
 	// get filename from $image_meta
 	$file = $image_meta["file"]; // Mind! : the file name here is added with "-1" even if only subsizes exist already! So, the uploading of subsizes does not work for the WP Standard Cat.
 	$expectedSizes = generate_wp_image_subsizes($file, $newsizes);
@@ -37,7 +39,7 @@ function image_subsizes_filter($newsizes, $image_meta, $wp_id) {
 			#		height = 200
 			#		mime-type = "image/avif"
 			#		filesize = 10578
-			wp_update_attachment_metadata( $wp_id, $image_meta );
+			wp_update_attachment_metadata( $wp_id, $image_meta ); // TODO: This is called for each subsizes, but it is enough to call it once after the loop with the complete $image_meta. Or remove it?
 			#error_log( "image_subsizes_filter: unset: " . json_encode($newsizes[ $new_size_name ]) );
 			unset($newsizes[ $new_size_name ]); 
 		}
@@ -56,7 +58,7 @@ function image_subsizes_filter($newsizes, $image_meta, $wp_id) {
  * @param mixed $newsizes   the array of subsizes
  * @return array{exists: bool, file: string, filesize: int, height: int, mime-type: bool|string, width: int[]}
  */
-function generate_wp_image_subsizes($original_path, $newsizes) {
+function generate_wp_image_subsizes(string $original_path, array $newsizes) : array {
     $info = pathinfo($original_path);
     $ext = $info['extension'];
     $name = $info['filename'];

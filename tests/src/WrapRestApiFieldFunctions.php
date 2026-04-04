@@ -20,7 +20,7 @@ class WrapRestApiFieldFunctions {
 }
 
 // Minimal stub for emrFile class used by the Replacer constructor.
-class emrFile {
+class emrFileWrapper {
     private $file;
     public function __construct($file) { $this->file = $file; }
     public function getFileName() { return basename($this->file); }

@@ -41,8 +41,12 @@ if ( isset( $options['use_rest_api_extension'] ) && $options['use_rest_api_exten
 }
 
 /**
- * hook on the finalized REST-response and update the image_meta and the posts using the updated image
+ * hook on the finalized REST-response and update the image_metadata and the posts using the updated image.
  *
+ * @note This function is also called after the image upload via WordPress media library.
+ *       Only done if POST-method to wp-json/wp/v2/media WITH title or caption or alt_text in the request. 
+ *       Update of post content with the new caption is only done if docaption===true in the request or the plugin setting 'update_post_on_rest_update' is activated.
+ * 
  * @param array<string, mixed> $result the prepared result
  * @param \WP_REST_Server $server the rest server
  * @param \WP_REST_Request<array<string, mixed>> $request the request
@@ -50,29 +54,33 @@ if ( isset( $options['use_rest_api_extension'] ) && $options['use_rest_api_exten
  * and $newmeta["image_meta"]['title'] were changed depending on the result of the meta update
  */
 function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Request $request) : array {
-	global $wpdb;
-
+	
 	// alt_text is only available once at 'top-level' of the json - response
 	// title and caption are availabe at 'top-level' of the json - response AND response['media_details']['image_meta']
 	// This function keeps these values consistent
 	$route = $request->get_route(); // wp/v2/media/id
 	$method = $request->get_method(); // 'POST'
-
 	$params = $request->get_params(); // id as int
 	
-	$id = array_key_exists('id', $params) ? $params['id'] : null;
+	$id = \array_key_exists('id', $params) ? $params['id'] : null;
 	$route = \str_replace( \strval( $id ), '', $route );
 	$att = wp_attachment_is_image( $id );
 
-	$hascaption = array_key_exists('caption', $params);
-	$hastitle = array_key_exists('title', $params);
-	#$hasdescription = array_key_exists('description', $params);
-	$hasalt_text = array_key_exists('alt_text', $params);
+	$hascaption = \array_key_exists('caption', $params);
+	$hastitle = \array_key_exists('title', $params);
+	$hasalt_text = \array_key_exists('alt_text', $params);
+
+	// get the plugin options for the meta update
+	$options = get_option( 'media-lib-extension' );
 
 	$docaption = false;
-	if (array_key_exists('docaption', $params) )
-		if ( 'true' == $params['docaption'] && $hascaption )
-			$docaption = true;
+	if ( ( (\array_key_exists('docaption', $params) && 'true' === $params['docaption'])
+		   || (isset($options['update_post_on_rest_update']) && $options['update_post_on_rest_update'] === "1") )
+		   && $hascaption ) $docaption = true;
+
+	$dopostupdate = false;
+	if ( ( (isset($options['update_post_on_rest_update']) && $options['update_post_on_rest_update'] === "1") )
+		   && ($hascaption || $hasalt_text) ) $dopostupdate = true;
 
 	$newmeta["image_meta"] = []; 
 	$origin = 'standard';
@@ -83,8 +91,8 @@ function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Re
 		if ( $hasalt_text ) $newmeta["image_meta"]['alt_text'] = $params['alt_text'];
 	}
 
-	// update title and caption in $meta['media_details']['image_meta']
-	if ( ($att) && ('POST' == $method) && ('/wp/v2/media/' == $route) && ($hascaption || $hastitle) ) {
+	// update title and caption in $meta['media_details']['image_meta'] in image metadata.
+	if ( ($att) && ('POST' === $method) && ('/wp/v2/media/' === $route) && ($hascaption || $hastitle) ) {
 		// update the image_meta title and caption also 
 		$success = \mvbplugins\extmedialib\update_metadata( $id, $newmeta, $origin );
 		if ( $success ) {
@@ -92,21 +100,9 @@ function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Re
 			if ($hastitle)  $result["media_details"]["image_meta"]["title"] = $params['title'];
 		}
 	}
-	// update slug (=post_name) and therefore permalink with the new title 
-	if ( ($att) && ('POST' == $method) && ('/wp/v2/media/' == $route) && $hastitle ) {
-		$new_slug = \sanitize_title_with_dashes($params['title']);
 
-		$wpdb->update( $wpdb->posts, 
-			array( 'post_name' => $new_slug ), 
-			array('ID' => $id) 
-		);
-		
-		$result['link']= \str_replace($result['slug'],$new_slug,$result['link']);
-		$result['slug'] = $new_slug;
-	}
-
-	// update the relevant posts using the image
-	if ( ($att) && ('POST' == $method) && ('/wp/v2/media/' == $route) && ($hascaption || $hasalt_text) ) {
+	// update the relevant posts using the image.
+	if ( ($att) && ('POST' === $method) && ('/wp/v2/media/' === $route) && $dopostupdate ) {
 		
 		// store the original image-data in the media replacer class with construct-method of the class
 		$replacer = new \mvbplugins\extmedialib\Replacer( $id );
@@ -126,6 +122,8 @@ if ( isset( $options['use_media_upload_hook'] ) && $options['use_media_upload_ho
 /**
  * Add the image metadata (mainly for webp and avif) to the attachment metadata after upload and update the post meta and post data of the attachment.
  * Goal of this function hook is to have the image metadata of webp and avif images idenctical to jpg which is done by WP Standard functionality.
+ * 
+ * @note This function is also called after the image upload via the REST-API.
  * 
  * @param array<string, mixed> $meta The WordPress metadata array for the attachment.
  * @param int $attachment_id The ID of the attachment being processed.
