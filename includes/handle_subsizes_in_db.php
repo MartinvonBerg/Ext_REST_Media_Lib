@@ -1,8 +1,6 @@
 <?php
 namespace mvbplugins\extmedialib;
 
-// PRIO TODO : use a setting for that.
-
 defined( 'ABSPATH' ) || die( 'Not defined' );
 
 add_filter('intermediate_image_sizes_advanced', 'mvbplugins\extmedialib\image_subsizes_filter', 10, 3);

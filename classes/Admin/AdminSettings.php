@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace mvbplugins\Admin;
 
+// TODO : show the imagick version and supported formats in the settings page. copy from strip_meta
+
 /**
  * Class AdminSettings. Configure the plugin settings page.
  * 
@@ -12,7 +14,9 @@ namespace mvbplugins\Admin;
  *     label: string,
  *     description: string,
  *     type: string,
- *     options?: array<string, string>
+ *     options?: array<string, string>,
+ *     min?: int,
+ *     max?: int,
  * } 
  */
 class AdminSettings {
@@ -39,6 +43,14 @@ class AdminSettings {
 	 * @phpstan-var array<int, FieldArray> $hookFields
 	 */
     private $hookFields = [];
+
+	/**
+	 * Array of image editor related settings fields.
+	 *
+	 * @var FieldArray $imageEditorFields
+	 * @phpstan-var array<int, FieldArray> $imageEditorFields
+	 */
+	private $imageEditorFields = [];
 
 	/**
 	 * The Plugin Settings constructor.
@@ -111,6 +123,49 @@ class AdminSettings {
             ],
         ];
 
+		// Settings used by Custom_Image_Editor in classes/class_image_editor.php.
+		$this->imageEditorFields =
+		[
+			[
+				'id'          => 'use_custom_image_editor',
+				'label'       => __( 'Use Custom Image Editor', 'change-to-plugin-textdomain' ),
+				'description' => __( 'Enable the custom Imagick editor for media resizing.', 'change-to-plugin-textdomain' ),
+				'type'        => 'checkbox',
+			],
+			[
+				'id'          => 'jpeg_resize_quality',
+				'label'       => __( 'JPEG Resize Quality', 'change-to-plugin-textdomain' ),
+				'description' => __( 'Quality for JPEG resizing (default in image editor class: 85).', 'change-to-plugin-textdomain' ),
+				'type'        => 'number',
+				'min' 		  => 0,
+				'max' 		  => 100,
+			],
+			[
+				'id'          => 'webp_resize_quality',
+				'label'       => __( 'WEBP Resize Quality', 'change-to-plugin-textdomain' ),
+				'description' => __( 'Quality for WEBP resizing (default in image editor class: 55).', 'change-to-plugin-textdomain' ),
+				'type'        => 'number',
+				'min' 		  => 0,
+				'max' 		 => 100,
+			],
+			[
+				'id'          => 'avif_resize_quality',
+				'label'       => __( 'AVIF Resize Quality', 'change-to-plugin-textdomain' ),
+				'description' => __( 'Quality for AVIF resizing (default in image editor class: 55).', 'change-to-plugin-textdomain' ),
+				'type'        => 'number',
+				'min' 		  => 0,
+				'max' 		 => 100,
+			],
+			[
+				'id'          => 'min_resize_quality',
+				'label'       => __( 'Minimum Resize Quality', 'change-to-plugin-textdomain' ),
+				'description' => __( 'Minimum quality for image resizing (default in image editor class: 30).', 'change-to-plugin-textdomain' ),
+				'type'        => 'number',
+				'min' 		  => 0,
+				'max' 		  => 100,
+			],
+		];
+
 		add_action( 'admin_init', [$this, 'settings_init'] );
 		add_action( 'admin_menu', [$this, 'options_page'] );
 	}
@@ -157,7 +212,7 @@ class AdminSettings {
 			['before_section' => '<hr>']
 		);
 
-        /* Register All The Fields. */
+		/* Register All The Fields. */
 		foreach( $this->fields as $field ) {
 			// Register a new field in the main section.
 			add_settings_field(
@@ -170,6 +225,30 @@ class AdminSettings {
 					'label_for' => $field['id'], /* The ID of the field. */
 					'class' => 'media-lib-extension_row', /* The class of the field. */
 					'field' => $field, /* Custom data for the field. */
+				]
+			);
+		}
+
+		add_settings_section(
+			'media-lib-image-editor-section',
+			__( 'Image Editor Settings', 'change-to-plugin-textdomain' ),
+			[$this, 'render_section'],
+			'media-lib-extension',
+			['before_section' => '<hr>']
+		);
+
+		/* Register all image editor fields. */
+		foreach( $this->imageEditorFields as $field ) {
+			add_settings_field(
+				$field['id'],
+				$field['label'],
+				[$this, 'render_field'],
+				'media-lib-extension',
+				'media-lib-image-editor-section',
+				[
+					'label_for' => $field['id'],
+					'class' => 'media-lib-extension_row',
+					'field' => $field,
 				]
 			);
 		}
@@ -280,21 +359,21 @@ class AdminSettings {
 
 			case "select": {
 				?>
-				<select
-					id="<?php echo esc_attr( $field['id'] ); ?>"
-					name="media-lib-extension[<?php echo esc_attr( $field['id'] ); ?>]"
-				>
-					<?php foreach( ($field['options'] ?? []) as $key => $option ) { ?>
-						<option value="<?php echo esc_attr( $key ); ?>" 
-							<?php echo isset( $options[ $field['id'] ] ) ? ( selected( $options[ $field['id'] ], $key, false ) ) : ( '' ); ?>
-						>
-							<?php echo esc_html( $option ); ?>
-						</option>
-					<?php } ?>
-				</select>
-				<p class="description">
+				<label for="<?php echo esc_attr( $field['id'] ); ?>">
+					<select
+						id="<?php echo esc_attr( $field['id'] ); ?>"
+						name="media-lib-extension[<?php echo esc_attr( $field['id'] ); ?>]"
+					>
+						<?php foreach( ($field['options'] ?? []) as $key => $option ) { ?>
+							<option value="<?php echo esc_attr( $key ); ?>" 
+								<?php echo isset( $options[ $field['id'] ] ) ? ( selected( $options[ $field['id'] ], $key, false ) ) : ( '' ); ?>
+							>
+								<?php echo esc_html( $option ); ?>
+							</option>
+						<?php } ?>
+					</select>
 					<?php echo esc_html( $field['description'] ); ?>
-				</p>
+				</label>
 				<?php
 				break;
 			}
@@ -382,6 +461,23 @@ class AdminSettings {
 				<p class="description">
 					<?php echo esc_html( $field['description'] ); ?>
 				</p>
+				<?php
+				break;
+			}
+			// add a number input type for the quality settings with min 0 and max 100.
+			case "number": {
+				?>
+				<label for="<?php echo esc_attr( $field['id'] ); ?>">
+					<input
+						type="number"
+						id="<?php echo esc_attr( $field['id'] ); ?>"
+						name="media-lib-extension[<?php echo esc_attr( $field['id'] ); ?>]"
+						value="<?php echo isset( $options[ $field['id'] ] ) ? esc_attr( $options[ $field['id'] ] ) : ''; ?>"
+						min="<?php echo esc_attr( (string)($field['min'] ?? '') ); ?>"
+						max="<?php echo esc_attr( (string)($field['max'] ?? '') ); ?>"
+					>
+					<?php echo esc_html( $field['description'] ); ?>
+				</label>
 				<?php
 				break;
 			}
