@@ -1,8 +1,6 @@
 <?php
 namespace mvbplugins\extmedialib;
 
-require_once __DIR__ . '/shared/autoload.php';
-
 // get the plugin options for the meta update
 $options = get_option( 'media-lib-extension' );
 
@@ -105,7 +103,7 @@ function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Re
 	if ( ($att) && ('POST' === $method) && ('/wp/v2/media/' === $route) && $dopostupdate ) {
 		
 		// store the original image-data in the media replacer class with construct-method of the class
-		$replacer = new \mvbplugins\extmedialib\Replacer( $id );
+		$replacer = new \mvbplugins\extmedialib\Replacer( $id ); // file is loaded 'globally' in plugin main file
 		$replacer->API_doMetaUpdate( $newmeta, $docaption ); 
 		$replacer = null;
 	}
@@ -116,6 +114,7 @@ function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Re
 // ------------------- Hook on image upload ----------------------------------------
 // do not activate the filter if it is disable by the plugin settings
 if ( isset( $options['use_media_upload_hook'] ) && $options['use_media_upload_hook'] === "1" ) {
+	require_once __DIR__ . '/shared/autoload.php';
 	add_filter( 'wp_generate_attachment_metadata', '\mvbplugins\extmedialib\trigger_after_image_upload', 10, 3 );
 }
 

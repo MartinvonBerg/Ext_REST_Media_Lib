@@ -17,37 +17,36 @@ add_filter('intermediate_image_sizes_advanced', 'mvbplugins\extmedialib\image_su
  */
 function image_subsizes_filter(array $newsizes, array $image_meta, int $wp_id) : array {
 	// get filename from $image_meta
-	$file = $image_meta["file"]; // Mind! : the file name here is added with "-1" even if only subsizes exist already! So, the uploading of subsizes does not work for the WP Standard Cat.
-	$expectedSizes = generate_wp_image_subsizes($file, $newsizes);
-	if ( empty( $expectedSizes ) ) {
-        #error_log( "image_subsizes_filter: expectedSizes: empty"  );
+    $orig_newsizes = $newsizes;
+	$file = $image_meta["file"]; // TODO add_filter(wp_unique_filename) : Der 6. Parameter ist $number und zeigt, ob gleichanmige Dateien gefunden wurden. Auch subsizes und wie oft umbenannt wurde.
+	$expectedSizes = generate_wp_image_subsizes($file, $newsizes); // use wp_unique_filename to generate the expected filenames for the subsizes. 
+    //This is necessary because the filename can be changed by WP if a file with the same name already exists in the upload directory. 
+    //The expected filenames are generated based on the original filename and the size name, width, height and crop settings of the subsizes.
+    if ( empty( $expectedSizes ) ) {
         return $newsizes;
     }
-    #error_log( "image_subsizes_filter: expectedSizes: " . json_encode($expectedSizes) );
 
 	foreach ( $newsizes as $new_size_name => $new_size_data ) {
 		// generate the expected image filename for the subsizes from array $newsizes respecting the WP standards for width, height and crop
-		$new_size_meta = $expectedSizes[ $new_size_name ]; 
+        /** @var array{file: string, width: int, height: int, 'mime-type': string, filesize: int, exists: bool, crop: bool} $new_size_meta */
+        $new_size_meta = $expectedSizes[ $new_size_name ]; 
 
 		if ( isset( $new_size_meta['exists'] ) && $new_size_meta['exists'] ) {
 			// Save the size meta value.
 			unset( $new_size_meta['exists'] );
 			$image_meta['sizes'][ $new_size_name ] = $new_size_meta;
-			// example $new_size_meta = []
-			#		file = "Elba-010-2560-1-300x200.avif"
-			#		width = 300
-			#		height = 200
-			#		mime-type = "image/avif"
-			#		filesize = 10578
-			wp_update_attachment_metadata( $wp_id, $image_meta ); // TODO: This is called for each subsizes, but it is enough to call it once after the loop with the complete $image_meta. Or remove it?
-			#error_log( "image_subsizes_filter: unset: " . json_encode($newsizes[ $new_size_name ]) );
 			unset($newsizes[ $new_size_name ]); 
 		}
 	}
-	// if this is empty no subsizes will be created by _wp_make_subsizes()
-	// this works only if ALL subsizes are available, so if only some are missing the metadata is not created correctly
-    #error_log( "image_subsizes_filter: newsizes: " . json_encode($newsizes) );
-	return $newsizes; 
+    // only update if all subsizes are available. Skip if some subsizes are missing. 
+    if ( empty( $newsizes ) ) {
+        // if all subsizes are available the metadata is updated with the new subsizes and the subsizes will not be created by _wp_make_subsizes() because newsizes is empty.
+        wp_update_attachment_metadata( $wp_id, $image_meta );
+        return $newsizes;
+    } else {
+        // if only some subsizes are missing the metadata is not created correctly because the missing subsizes will be created by _wp_make_subsizes() but the existing subsizes will not be included in the metadata because they are not created by _wp_make_subsizes() and the metadata is not updated with the existing subsizes. So in this case we return the original newsizes to let WP create all subsizes and update the metadata correctly.
+        return $orig_newsizes;
+    }
 }
 
 /**
@@ -61,7 +60,10 @@ function image_subsizes_filter(array $newsizes, array $image_meta, int $wp_id) :
 function generate_wp_image_subsizes(string $original_path, array $newsizes) : array {
     $info = pathinfo($original_path);
     $ext = $info['extension'];
-    $name = $info['filename'];
+    $name = $info['filename']; // remove the '-scaled' suffix if it exists.
+    if (str_ends_with($name, '-scaled')) {
+        $name = substr($name, 0, -7);
+    }
     $dir = $info['dirname'];
     $subsizes = [];
 
@@ -152,7 +154,8 @@ function generate_wp_image_subsizes(string $original_path, array $newsizes) : ar
 			'mime-type' => $fileexists ? wp_get_image_mime($new_filepath) : '',
 			'filesize' => $fileexists ? wp_filesize($new_filepath) : 0,
 			# additional fields
-			'exists' => $fileexists
+			'exists' => $fileexists,
+            'crop' => $crop
         );
     }
     

@@ -30,30 +30,30 @@ const MAX_IMAGE_SIZE = 2560;  // value for resize to ...-scaled.jpg TODO: big_im
 const REST_NAMESPACE = 'extmedialib/v1'; // namespace for REST-API.
 const EXT_SCALED     = 'scaled';    // filename extension for scaled images as constant. Maybe WP will change this in future.
 
-// load the helper functions and classes
-// PRIO TODO: these shall be loaded only if the REST-API is enabled by the plugin settings.
-require_once __DIR__ . '/includes/rest_api_functions.php';
-require_once __DIR__ . '/classes/replacer.php';
-require_once __DIR__ . '/classes/emrFile.php';
-require_once __DIR__ . '/classes/class_image_editor.php';
-
-require_once __DIR__ . '/includes/require_rest_auth.php';
-require_once __DIR__ . '/includes/trigger_after_rest.php';
-require_once __DIR__ . '/includes/rest_api_field_functions.php';
-require_once __DIR__ . '/includes/image_update_callback.php';
-require_once __DIR__ . '/includes/meta_update_callback.php';
-require_once __DIR__ . '/includes/add_image_to_folder_callback.php';
-require_once __DIR__ . '/includes/add_image_from_folder_callback.php';
-require_once __DIR__ . '/includes/rest_register_functions.php';
-require_once __DIR__ . '/includes/image_subsizes_callback.php';
-require_once __DIR__ . '/includes/add_file_to_folder_callback.php';
-require_once __DIR__ . '/includes/handle_subsizes_in_db.php';
+// load the hook functions
+require_once __DIR__ . '/includes/trigger_after_rest.php'; // settings are loaded in the file to dis/enable functionality. 
 
 // get the plugin options for the meta update
 $options = get_option( 'media-lib-extension' );
 
 // disable the REST-API completely if it is disabled by the plugin settings
 if ( isset( $options['use_rest_api_extension'] ) && $options['use_rest_api_extension'] === "1" ) {
+	// load the helper functions and classes
+	require_once __DIR__ . '/includes/rest_api_functions.php';
+	require_once __DIR__ . '/classes/replacer.php'; // is used twice so loaded here to avoid double loading.
+	require_once __DIR__ . '/classes/emrFile.php';
+	require_once __DIR__ . '/includes/rest_api_field_functions.php';
+	require_once __DIR__ . '/includes/image_update_callback.php';
+	require_once __DIR__ . '/includes/meta_update_callback.php';
+	require_once __DIR__ . '/includes/add_image_to_folder_callback.php';
+	require_once __DIR__ . '/includes/add_image_from_folder_callback.php';
+	require_once __DIR__ . '/includes/rest_register_functions.php';
+	require_once __DIR__ . '/includes/image_subsizes_callback.php';
+	require_once __DIR__ . '/includes/add_file_to_folder_callback.php';
+	require_once __DIR__ . '/classes/class_image_editor.php'; // uses add_filter 
+	require_once __DIR__ . '/includes/require_rest_auth.php'; // uses add_filter
+	require_once __DIR__ . '/includes/handle_subsizes_in_db.php'; // uses add_filter
+
 
 	// REST-API-EXTENSION FOR WP MEDIA Library-----------------------------
 	$field = 'gallery';
