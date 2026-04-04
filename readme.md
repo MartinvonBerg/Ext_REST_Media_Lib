@@ -6,7 +6,7 @@ Ensures consistent metadata handling for JPG, WEBP, and AVIF for every images up
 
 Improves the WordPress Image Subsize generation with selectable quality settings (after activation, REST-API **not** required).
 
-This REST-API functionality is mainly designed for developers, headless WordPress setups, and advanced media workflows (e.g. Lightroom integration).
+This REST-API functionality is mainly designed for developers, headless WordPress setups, and advanced media workflows (e.g. Lightroom integration)..
 
 Key capabilities:
 - Update images **without changing the WordPress ID**
