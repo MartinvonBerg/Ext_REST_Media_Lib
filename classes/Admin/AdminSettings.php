@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace mvbplugins\Admin;
 
-// TODO : show the imagick version and supported formats in the settings page. copy from strip_meta
-
 /**
  * Class AdminSettings. Configure the plugin settings page.
  * 
