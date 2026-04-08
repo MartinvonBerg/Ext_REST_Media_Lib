@@ -60,7 +60,7 @@ All endpoints require authorization, making it suitable for secure API-driven wo
 ## Installation
 
 1. Visit the plugins page on your Admin-page and click  'Add New'
-2. Search for 'wp_wpcat_json_rest', or 'JSON' and 'REST'
+2. Search for 'Media Library Extension' or 'wpcat'.
 3. Once found, click on 'Install'
 4. Go to the plugins page and activate the plugin
 5. Go to Admin Settings and activate what you prefer.
