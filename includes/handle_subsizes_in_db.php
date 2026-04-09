@@ -3,8 +3,20 @@ namespace mvbplugins\extmedialib;
 
 defined( 'ABSPATH' ) || die( 'Not defined' );
 
-add_filter('intermediate_image_sizes_advanced', 'mvbplugins\extmedialib\image_subsizes_filter', 10, 3);
+// ---- filters ordered in sequence as they are executed.
 add_filter('wp_unique_filename', 'mvbplugins\extmedialib\wp_unique_filename_filter', 10, 6);
+add_filter('intermediate_image_sizes_advanced', 'mvbplugins\extmedialib\image_subsizes_filter', 10, 3);
+add_filter('wp_generate_attachment_metadata', function($metadata, $attachment_id) {
+
+    $stored = wp_cache_get("mvb_sizes_$attachment_id", 'extmedialib'); 
+
+    if ($stored !== false && isset($stored['sizes'])) {
+        $metadata['sizes'] = $stored['sizes'];
+    }
+
+    return $metadata;
+
+}, 999, 2);
 
 /**	
  * filter the image sizes to be created by WP
@@ -35,7 +47,7 @@ function image_subsizes_filter(array $newsizes, array $image_meta, int $wp_id) :
             unset( $new_size_meta['exists'] );
 
 			$image_meta['sizes'][ $new_size_name ] = $new_size_meta; // file, real width, real height, mime-type, filesize
-            wp_update_attachment_metadata( $wp_id, $image_meta ); //This is called for each subsizes, so it is the same like WordPress does it.
+            //wp_update_attachment_metadata( $wp_id, $image_meta ); //This is called for each subsizes, so it is the same like WordPress does it.
 			
             unset($newsizes[ $new_size_name ]); 
 		}
@@ -43,7 +55,7 @@ function image_subsizes_filter(array $newsizes, array $image_meta, int $wp_id) :
     // only update if all subsizes are available. Skip if some subsizes are missing. 
     if ( empty( $newsizes ) ) {
         // if all subsizes are available the metadata is updated with the new subsizes and the subsizes will not be created by _wp_make_subsizes() because newsizes is empty.
-        //wp_update_attachment_metadata( $wp_id, $image_meta );
+        wp_cache_set("mvb_sizes_$wp_id", $image_meta, 'extmedialib'); // store the metadata in the cache to be able to retrieve it later in the wp_unique_filename_filter function without having to query the database again.
         return $newsizes;
     } else {
         // if only some subsizes are missing the metadata is not created correctly because the missing subsizes will be created by _wp_make_subsizes() but the existing subsizes will not be included in the metadata because they are not created by _wp_make_subsizes() and the metadata is not updated with the existing subsizes. So in this case we return the original newsizes to let WP create all subsizes and update the metadata correctly.
@@ -202,34 +214,36 @@ function generate_wp_image_subsizes(string $original_path, array $newsizes) : ar
         $height = isset($size['height']) ? (int)$size['height'] : 0;
         $crop = isset($size['crop']) ? (bool)$size['crop'] : false;
         
-        // Build the suffix based on crop setting
-        if ($crop && $width>0 && $height>0) {
-            // Exact dimensions for cropped images
-            $suffix = "{$width}x{$height}";
-        } elseif ( !$crop ) {
-            // Only the max dimension for scaled images
-            if ($width >= $height && !($width == 0 || $width == 9999)) {
-				// landscape orientation
-				$calcHeight = (int)round($width / $aspRatio );
-				$suffix = "{$width}x{$calcHeight}";
-                $height = $calcHeight; // update height for later use
-            } elseif (!($height == 0 || $height == 9999)) {
-				// portrait orientation
-				$calcWidth = (int)round($height * $aspRatio );
-				$suffix = "{$calcWidth}x{$height}";
-                $width = $calcWidth; // update width for later use
-            } elseif ($width == 0 || $width == 9999) {
-                $calcWidth = (int)round($height * $aspRatio);
-                $suffix = "{$calcWidth}x{$height}";
-                $width = $calcWidth; // update width for later use
-            } elseif ($height == 0 || $height == 9999) {
-                $calcHeight = (int)round($width / $aspRatio);
-                $suffix = "{$width}x{$calcHeight}";
-                $height = $calcHeight; // update height for later use
-            } else {
-                $suffix = 'wrong';
-            }
+        // Normalize "unbounded" values like 9999 → 0 (WordPress expects 0)
+        $dst_w = ($width  >= 9999) ? 0 : $width;
+        $dst_h = ($height >= 9999) ? 0 : $height;
+
+        // Let WordPress calculate the resize
+        $dims = image_resize_dimensions(
+            $origWidth,
+            $origHeight,
+            $dst_w,
+            $dst_h,
+            $crop
+        );
+
+        if ($dims === false) {
+            // No resize possible (e.g. would upscale or invalid)
+            continue;
         }
+
+        // Returned array structure:
+        // [ dst_x, dst_y, src_x, src_y, dst_w, dst_h, src_w, src_h ]
+        $dst_w_final = (int) $dims[4];
+        $dst_h_final = (int) $dims[5];
+
+        // Build suffix
+        $suffix = "{$dst_w_final}x{$dst_h_final}";
+
+        // overwrite for downstream usage
+        $width  = $dst_w_final;
+        $height = $dst_h_final;
+
         // check here for changed mime-type 
         $new_filename = $name . '-' . $suffix . '.' . $ext;
         $new_filepath = $dir . DIRECTORY_SEPARATOR . $new_filename;
