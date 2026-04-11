@@ -3,20 +3,14 @@ namespace mvbplugins\extmedialib;
 
 defined( 'ABSPATH' ) || die( 'Not defined' );
 
+// TODO: complete PHPStan Level 8
+
 // ---- filters ordered in sequence as they are executed.
 add_filter('wp_unique_filename', 'mvbplugins\extmedialib\wp_unique_filename_filter', 10, 6);
 add_filter('intermediate_image_sizes_advanced', 'mvbplugins\extmedialib\image_subsizes_filter', 10, 3);
-add_filter('wp_generate_attachment_metadata', function($metadata, $attachment_id) {
+add_filter('wp_generate_attachment_metadata', 'mvbplugins\extmedialib\restore_subsizes', 999, 2);
+add_filter('wp_update_attachment_metadata', 'mvbplugins\extmedialib\restore_subsizes', 999, 2);
 
-    $stored = wp_cache_get("mvb_sizes_$attachment_id", 'extmedialib'); 
-
-    if ($stored !== false && isset($stored['sizes'])) {
-        $metadata['sizes'] = $stored['sizes'];
-    }
-
-    return $metadata;
-
-}, 999, 2);
 
 /**	
  * filter the image sizes to be created by WP
@@ -31,7 +25,7 @@ function image_subsizes_filter(array $newsizes, array $image_meta, int $wp_id) :
     $orig_newsizes = $newsizes;
 	$file = $image_meta["file"];
 	$expectedSizes = generate_wp_image_subsizes($file, $newsizes); // use wp_unique_filename to generate the expected filenames for the subsizes. This is necessary because the filename can be changed by WP if a file with the same name already exists in the upload directory. The expected filenames are generated based on the original filename and the size name, width, height and crop settings of the subsizes.
-    if ( empty( $expectedSizes ) ) {
+    if ( $expectedSizes === [] ) {
         return $newsizes;
     }
 
@@ -167,7 +161,7 @@ function wp_unique_filename_filter( string $filename, string $ext, string $dir, 
  * If crop is false the larger value of the image (be it width or height respecting orientation) will remain unchanged and the shorter value (be it height or width respecting orientation) will be set according to the aspect ratio.
  * @param mixed $original_path the original image path relative to the upload directory.
  * @param mixed $newsizes   the array of subsizes
- * @return array{exists: bool, file: string, filesize: int, height: int, mime-type: bool|string, width: int[], crop: bool}
+ * @return array{exists: bool, file: string, filesize: int, height: int, mime-type: bool|string, width: int[], crop: bool}|[]
  */
 function generate_wp_image_subsizes(string $original_path, array $newsizes) : array {
     $info = pathinfo($original_path);
@@ -281,4 +275,15 @@ function generate_wp_image_subsizes(string $original_path, array $newsizes) : ar
     }
     
     return $subsizes;
+}
+
+function restore_subsizes(array $metadata, int $attachment_id) : array {
+
+    $stored = wp_cache_get("mvb_sizes_$attachment_id", 'extmedialib'); 
+
+    if ($stored !== false && isset($stored['sizes'])) {
+        $metadata['sizes'] = $stored['sizes'];
+    }
+
+    return $metadata;
 }

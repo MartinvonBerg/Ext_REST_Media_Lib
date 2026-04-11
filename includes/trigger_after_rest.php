@@ -174,7 +174,7 @@ function trigger_after_image_upload( array $meta, int $attachment_id, string $co
 
 	$post_excerpt_value = '';
 	if ( 'xmp_title' === $post_excerpt_source ) {
-		$post_excerpt_value = $image_title;
+		$post_excerpt_value = $image_title; // TODO use filename if title is empty
 	} elseif ( 'xmp_desc' === $post_excerpt_source ) {
 		$post_excerpt_value = $image_caption;
 	}
