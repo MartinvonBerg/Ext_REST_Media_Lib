@@ -101,7 +101,7 @@ function post_image_update( object $data ) : object
 		
 		// Define filenames in different ways for the different functions
 		$dir = \str_replace('\\', '/', $dir);
-		$fileName_from_att_meta = \str_replace('\\', '/', $meta['file'] ?? '');
+		$fileName_from_att_meta = \str_replace('\\', '/', $meta['file']);
 		$checker = \str_replace($dir, '', $fileName_from_att_meta);
 		if ( ( $checker[0] ?? '' ) != '/' ) {
 			$fileName_from_att_meta = $dir . '/' . $checker;
@@ -114,21 +114,14 @@ function post_image_update( object $data ) : object
 		$ext = '.' . \strtolower( $old_extension ); // Get the extension
 		$old_original_fileName = set_complete_path($dir, $old_original_fileName);
 		$filename_for_deletion = str_replace($ext, '', $old_original_fileName); // Filename without extension for the deletion with Wildcard '*'
-
 		$restore_backup_files = static function( string $filenameForDeletion ) : void {
-			$filearray = glob($filenameForDeletion . '*oldimagefile') ?: [];
-			foreach ($filearray as $fileName_from_att_meta) {
-				rename(
-					$fileName_from_att_meta,
-					str_replace('.oldimagefile', '', $fileName_from_att_meta)
-				);
-			}
+			$filearray = glob($filenameForDeletion . '*oldimagefile');
+			array_walk( $filearray, function( $fileName_from_att_meta ) {
+				rename( $fileName_from_att_meta, str_replace('.oldimagefile', '', $fileName_from_att_meta ) );
+			} );
 		};
 		$delete_backup_files = static function( string $filenameForDeletion ) : void {
-			$filearray = glob($filenameForDeletion . '*oldimagefile') ?: [];
-			foreach ($filearray as $fileName_from_att_meta) {
-				unlink($fileName_from_att_meta);
-			}
+			array_map("unlink", glob($filenameForDeletion . '*oldimagefile'));
 		};
 		
 		// data for the REST-response
@@ -140,6 +133,9 @@ function post_image_update( object $data ) : object
 
 		// get parent
 		$oldParent = \wp_get_post_parent_id( $post_id);
+
+		// init the replacer here with the OLD metadata before any update happens.
+		$replacer = new \mvbplugins\extmedialib\Replacer( $post_id );
 		
 		// generate the filename for the new file and set title.
 		if ( $postRequestFileName === '' ) {
@@ -228,11 +224,9 @@ function post_image_update( object $data ) : object
 					return $candidatePath !== \wp_normalize_path( $temp_upload_file ) && substr( $candidatePath, -13 ) !== '.oldimagefile';
 				}
 			);
-
-			foreach($filearray as $fileName_from_att_meta) {
+			array_walk($filearray, function( $fileName_from_att_meta ){
 				rename($fileName_from_att_meta, $fileName_from_att_meta . '.oldimagefile');
-			}
-
+			} );
 			if ( ! rename( $temp_upload_file, $path_to_new_file ) ) {
 				$restore_backup_files( $filename_for_deletion );
 				@unlink( $temp_upload_file );
@@ -262,21 +256,17 @@ function post_image_update( object $data ) : object
 			// calls filter 'intermediate_image_sizes_advanced' at the end of this function and then _wp_make_subsizes()
 			// the filter calls image_subsizes_filter() from this plugin in handle_subsizes_in_db.php which itself stores the subsizes in a cache if they were uploaded before.
 			$success_subsizes = wp_create_image_subsizes( $path_to_new_file, $post_id ); // nach dieser Funktion ist der Dateiname falsch! Nur dann wenn größer als big-image-size!
-
+			
 				// write data for description->rendered, full->file (only basename . ext is used) full->source_url, source_url,
 				// use path relative to upload path without trailing-slash and -scaled if image is scaled. read this from $success_subsizes
 				// only guid-rendered and orginal_image are set with full filename
-				$pos = strpos($success_subsizes['file'], '-scaled');
-				if ( $pos != \false) {
-					\update_metadata( 'post', $post_id, '_wp_attached_file', $gallerydir . '/' . $new_File_Name . '-' . EXT_SCALED . $new_File_Extension, $prev_value = '' );
-				}
-				else {
-					\update_metadata( 'post', $post_id, '_wp_attached_file', $gallerydir . '/' . $new_File_Name . $new_File_Extension, $prev_value = '' );
-				}
+				$new_basename = pathinfo( $success_subsizes['file'])['basename'];
+				$attached_rel = $gallerydir . '/' . ltrim( $new_basename, '/\\' );
+				\update_metadata( 'post', $post_id, '_wp_attached_file', $attached_rel, $prev_value = '' );				
 				
-				
-				// update post doesn't update GUID on updates. guid has to be the full url to the file
-				$url_to_new_file = get_upload_url() . '/' . $gallerydir . '/' . $new_File_Name . $new_File_Extension;
+				// update metadata doesn't update GUID on updates. guid has to be the full url to the file
+				$attached_rel = get_post_meta( $post_id, '_wp_attached_file', true );
+				$url_to_new_file = get_upload_url() . '/' . ltrim( $attached_rel, '/\\' );
 				$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $post_id) );
 
 				// update the meta_data
@@ -289,7 +279,6 @@ function post_image_update( object $data ) : object
 				// Update the posts that use the image with class from plugin enable_media_replace
 				// This updates only the image url that are used in the post. The metadata e.g. caption is NOT updated.
 				// call the media replacer class with construct-method of the class to get basic information about the attachment-image
-				$replacer = new \mvbplugins\extmedialib\Replacer( $post_id );
 				$replacer->new_location_dir = $gallerydir;
 				$replacer->set_oldlink( $oldlink );
 				$newlink = get_attachment_link( $post_id ); // get_attachment_link( $post_id) ist hier bereits aktualisiert
@@ -298,7 +287,7 @@ function post_image_update( object $data ) : object
 				$replacer->target_metadata = $success_subsizes;
 				$replacer->API_doSearchReplace();
 				$replacer = null;
-
+			
 		} else {
 			@unlink( $temp_upload_file );
 			$success_subsizes = 'Check-Mime-Type mismatch';
