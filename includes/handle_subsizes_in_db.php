@@ -34,11 +34,10 @@ function image_subsizes_filter(array $newsizes, array $image_meta, int $wp_id) :
         /** @var array{file: string, width: int, height: int, 'mime-type': string, filesize: int, exists: bool, crop: bool} $new_size_meta */
         $new_size_meta = $expectedSizes[ $new_size_name ]; 
 
-		if ( isset( $new_size_meta['exists'] ) && $new_size_meta['exists'] ) {
+		if ( $new_size_meta['exists'] ) {
 			// Save the size meta value.
 			unset( $new_size_meta['exists'] );
             unset( $new_size_meta['crop'] );
-            unset( $new_size_meta['exists'] );
 
 			$image_meta['sizes'][ $new_size_name ] = $new_size_meta; // file, real width, real height, mime-type, filesize
             //wp_update_attachment_metadata( $wp_id, $image_meta ); //This is called for each subsizes, so it is the same like WordPress does it.
@@ -159,9 +158,9 @@ function wp_unique_filename_filter( string $filename, string $ext, string $dir, 
  * Generates the expected image filenames and filepaths as string for the subsizes from the array newsizes
  * "crop" is a boolean that decides wether the image should be cropped or not. If crop is true the new filename (and dimensions) will be exactly cropped to width and heigt.
  * If crop is false the larger value of the image (be it width or height respecting orientation) will remain unchanged and the shorter value (be it height or width respecting orientation) will be set according to the aspect ratio.
- * @param mixed $original_path the original image path relative to the upload directory.
- * @param mixed $newsizes   the array of subsizes
- * @return array{exists: bool, file: string, filesize: int, height: int, mime-type: bool|string, width: int[], crop: bool}|[]
+ * @param string $original_path the original image path relative to the upload directory.
+ * @param array $newsizes   the array of subsizes
+ * @return array|array<string, array{file: string, width: int, height: int, 'mime-type': string|false, filesize: int, exists: bool, crop: bool}> the expected subsizes with their metadata. The "exists" field indicates whether the file for the subsizes already exists in the upload directory.
  */
 function generate_wp_image_subsizes(string $original_path, array $newsizes) : array {
     $info = pathinfo($original_path);

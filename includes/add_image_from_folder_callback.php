@@ -7,7 +7,7 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
  * Callback for GET to REST-Route 'addfromfolder/<folder>'. Check wether folder exists and provide message if so
  * 
  * @param object $data is the complete Request data of the REST-api GET
- * @return \WP_REST_Response|\WP_Error REST-response data for the folder if it exists
+ * @return \WP_REST_Response REST-response data for the folder if it exists
  */
 function get_add_image_from_folder($data)
 {

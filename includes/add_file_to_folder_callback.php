@@ -7,9 +7,9 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
  * Callback for GET to REST-Route 'addtofolder/<folder>'. Check wether folder exists and provide message if so
  * 
  * @param object $data is the complete Request data of the REST-api GET
- * @return \WP_REST_Response|\WP_Error REST-response data for the folder if it exists
+ * @return \WP_REST_Response REST-response data for the folder if it exists
  */
-function get_add_file_to_folder( $data )
+function get_add_file_to_folder( object $data )
 {
 	$dir = wp_upload_dir()['basedir'];
 	$folder = $dir . '/' . $data['folder'];
