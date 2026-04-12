@@ -146,6 +146,11 @@ function post_add_image_to_folder($data)
 
 			// update post doesn't update GUID on updates. guid has to be the full url to the file
 			$wpdb->update( $wpdb->posts, array( 'guid' =>  $url_to_new_file ), array('ID' => $upload_id) );
+
+			// update the meta_data
+			$newmeta = wp_get_attachment_metadata( $upload_id );
+			$newmeta['sizes'] = $success_subsizes['sizes'];
+			wp_update_attachment_metadata( $upload_id, $newmeta );
 			
 			$getResp = array(
 				'id' => $upload_id,

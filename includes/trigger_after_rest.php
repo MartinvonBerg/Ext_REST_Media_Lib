@@ -116,8 +116,13 @@ function trigger_after_rest( array $result, \WP_REST_Server $server, \WP_REST_Re
 if ( isset( $options['use_media_upload_hook'] ) && $options['use_media_upload_hook'] === "1" ) {
 	require_once __DIR__ . '/shared/autoload.php';
 	add_filter( 'wp_generate_attachment_metadata', '\mvbplugins\extmedialib\trigger_after_image_upload', 10, 3 );
+	//add_filter( 'wp_update_attachment_metadata', '\mvbplugins\extmedialib\fn_update', 10, 2 );
 }
 
+function fn_update( array $meta, int $attachment_id ) : array {
+	// this function is needed to trigger the update of the metadata after the image upload. The update of the metadata is done in the function 'trigger_after_image_upload' which is hooked on 'wp_generate_attachment_metadata'. The update of the metadata is needed to have the same metadata for webp and avif images as for jpg images. The function 'trigger_after_image_upload' is also called after the image upload via the REST-API.
+	return \mvbplugins\extmedialib\trigger_after_image_upload( $meta, $attachment_id, 'update' );
+}
 /**
  * Add the image metadata (mainly for webp and avif) to the attachment metadata after upload and update the post meta and post data of the attachment.
  * Goal of this function hook is to have the image metadata of webp and avif images idenctical to jpg which is done by WP Standard functionality.
@@ -131,7 +136,7 @@ if ( isset( $options['use_media_upload_hook'] ) && $options['use_media_upload_ho
  * @return array<string, mixed> The modified metadata array with added image metadata for webp and avif images.
  */
 function trigger_after_image_upload( array $meta, int $attachment_id, string $context ) : array {
-    if ( 'create' !== $context ) {
+    if ( 'create' !== $context && 'update' !== $context ) {
         return $meta;
     }
 

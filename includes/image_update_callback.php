@@ -46,10 +46,12 @@ function get_image_update( object $data ) : array|object
 };
 
 /**
- * Callback for POST to REST-Route 'update/<id>'. Update attachment with Parameter id (integer!). 
- * This function updates the image FILE only and the filename if provided. If the old title of the 
- * image was different from the filename this title will be kept. All other meta-data remains unchanged!
- * Important Source: https://developer.wordpress.org/reference/classes/wp_rest_request
+ * Callback for POST to REST-Route 'update/<id>'. Update attachment with Parameter id (WP image ID, integer!). 
+ * This function updates only the image FILE and the filename if provided. If the old title of the 
+ * image was different from the filename this title will be kept. The mime-type may be change by the user under the same WP-ID.
+ * Additionally the links in posts to the image will be updated with the new filename and the new url. 
+ * The metadata of the attachment will NOT be updated, except the filename in _wp_attached_file and the sizes in metadata if subsizes were generated.
+ * TBD: Mind the Metadata (title, excerpt, content, image_alt, keywords) will be updated by function 'trigger_after_image_upload' (if enabled in settings) automatically.
  *
  * @param object $data is the complete Request data of the REST-api GET
  * @return object WP_REST_Response|WP_Error array for the rest response body or a WP Error object
@@ -207,8 +209,8 @@ function post_image_update( object $data ) : array|object
 		}
 		
 		if ( $all_mime_ext_OK ) {
-
-			// save old Files before replacing the attachment file so we can recover on failure.
+			// TODO : This does not work if only the metadata is update with same filename.
+			// save old Files before replacing the attachment file so we can recover on failure. 
 			$filearray = glob($filename_for_deletion . '*');
 			array_walk($filearray, function( $fileName_from_att_meta ){
 				rename($fileName_from_att_meta, $fileName_from_att_meta . '.oldimagefile');
@@ -265,7 +267,6 @@ function post_image_update( object $data ) : array|object
 				$newmeta = wp_get_attachment_metadata( $post_id );
 				$newmeta['sizes'] = $success_subsizes['sizes'];
 				wp_update_attachment_metadata( $post_id, $newmeta );
-				
 				
 				// Update the posts that use the image with class from plugin enable_media_replace
 				// This updates only the image url that are used in the post. The metadata e.g. caption is NOT updated.
