@@ -20,11 +20,12 @@ final class ReplacerClassTest extends TestCase {
         // Brain Monkey stubs to satisfy the constructor without a full WP environment
         stubs([
             'get_attached_file' => function($post_id, $arg = null) { return __FILE__; },
-            'get_post' => function($post_id) { return (object)['ID' => $post_id]; },
+            'get_post' => function($post_id) { $p = new \WP_Post(); $p->ID = $post_id; return $p; },
             'wp_attachment_is' => function($type, $post) { return true; },
             'wp_get_attachment_metadata' => function($post_id) { return ['file' => 'image.jpg', 'sizes' => []]; },
             'wp_get_attachment_url' => function($post_id) { return '/uploads/image.jpg'; },
             'apply_filters' => function($tag, $value) { return $value; },
+            'wp_check_filetype_and_ext' => function($file, $filename, $mimes=null) { return ['type' => 'image/webp']; }
         ]);
         include_once PLUGIN_DIR . '\tests\src\WrapRestApiFieldFunctions.php';
         

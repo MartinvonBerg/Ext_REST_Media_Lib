@@ -32,6 +32,8 @@ class emrFile
      if ( file_exists($file))
      {
        $this->exists = true;
+     } else {
+       return;
      }
 
      $this->file = $file;

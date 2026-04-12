@@ -24,8 +24,24 @@ define( 'WP_ROOT', 'C:\wamp64\www\wordpress' );
 
 require_once PLUGIN_DIR . '/vendor/autoload.php';
 
+if ( ! class_exists( 'WP_Post' ) ) {
+    class WP_Post {
+        public int $ID = 0;
+        public function __construct( array $props = [] ) {
+            foreach ( $props as $k => $v ) {
+                $this->$k = $v;
+            }
+        }
+    }
+}
 
 // --- Mini-Polyfills für WP-Funktionen, die du im SUT nutzt ---
+
+if (!function_exists('current_time')) {
+    function current_time(string $type, bool $gmt = false): string {
+        return date($type === 'mysql' ? 'Y-m-d H:i:s' : 'U');
+    }
+}
 
 if (!function_exists('wp_normalize_path')) {
     function wp_normalize_path(string $path): string {

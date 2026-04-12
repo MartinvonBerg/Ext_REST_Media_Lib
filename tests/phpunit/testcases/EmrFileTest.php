@@ -22,7 +22,6 @@ final class EmrFileTest extends TestCase {
     public function test_emrFileClass_1 () {
 
         expect( 'wp_check_filetype_and_ext')
-            ->times(1)
             ->andReturn( [] );
 
         $tested = new mvbplugins\extmedialib\emrFile( '' );
@@ -41,8 +40,8 @@ final class EmrFileTest extends TestCase {
 
         expect( 'wp_check_filetype_and_ext')
             ->times(1)
-            #->andReturn( ['type' => 'image/webp'] );
-            ->andReturn( [] );
+            ->andReturn( ['type' => 'image/webp'] );
+            #->andReturn( [] );
         
         $tested = new mvbplugins\extmedialib\emrFile( $file );
         $result = $tested->exists();
