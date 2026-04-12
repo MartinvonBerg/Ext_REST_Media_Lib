@@ -25,7 +25,7 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
  * @param  string $type the datatype of the field, e.g. string.
  * @return void
  */
-function add_action_field( string $field, string $descr, string $type ) 
+function add_action_field( string $field, string $descr, string $type ) : void
 {
 	add_action('rest_api_init', function($arguments) use ($field, $descr, $type) 
 	{
@@ -43,18 +43,18 @@ function add_action_field( string $field, string $descr, string $type )
 					),
 				)
 		);
-	}, 10, 3 );
+	}, 10, 1 );
 }
 
 /**
  * function to register the endpoint $route in the WP-Media-Catalog.
  *
- * @param  array  $args arguments for rest_route function
+ * @param  array<string, mixed> $args the arguments for rest_route function
  * @param  string $route the route to register including the check sequence like 'update/(?P<id>[\d]+)'
  * @param  string $function the additional function name for get and post callback, after get_ and post_.
  * @return void
  */
-function add_rest_route( array $args, string $route, string $function)
+function add_rest_route( array $args, string $route, string $function) : void
 {
 	add_action('rest_api_init', function($arguments) use ($args, $route, $function) 
 	{
@@ -78,5 +78,5 @@ function add_rest_route( array $args, string $route, string $function)
 					} ),
 			)
 		);
-	}, 10, 3 );
+	}, 10, 1 );
 }

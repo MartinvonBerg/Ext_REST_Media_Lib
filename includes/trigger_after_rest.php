@@ -119,6 +119,12 @@ if ( isset( $options['use_media_upload_hook'] ) && $options['use_media_upload_ho
 	//add_filter( 'wp_update_attachment_metadata', '\mvbplugins\extmedialib\fn_update', 10, 2 );
 }
 
+/**
+ * Summary of mvbplugins\extmedialib\fn_update
+ * @param array<string, mixed> $meta The WordPress metadata array for the attachment.
+ * @param int $attachment_id
+ * @return array<string, mixed> 
+ */
 function fn_update( array $meta, int $attachment_id ) : array {
 	// this function is needed to trigger the update of the metadata after the image upload. The update of the metadata is done in the function 'trigger_after_image_upload' which is hooked on 'wp_generate_attachment_metadata'. The update of the metadata is needed to have the same metadata for webp and avif images as for jpg images. The function 'trigger_after_image_upload' is also called after the image upload via the REST-API.
 	return \mvbplugins\extmedialib\trigger_after_image_upload( $meta, $attachment_id, 'update' );

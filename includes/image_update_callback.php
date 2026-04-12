@@ -66,6 +66,8 @@ function post_image_update( object $data ) : array|object
 	$isAttachment = wp_attachment_is_image($post_id);
 	$dir = wp_upload_dir()['basedir'];
 	$image = $data->get_body(); // body as string (=jpg/webp-image) of POST-Request
+	$image_size = \is_string( $image ) ? \strlen( $image ) : 0;
+	$request_params = $data->get_params();
 	$postRequestFileNameRaw = (string) extract_filename_from_content_disposition( $data->get_headers()['content_disposition'][0] ?? '' );
 	$postRequestFileName = '';
 	if ( $postRequestFileNameRaw !== '' ) {
@@ -79,7 +81,7 @@ function post_image_update( object $data ) : array|object
 		}
 	}
 			
-	if ( ($isAttachment) && ( \strlen($image) > $minsize) && ( \strlen($image) < wp_max_upload_size()) ) {
+	if ( ($isAttachment) && ( $image_size > $minsize) && ( $image_size < wp_max_upload_size()) ) {
 		
 		// get current metadata from WP-Database
 		$meta = wp_get_attachment_metadata($post_id);
@@ -178,14 +180,14 @@ function post_image_update( object $data ) : array|object
 		}
 
 		// Save new file from POST-body to a temp file first and validate before touching originals.
-		$temp_upload_file = $path_to_new_file . '.tmp-' . \wp_generate_password( 8, false, false );
+		$temp_upload_file = \wp_normalize_path( trailingslashit( dirname( $path_to_new_file ) ) . '.wpcat-tmp-' . \wp_generate_password( 12, false, false ) . '-' . basename( $path_to_new_file ) );
 		$success_new_file_write = file_put_contents( $temp_upload_file, $image );
 		if ( $success_new_file_write === false ) {
 			return new \WP_Error( 'write_error', 'Could not write uploaded image data for ID: ' . $post_id, array( 'status' => 500 ));
 		}
 		
 		// check the new file type and extension
-		$changemime = \array_key_exists('changemime', $data->get_params() ) && $data->get_params()['changemime'] === 'true';
+		$changemime = \array_key_exists('changemime', $request_params ) && $request_params['changemime'] === 'true';
 
 		// check mime-type from header. The mime-type in header is required, otherwise upload will fail.
 		$content_type = $data->get_content_type();
@@ -209,9 +211,15 @@ function post_image_update( object $data ) : array|object
 		}
 		
 		if ( $all_mime_ext_OK ) {
-			// TODO : This does not work if only the metadata is update with same filename.
 			// save old Files before replacing the attachment file so we can recover on failure. 
 			$filearray = glob($filename_for_deletion . '*');
+			$filearray = array_filter(
+				$filearray,
+				static function( $candidate ) use ( $temp_upload_file ) {
+					$candidatePath = \wp_normalize_path( (string) $candidate );
+					return $candidatePath !== \wp_normalize_path( $temp_upload_file ) && substr( $candidatePath, -13 ) !== '.oldimagefile';
+				}
+			);
 			array_walk($filearray, function( $fileName_from_att_meta ){
 				rename($fileName_from_att_meta, $fileName_from_att_meta . '.oldimagefile');
 			} );
@@ -329,15 +337,17 @@ function post_image_update( object $data ) : array|object
 			//array_walk($filearray, '\mvbplugins\extmedialib\recoverfile');
 			$restore_backup_files( $filename_for_deletion );
 
-			// delete the file that was uploaded by REST - POST request
-			unlink($path_to_new_file); 
+			// delete only a newly created target file; never delete the original when filename is unchanged
+			if ( ! $is_same_target_as_current && is_file( $path_to_new_file ) ) {
+				unlink($path_to_new_file);
+			}
 			$newGetResp = \mvbplugins\extmedialib\implode_all(' , ', $getResp); 
 			return new \WP_Error('Error', $newGetResp, array( 'status' => 400 ));
 		}
 		
-	} elseif (($isAttachment) && (\strlen($image) < $minsize)) {
+	} elseif (($isAttachment) && ($image_size < $minsize)) {
 		return new \WP_Error('too_small', 'Invalid Image (smaller than: '. $minsize .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
-	} elseif (($isAttachment) && (\strlen($image) > wp_max_upload_size())) {
+	} elseif (($isAttachment) && ($image_size > wp_max_upload_size())) {
 		return new \WP_Error('too_big', 'Invalid Image (bigger than: '. wp_max_upload_size() .' bytes) in body for update of: ' . $post_id, array( 'status' => 400 ));
 	} elseif (! $isAttachment) {
 		return new \WP_Error('not_found', 'Attachment is not an Image: ' . $post_id, array( 'status' => 415 ));
