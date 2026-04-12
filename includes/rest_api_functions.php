@@ -14,8 +14,6 @@
  * @since      File available since Release 5.3.0
  */
 
-// phpstan: level 8 reached without baseline
-
 namespace mvbplugins\extmedialib;
 
 // ---------------- general helper functions ----------------------------------------------------
@@ -26,11 +24,12 @@ namespace mvbplugins\extmedialib;
  * @param string $folder the folder that should be used.
  * @param bool $get_added_files either provide an array with files that are IN WP-Cat or NOI in WP-Cat
  *
- * @return array<int, string> | array<int, array<string, array|int|string>> the original-files in the given $folder that are IN or NOI IN WP-Cat yet
+ * @return array<int, string|array{id:int, file:string}> the original-files in the given $folder that are IN or NOI IN WP-Cat yet
  */
-function get_files_from_folder(string $folder, bool $get_added_files)
+function get_files_from_folder(string $folder, bool $get_added_files) : array
 {
-	$result = array();
+    /** @var array<int, string|array{id:int, file:string}> $result */
+	$result = [];
 	$all = glob($folder . '/*');
 	$i = 0;
 
@@ -38,7 +37,7 @@ function get_files_from_folder(string $folder, bool $get_added_files)
 	$url = get_upload_url();
 
 	if (false == $all) {
-		$all = array();
+		$all = [];
 	}
 
 	foreach ($all as $file) {
@@ -55,8 +54,10 @@ function get_files_from_folder(string $folder, bool $get_added_files)
 			}
 
 			if ($get_added_files) {
-				$result [ $i ] ['id']   = $addedbefore;
-				$result [ $i ] ['file'] = $file;
+                $result[$i] = [
+                    'id' => $addedbefore,
+                    'file' => $file,
+                ];
 				++$i;
 			} 
 			elseif ($addedbefore === 0) {
@@ -74,7 +75,7 @@ function get_files_from_folder(string $folder, bool $get_added_files)
  *
  * @param int   $post_id ID of the attachment in the WP-Mediacatalog.
  *
- * @param array<string[]|array> $newmeta array with new metadata taken from the JSON-data in the POST-Request body.
+ * @param array<string, mixed> $newmeta array with new metadata taken from the JSON-data in the POST-Request body.
  *
  * @param string $origin the source of the function call 
  * 
@@ -85,41 +86,42 @@ function update_metadata(int $post_id, array $newmeta, string $origin)
 	// get and check current Meta-Data from WP-database.
 	$meta = wp_get_attachment_metadata($post_id);
 	if ( $meta === false) { $meta = [];	}
+    $meta['image_meta'] = isset( $meta['image_meta'] ) ? $meta['image_meta'] : [];
 	$oldmeta = $meta;
 
-	if (array_key_exists('image_meta', $newmeta)) {
+	if ( \array_key_exists('image_meta', $newmeta)) {
 		$newmeta = $newmeta['image_meta'];
 		// sanitize the keywords
-		if (array_key_exists('keywords', $newmeta)) {
+		if ( \array_key_exists('keywords', $newmeta) && \is_array($newmeta['keywords']) ) {
 			foreach ($newmeta['keywords'] as $key => $entry) {
 				$newmeta['keywords'][$key] = \htmlspecialchars( $entry );
 			};
 		}
 
 		// organize metadata. GPS-data is missing. Does not matter: is not used in WP. GPS is updated via file-update.
-		array_key_exists('keywords', $newmeta)  ? $meta['image_meta']['keywords']  = $newmeta['keywords'] : ''; 
-		array_key_exists('credit', $newmeta)    ? $meta['image_meta']['credit']    = \htmlspecialchars($newmeta['credit']) : '';
-		array_key_exists('copyright', $newmeta) ? $meta['image_meta']['copyright'] = \htmlspecialchars($newmeta['copyright']) : '';
-		array_key_exists('caption', $newmeta)   ? $meta['image_meta']['caption']   = \htmlspecialchars($newmeta['caption']) : '';
-		array_key_exists('title', $newmeta)     ? $meta['image_meta']['title']     = \htmlspecialchars($newmeta['title'])  : '';
+		\array_key_exists('keywords', $newmeta)  ? $meta['image_meta']['keywords']  = $newmeta['keywords'] : ''; 
+		\array_key_exists('credit', $newmeta)    ? $meta['image_meta']['credit']    = \htmlspecialchars($newmeta['credit']) : '';
+		\array_key_exists('copyright', $newmeta) ? $meta['image_meta']['copyright'] = \htmlspecialchars($newmeta['copyright']) : '';
+		\array_key_exists('caption', $newmeta)   ? $meta['image_meta']['caption']   = \htmlspecialchars($newmeta['caption']) : '';
+		\array_key_exists('title', $newmeta)     ? $meta['image_meta']['title']     = \htmlspecialchars($newmeta['title'])  : '';
 
 		// change the image capture metadata for webp only due to the fact that WP does not write this data to the database.
 		$type = get_post_mime_type($post_id);
 		if ('image/webp' == $type || 'image/avif' == $type) {
-			array_key_exists('aperture', $newmeta)          ? $meta['image_meta']['aperture']           = \htmlspecialchars($newmeta['aperture']) : '';
-			array_key_exists('camera', $newmeta)            ? $meta['image_meta']['camera']             = \htmlspecialchars($newmeta['camera']) : '';
-			array_key_exists('created_timestamp', $newmeta) ? $meta['image_meta']['created_timestamp']  = \htmlspecialchars($newmeta['created_timestamp']) : '';
-			array_key_exists('focal_length', $newmeta)      ? $meta['image_meta']['focal_length']       = \htmlspecialchars($newmeta['focal_length']) : '';
-			array_key_exists('iso', $newmeta)               ? $meta['image_meta']['iso']                = \htmlspecialchars($newmeta['iso']) : '';
-			array_key_exists('shutter_speed', $newmeta)     ? $meta['image_meta']['shutter_speed']      = \htmlspecialchars($newmeta['shutter_speed']) : '';
-			array_key_exists('orientation', $newmeta)       ? $meta['image_meta']['orientation']        = \htmlspecialchars($newmeta['orientation']) : '';
+			\array_key_exists('aperture', $newmeta)          ? $meta['image_meta']['aperture']           = \htmlspecialchars($newmeta['aperture']) : '';
+			\array_key_exists('camera', $newmeta)            ? $meta['image_meta']['camera']             = \htmlspecialchars($newmeta['camera']) : '';
+			\array_key_exists('created_timestamp', $newmeta) ? $meta['image_meta']['created_timestamp']  = \htmlspecialchars($newmeta['created_timestamp']) : '';
+			\array_key_exists('focal_length', $newmeta)      ? $meta['image_meta']['focal_length']       = \htmlspecialchars($newmeta['focal_length']) : '';
+			\array_key_exists('iso', $newmeta)               ? $meta['image_meta']['iso']                = \htmlspecialchars($newmeta['iso']) : '';
+			\array_key_exists('shutter_speed', $newmeta)     ? $meta['image_meta']['shutter_speed']      = \htmlspecialchars($newmeta['shutter_speed']) : '';
+			\array_key_exists('orientation', $newmeta)       ? $meta['image_meta']['orientation']        = \htmlspecialchars($newmeta['orientation']) : '';
 		}
 	}
 
 	// reset title and caption in $meta to prevent overwrite with the route update_meta
 	if ('mvbplugin' === $origin) {
-		$meta['image_meta']['title']   = $oldmeta['image_meta']['title'];
-		$meta['image_meta']['caption'] = $oldmeta['image_meta']['caption'];
+        $meta['image_meta']['title']   = (string) ( $oldmeta['image_meta']['title'] ?? '' );
+        $meta['image_meta']['caption'] = (string) ( $oldmeta['image_meta']['caption'] ?? '' );
 	}
 	// write metadata.
 	$success = wp_update_attachment_metadata($post_id, $meta); // write new Meta-data to WP SQL-Database.
@@ -190,26 +192,27 @@ function set_complete_path( $dir, $fileName ) {
 /**
  * Concatenate multidimensional-array-to-string with glue separator.
  * 
- * @source https://stackoverflow.com/questions/12309047/multidimensional-array-to-string multidimensional-array-to-string
- * @param  string $glue the separator for the string concetantion of array contents.
- * @param  array $arr input array
- * @return string|mixed return string on success or the input if it is not a string
+ * @param string $glue
+ * @param string|int|float|bool|\Stringable|array<array-key, mixed> $arr
+ * @return string
  */
-function implode_all( $glue, $arr ) {
-	if( is_array( $arr ) ){
-  
-	  foreach( $arr as $key => &$value ){
-  
-		if( @is_array( $value ) ){
-		  $arr[ $key ] = implode_all( $glue, $value );
-		}
-	  }
-  
-	  return implode( $glue, $arr );
-	}
-  
-	// Not array
-	return $arr;
+function implode_all(string $glue, string|int|float|bool|\Stringable|array $arr): string
+{
+    if (!is_array($arr)) {
+        return (string) $arr;
+    }
+
+    $iterator = new \RecursiveIteratorIterator(
+        new \RecursiveArrayIterator($arr)
+    );
+
+    $flat = [];
+
+    foreach ($iterator as $value) {
+        $flat[] = (string) $value;
+    }
+
+    return implode($glue, $flat);
 }
 
 /**
@@ -310,6 +313,9 @@ function extract_filename_from_content_disposition(?string $cd): string
  * - entfernt '.' und löst '..' aus (Stack-Prinzip)
  * Rückgabe: Array der sauberen Segmente
  */
+/**
+ * @return array<int, string>
+ */
 function normalize_path_segments(string $input): array {
     $input = trim(str_replace('\\', '/', $input), "/ \t\n\r\0\x0B");
     if ($input === '') {
@@ -338,6 +344,9 @@ function normalize_path_segments(string $input): array {
  * Rückgabe:
  *  - 'folder_fs'  absoluter Filesystempfad unterhalb $basedir (ohne trailing slash)
  *  - 'reqfolder'  URL-Pfad relativ (ohne leading/trailing slash)
+ */
+/**
+ * @return array{folder_fs:string, reqfolder:string}
  */
 function normalize_target_folder(string $requestFolder, string $basedir): array {
     // 1) Segmente kanonisieren (wir verwenden die gleiche Logik für FS & URL)

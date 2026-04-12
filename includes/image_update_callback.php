@@ -6,10 +6,10 @@ defined( 'ABSPATH' ) || die( 'Not defined' );
 /**
  * Callback for GET to REST-Route 'update/<id>'. Check wether Parameter id (integer!) is an WP media attachment, e.g. an image and calc md5-sum of original file
  *
- * @param array{id:int} $data is the complete Request data of the REST-api GET
+ * @param object $data is the complete Request data of the REST-api GET
  * @return object WP_REST_Response|WP_Error array for the rest response body or a WP Error object
  */
-function get_image_update( object $data ) : array|object
+function get_image_update( object $data ) : object
 {
 	$post_id = $data['id'];
 	$isAttachment = wp_attachment_is_image($post_id);
@@ -56,7 +56,7 @@ function get_image_update( object $data ) : array|object
  * @param object $data is the complete Request data of the REST-api GET
  * @return object WP_REST_Response|WP_Error array for the rest response body or a WP Error object
  */
-function post_image_update( object $data ) : array|object
+function post_image_update( object $data ) : object
 {
 	global $wpdb;
 
@@ -101,7 +101,7 @@ function post_image_update( object $data ) : array|object
 		
 		// Define filenames in different ways for the different functions
 		$dir = \str_replace('\\', '/', $dir);
-		$fileName_from_att_meta = \str_replace('\\', '/', $meta['file']);
+		$fileName_from_att_meta = \str_replace('\\', '/', $meta['file'] ?? '');
 		$checker = \str_replace($dir, '', $fileName_from_att_meta);
 		if ( ( $checker[0] ?? '' ) != '/' ) {
 			$fileName_from_att_meta = $dir . '/' . $checker;
@@ -114,14 +114,21 @@ function post_image_update( object $data ) : array|object
 		$ext = '.' . \strtolower( $old_extension ); // Get the extension
 		$old_original_fileName = set_complete_path($dir, $old_original_fileName);
 		$filename_for_deletion = str_replace($ext, '', $old_original_fileName); // Filename without extension for the deletion with Wildcard '*'
+
 		$restore_backup_files = static function( string $filenameForDeletion ) : void {
-			$filearray = glob($filenameForDeletion . '*oldimagefile');
-			array_walk( $filearray, function( $fileName_from_att_meta ) {
-				rename( $fileName_from_att_meta, str_replace('.oldimagefile', '', $fileName_from_att_meta ) );
-			} );
+			$filearray = glob($filenameForDeletion . '*oldimagefile') ?: [];
+			foreach ($filearray as $fileName_from_att_meta) {
+				rename(
+					$fileName_from_att_meta,
+					str_replace('.oldimagefile', '', $fileName_from_att_meta)
+				);
+			}
 		};
 		$delete_backup_files = static function( string $filenameForDeletion ) : void {
-			array_map("unlink", glob($filenameForDeletion . '*oldimagefile'));
+			$filearray = glob($filenameForDeletion . '*oldimagefile') ?: [];
+			foreach ($filearray as $fileName_from_att_meta) {
+				unlink($fileName_from_att_meta);
+			}
 		};
 		
 		// data for the REST-response
@@ -212,7 +219,8 @@ function post_image_update( object $data ) : array|object
 		
 		if ( $all_mime_ext_OK ) {
 			// save old Files before replacing the attachment file so we can recover on failure. 
-			$filearray = glob($filename_for_deletion . '*');
+			$filearray = glob($filename_for_deletion . '*') ?: [];
+
 			$filearray = array_filter(
 				$filearray,
 				static function( $candidate ) use ( $temp_upload_file ) {
@@ -220,9 +228,11 @@ function post_image_update( object $data ) : array|object
 					return $candidatePath !== \wp_normalize_path( $temp_upload_file ) && substr( $candidatePath, -13 ) !== '.oldimagefile';
 				}
 			);
-			array_walk($filearray, function( $fileName_from_att_meta ){
+
+			foreach($filearray as $fileName_from_att_meta) {
 				rename($fileName_from_att_meta, $fileName_from_att_meta . '.oldimagefile');
-			} );
+			}
+
 			if ( ! rename( $temp_upload_file, $path_to_new_file ) ) {
 				$restore_backup_files( $filename_for_deletion );
 				@unlink( $temp_upload_file );
@@ -248,13 +258,11 @@ function post_image_update( object $data ) : array|object
 			);
 			
 			// update the attachment = image with standard methods of WP
-			wp_insert_attachment( $att_array, $gallerydir . '/' . $new_File_Name . $new_File_Extension, $oldParent, true, false ); // Dieser ändert den slug und den permalink
+			wp_insert_attachment( $att_array, $gallerydir . '/' . $new_File_Name . $new_File_Extension, (int)$oldParent, true, false ); // Dieser ändert den slug und den permalink
 			// calls filter 'intermediate_image_sizes_advanced' at the end of this function and then _wp_make_subsizes()
 			// the filter calls image_subsizes_filter() from this plugin in handle_subsizes_in_db.php which itself stores the subsizes in a cache if they were uploaded before.
 			$success_subsizes = wp_create_image_subsizes( $path_to_new_file, $post_id ); // nach dieser Funktion ist der Dateiname falsch! Nur dann wenn größer als big-image-size!
-			if ( $success_subsizes instanceof \WP_Error ) {
-				$success_subsizes = 'Check-Mime-Type mismatch: ' . \implode( ', ', $success_subsizes->get_error_messages() );
-			} else {
+
 				// write data for description->rendered, full->file (only basename . ext is used) full->source_url, source_url,
 				// use path relative to upload path without trailing-slash and -scaled if image is scaled. read this from $success_subsizes
 				// only guid-rendered and orginal_image are set with full filename
@@ -273,8 +281,10 @@ function post_image_update( object $data ) : array|object
 
 				// update the meta_data
 				$newmeta = wp_get_attachment_metadata( $post_id );
-				$newmeta['sizes'] = $success_subsizes['sizes'];
-				wp_update_attachment_metadata( $post_id, $newmeta );
+				if ( $newmeta !== false ) {
+					$newmeta['sizes'] = $success_subsizes['sizes'];
+					wp_update_attachment_metadata( $post_id, $newmeta );
+				}
 				
 				// Update the posts that use the image with class from plugin enable_media_replace
 				// This updates only the image url that are used in the post. The metadata e.g. caption is NOT updated.
@@ -288,7 +298,6 @@ function post_image_update( object $data ) : array|object
 				$replacer->target_metadata = $success_subsizes;
 				$replacer->API_doSearchReplace();
 				$replacer = null;
-			}
 
 		} else {
 			@unlink( $temp_upload_file );
