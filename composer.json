@@ -5,7 +5,7 @@
         "phpstan/extension-installer": "*",
         "phpcompatibility/php-compatibility": "*",
         "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
-        "phpunit/phpunit": "9.6",
+        "phpunit/phpunit": "9.6.36",
         "brain/monkey": "^2.6",
         "php-stubs/wordpress-stubs": "^6.9"
     },
