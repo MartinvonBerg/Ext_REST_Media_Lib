@@ -4,7 +4,7 @@ Contributors: martinvonberg
 Donate link: https://www.berg-reise-foto.de/software-wordpress-lightroom-plugins/wordpress-plugins-fotos-und-gpx/
 Tags: REST-API, Media-Library, Media-Catalog, upload, wpcat
 Requires at least: 6.2
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 8.0
 Stable Tag: 3.0.0
 License: GPLv2
